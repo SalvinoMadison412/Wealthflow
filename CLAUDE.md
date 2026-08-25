@@ -1,13 +1,26 @@
 # WealthFlow
 
-Privacy-first personal finance Android app: extracts and categorizes
-transactions from bank statement PDFs.
+Privacy-first personal finance app: extracts and categorizes transactions
+from bank statement PDFs. Ships on Android first, iOS later.
+
+## Independence
+
+**WealthFlow is fully independent of any other project, including Angel.**
+No shared code, dependencies, credentials, Supabase project, EAS project,
+config, or tooling. Nothing gets copied or referenced from another
+project's repo. This is a standalone codebase — treat it as if no other
+project exists.
 
 ## Platform
 
-Native Android app. Assumed stack: **React Native + Expo**, matching the
-Angel project's toolchain (EAS Build). Stay in Expo's managed workflow —
-no custom dev client / ejecting required for anything in this doc.
+Native mobile app, Android first, iOS port planned. Stack: **React Native +
+Expo**, chosen independently for this project because it's a single
+codebase for both platforms with a mature ecosystem — not because any
+other project uses it. Everything in this doc works unchanged on both
+platforms (the PDF WebView approach and expo-sqlite are cross-platform by
+nature), so the iOS port later should be a build target, not a rewrite.
+Stay in Expo's managed workflow — no custom dev client / ejecting required
+for anything in this doc.
 
 ## Non-negotiable architecture decisions
 
@@ -15,19 +28,15 @@ no custom dev client / ejecting required for anything in this doc.
   deterministic. Never introduce a model into the parsing or categorization
   path.
 - **On-device processing only.** The raw PDF and extracted transactions
-  never get uploaded anywhere by default. This is even more natural on
-  Android than it would be on web — there's no server round-trip at all
-  unless the user opts into sync.
+  never get uploaded anywhere by default.
 - **PDF extraction**: pdf.js running inside a hidden `react-native-webview`,
   fed the PDF bytes via `expo-document-picker` + `expo-file-system` (base64
-  in, postMessage results out). This stays fully within Expo managed
-  workflow — no native module compilation needed. Fallback if this proves
-  insufficient: a native PDFBox-for-Android module (pdfbox-android) via a
-  custom dev client — only reach for this if the WebView approach can't
-  keep up, not by default.
-- **Local storage**: `expo-sqlite` (native SQLite) — the Android equivalent
-  of "give me real SQL for reconciliation/aggregation queries," Expo-Go
-  compatible, no custom dev client needed.
+  in, postMessage results out). Cross-platform, stays fully within Expo
+  managed workflow. Fallback only if this proves insufficient: a native
+  PDF text-extraction module per platform via a custom dev client — not
+  the default.
+- **Local storage**: `expo-sqlite` (native SQLite, cross-platform,
+  Expo-Go compatible).
 - **Supabase holds only non-sensitive data**: user-defined rules, category
   definitions, preferences. Transaction data stays local (expo-sqlite)
   unless the user opts into sync, and any sync must be client-side encrypted
