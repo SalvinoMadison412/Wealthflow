@@ -1,5 +1,5 @@
 import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 
 async function readAssetAsBase64(assetModule: number): Promise<string> {
   const asset = Asset.fromModule(assetModule);
@@ -7,9 +7,7 @@ async function readAssetAsBase64(assetModule: number): Promise<string> {
   if (!asset.localUri) {
     throw new Error('Failed to resolve local URI for a bundled pdf.js asset.');
   }
-  return FileSystem.readAsStringAsync(asset.localUri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  return new File(asset.localUri).base64();
 }
 
 let cachedHtml: Promise<string> | null = null;

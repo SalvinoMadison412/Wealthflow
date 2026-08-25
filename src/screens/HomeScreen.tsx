@@ -1,5 +1,4 @@
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -27,6 +26,25 @@ const colors = {
   surfaceContainerLow: '#fff1ed',
   error: '#ba1a1a',
 };
+
+// Reads a local file:// URI as base64 via RN's built-in fetch/Blob/FileReader
+// rather than expo-file-system: Expo Go sandboxes file access per-project,
+// and expo-document-picker's cache output falls outside that sandbox for
+// both the legacy and new expo-file-system APIs (a dev-client-only quirk,
+// not present in a standalone EAS build, but this route avoids it either way).
+function uriToBase64(uri: string): Promise<string> {
+  return fetch(uri)
+    .then((response) => response.blob())
+    .then(
+      (blob) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(reader.error ?? new Error('Failed to read file.'));
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(blob);
+        })
+    );
+}
 
 type Status =
   | { kind: 'idle' }
@@ -58,9 +76,7 @@ export function HomeScreen() {
     const picked = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
     if (picked.canceled) return;
 
-    const base64 = await FileSystem.readAsStringAsync(picked.assets[0].uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    const base64 = await uriToBase64(picked.assets[0].uri);
     await runExtraction(base64);
   }
 

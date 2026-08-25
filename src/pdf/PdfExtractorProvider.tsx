@@ -46,7 +46,7 @@ export function PdfExtractorProvider({ children }: { children: React.ReactNode }
             bridge.current.handleIncomingMessage(event.nativeEvent.data)
           }
           onLoadEnd={() => bridge.current.markReady()}
-          style={{ width: 0, height: 0 }}
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
         />
       )}
     </PdfExtractorContext.Provider>
