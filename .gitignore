@@ -35,3 +35,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local-only test fixtures (may contain real personal financial data - never commit)
+/fixtures/local/
+/Sample-statemeny.pdf

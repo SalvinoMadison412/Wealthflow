@@ -1,31 +1,17 @@
+import { Feather } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { usePdfExtractor } from '../pdf/PdfExtractorProvider';
-import { ExtractResult, PdfPasswordRequiredError } from '../pdf/types';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Colors lifted from design/mockups/home-dropzone.html. Custom
-// Clash Display / Cabinet Grotesk webfonts are skipped for this
-// proof-of-concept screen — add via expo-font when the Home screen
-// gets its final pass (build-order step 6).
-const colors = {
-  background: '#fff8f6',
-  onSurface: '#261814',
-  onSurfaceVariant: '#5a413a',
-  primary: '#872200',
-  signalOrange: '#ff5722',
-  outlineVariant: '#e2bfb5',
-  surfaceContainerLow: '#fff1ed',
-  error: '#ba1a1a',
-};
+import { AppHeader } from '../components/AppHeader';
+import { CornerBrackets } from '../components/CornerBrackets';
+import { PressableScale } from '../components/PressableScale';
+import { YinYangSpinner } from '../components/YinYangSpinner';
+import { useTransactions } from '../data/TransactionsContext';
+import { usePdfExtractor } from '../pdf/PdfExtractorProvider';
+import { PdfPasswordRequiredError } from '../pdf/types';
+import { colors, radii, spacing, type } from '../theme/tokens';
 
 // Reads a local file:// URI as base64 via RN's built-in fetch/Blob/FileReader
 // rather than expo-file-system: Expo Go sandboxes file access per-project,
@@ -50,11 +36,12 @@ type Status =
   | { kind: 'idle' }
   | { kind: 'loading' }
   | { kind: 'needsPassword'; base64: string }
-  | { kind: 'result'; result: ExtractResult }
+  | { kind: 'result' }
   | { kind: 'error'; message: string };
 
 export function HomeScreen() {
   const { extractPdfText } = usePdfExtractor();
+  const { loadFromPages, statement, reconciliation } = useTransactions();
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [password, setPassword] = useState('');
 
@@ -62,7 +49,8 @@ export function HomeScreen() {
     setStatus({ kind: 'loading' });
     try {
       const result = await extractPdfText(base64, opts);
-      setStatus({ kind: 'result', result });
+      loadFromPages(result.pages);
+      setStatus({ kind: 'result' });
     } catch (err) {
       if (err instanceof PdfPasswordRequiredError) {
         setStatus({ kind: 'needsPassword', base64 });
@@ -81,65 +69,101 @@ export function HomeScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.headline}>The Mirror</Text>
-        <Text style={styles.subtitle}>
-          Reflect on your financial reality. Drop your statement to begin the analysis.
-        </Text>
-      </View>
-
-      <Pressable
-        style={styles.dropzone}
-        onPress={pickPdf}
-        disabled={status.kind === 'loading'}
-      >
-        {status.kind === 'loading' ? (
-          <ActivityIndicator color={colors.signalOrange} size="large" />
-        ) : (
-          <>
-            <Text style={styles.dropzoneTitle}>Drop your statement</Text>
-            <Text style={styles.dropzoneAction}>Tap to upload PDF</Text>
-          </>
-        )}
-      </Pressable>
-      <Text style={styles.lockNote}>🔒 Bank-level encryption. Your data never leaves this device.</Text>
-
-      {status.kind === 'needsPassword' && (
-        <View style={styles.passwordBox}>
-          <Text style={styles.dropzoneTitle}>This PDF is password-protected</Text>
-          <TextInput
-            style={styles.passwordInput}
-            placeholder="Enter password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
-          <Pressable
-            style={styles.passwordButton}
-            onPress={() => runExtraction(status.base64, { password })}
-          >
-            <Text style={styles.passwordButtonText}>Unlock</Text>
-          </Pressable>
-        </View>
-      )}
-
-      {status.kind === 'error' && <Text style={styles.errorText}>{status.message}</Text>}
-
-      {status.kind === 'result' && (
-        <View style={styles.resultBox}>
-          <Text style={styles.dropzoneTitle}>
-            Extracted {status.result.pages.length} page
-            {status.result.pages.length === 1 ? '' : 's'}
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      <AppHeader />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.titleBlock}>
+          <Text style={styles.headline}>The Mirror</Text>
+          <Text style={styles.subtitle}>
+            Reflect on your financial reality. Drop your statement to begin the analysis.
           </Text>
-          {status.result.pages.map((page) => (
-            <Text key={page.pageNumber} style={styles.resultText}>
-              Page {page.pageNumber}: {page.items.map((item) => item.str).join(' ')}
-            </Text>
-          ))}
         </View>
-      )}
-    </ScrollView>
+
+        <CornerBrackets style={styles.dropzoneWrap}>
+          <PressableScale
+            style={styles.dropzone}
+            onPress={pickPdf}
+            disabled={status.kind === 'loading'}
+          >
+            {status.kind === 'loading' ? (
+              <YinYangSpinner size={44} />
+            ) : (
+              <>
+                <View style={styles.dropzoneIconWrap}>
+                  <Feather name="upload" size={22} color={colors.primary} />
+                </View>
+                <Text style={styles.dropzoneTitle}>Drop your statement</Text>
+                <View style={styles.orRow}>
+                  <View style={styles.orLine} />
+                  <Text style={styles.orText}>OR</Text>
+                  <View style={styles.orLine} />
+                </View>
+                <Text style={styles.dropzoneAction}>Tap to upload PDF/CSV</Text>
+              </>
+            )}
+          </PressableScale>
+        </CornerBrackets>
+
+        {status.kind === 'needsPassword' && (
+          <View style={styles.passwordBox}>
+            <Text style={styles.dropzoneTitle}>This PDF is password-protected</Text>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Enter password"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+            <PressableScale
+              style={styles.passwordButton}
+              onPress={() => runExtraction(status.base64, { password })}
+            >
+              <Text style={styles.passwordButtonText}>Unlock</Text>
+            </PressableScale>
+          </View>
+        )}
+
+        {status.kind === 'error' && <Text style={styles.errorText}>{status.message}</Text>}
+
+        {status.kind === 'result' && statement && reconciliation && (
+          <View style={styles.resultBox}>
+            <Text style={styles.dropzoneTitle}>
+              Extracted <Text style={styles.numeral}>{statement.transactions.length}</Text> transaction
+              {statement.transactions.length === 1 ? '' : 's'}
+            </Text>
+
+            <View style={styles.balanceRow}>
+              <View>
+                <Text style={styles.balanceLabel}>OPENING</Text>
+                <Text style={styles.balanceNumeral}>₹{statement.openingBalance.toFixed(2)}</Text>
+              </View>
+              <View>
+                <Text style={styles.balanceLabel}>CLOSING</Text>
+                <Text style={styles.balanceNumeral}>₹{statement.closingBalance.toFixed(2)}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.reconciliationBanner, !reconciliation.ok && styles.reconciliationBannerFailed]}>
+              <Feather
+                name={reconciliation.ok ? 'check-circle' : 'alert-triangle'}
+                size={16}
+                color={reconciliation.ok ? colors.white : colors.error}
+              />
+              <Text
+                style={[
+                  styles.reconciliationText,
+                  !reconciliation.ok && styles.reconciliationTextFailed,
+                ]}
+              >
+                {reconciliation.ok
+                  ? 'Reconciled — opening + credits − debits matches the closing balance.'
+                  : `Reconciliation off by ₹${Math.abs(reconciliation.delta).toFixed(2)}.`}
+              </Text>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -149,85 +173,142 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: 32,
-    paddingTop: 64,
+    padding: spacing.marginPage,
   },
-  header: {
+  titleBlock: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: spacing.stackLg,
   },
   headline: {
-    fontSize: 32,
-    fontWeight: '700',
+    ...type.headlineLg,
     color: colors.onSurface,
-    marginBottom: 8,
+    marginBottom: spacing.stackSm,
   },
   subtitle: {
-    fontSize: 16,
+    ...type.bodyMd,
     color: colors.onSurfaceVariant,
     textAlign: 'center',
-    lineHeight: 24,
+  },
+  dropzoneWrap: {
+    marginBottom: spacing.stackLg,
   },
   dropzone: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
+    borderWidth: 1,
     borderColor: colors.outlineVariant,
-    borderRadius: 16,
+    borderRadius: radii.xl,
     backgroundColor: colors.surfaceContainerLow,
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: spacing.stackSm,
+    padding: spacing.gutter,
+  },
+  numeral: {
+    ...type.numeral,
+    color: colors.onSurface,
+  },
+  dropzoneIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.lg,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.stackSm,
   },
   dropzoneTitle: {
+    ...type.headlineMd,
     fontSize: 20,
-    fontWeight: '600',
     color: colors.onSurface,
     textAlign: 'center',
   },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.stackSm,
+    marginTop: spacing.stackSm,
+    width: '60%',
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.outlineVariant,
+  },
+  orText: {
+    ...type.labelSm,
+    color: colors.outline,
+  },
   dropzoneAction: {
-    fontSize: 16,
+    ...type.bodyMd,
     color: colors.primary,
     textDecorationLine: 'underline',
   },
-  lockNote: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
-    marginTop: 16,
-  },
   passwordBox: {
-    marginTop: 24,
-    gap: 12,
+    marginTop: spacing.stackMd,
+    gap: spacing.stackSm,
   },
   passwordInput: {
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    ...type.bodyMd,
+    borderBottomWidth: 1,
+    borderColor: colors.onSurface,
+    paddingVertical: 12,
   },
   passwordButton: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: radii.md,
     padding: 14,
     alignItems: 'center',
   },
   passwordButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+    ...type.labelMd,
+    letterSpacing: 0,
+    color: colors.white,
   },
   errorText: {
-    marginTop: 24,
+    marginTop: spacing.stackMd,
     color: colors.error,
     textAlign: 'center',
   },
   resultBox: {
-    marginTop: 24,
-    gap: 8,
+    marginTop: spacing.stackMd,
+    gap: spacing.stackMd,
   },
-  resultText: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
+  balanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  balanceLabel: {
+    ...type.labelSm,
+    color: colors.outline,
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  balanceNumeral: {
+    ...type.numeral,
+    fontSize: 20,
+    color: colors.onSurface,
+    textAlign: 'center',
+  },
+  reconciliationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.stackSm,
+    backgroundColor: colors.black,
+    borderRadius: radii.md,
+    padding: spacing.gutter,
+  },
+  reconciliationBannerFailed: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  reconciliationText: {
+    ...type.bodyMd,
+    fontSize: 13,
+    color: colors.white,
+    flex: 1,
+  },
+  reconciliationTextFailed: {
+    color: colors.error,
   },
 });
