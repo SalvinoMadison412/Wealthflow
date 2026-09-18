@@ -31,6 +31,11 @@ export const colors = {
   border,
   accent,
   accentText: '#FFFFFF',
+  // Accent/secondary text on a dark surface (e.g. the Smart Calculator
+  // card) — the plain accent/textSecondary values don't have enough
+  // contrast against textPrimary as a background.
+  accentOnDark: '#8B93E8',
+  onDarkSecondary: '#A6ABDE',
   incomeFill: '#1FAA6D',
   incomeText: '#15803D',
   expenseFill: '#E5484D',

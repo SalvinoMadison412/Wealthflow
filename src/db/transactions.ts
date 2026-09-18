@@ -5,7 +5,7 @@ import { ParsedStatement, ReconciliationResult } from '../statement/types';
 import { db } from './db';
 import { compileRules } from './matching';
 import { recategorize } from './recategorize';
-import { UNCATEGORIZED_CATEGORY_ID } from './schema';
+import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
 import { makeTransactionId, newId } from './transactionId';
 
 export type Account = {
@@ -266,4 +266,54 @@ export function setCategoryBucket(categoryId: string, bucket: 'needs' | 'wants' 
 
 export function setCategoryBudget(categoryId: string, monthlyBudget: number | null): void {
   db.runSync('UPDATE categories SET monthly_budget = ? WHERE id = ?', [monthlyBudget, categoryId]);
+}
+
+export function renameCategory(id: string, name: string): void {
+  db.runSync('UPDATE categories SET name = ? WHERE id = ?', [name.trim(), id]);
+}
+
+export function setCategoryColor(id: string, colorIndex: number): void {
+  db.runSync('UPDATE categories SET color_index = ? WHERE id = ?', [((colorIndex % 10) + 10) % 10, id]);
+}
+
+// Every transaction currently in this category (or overridden to it)
+// reassigns to Uncategorized, any rule targeting it is removed (its
+// category_id no longer exists), then the row itself is deleted — in
+// that order, so no foreign key is left dangling. Reserved categories
+// (Uncategorized, Transfer) can't be deleted.
+export function deleteCategory(id: string): void {
+  if (id === UNCATEGORIZED_CATEGORY_ID || id === TRANSFER_CATEGORY_ID) return;
+  db.withTransactionSync(() => {
+    db.runSync('UPDATE transactions SET category_id = ? WHERE category_id = ?', [UNCATEGORIZED_CATEGORY_ID, id]);
+    db.runSync('UPDATE transactions SET category_override_id = NULL WHERE category_override_id = ?', [id]);
+    db.runSync('DELETE FROM rules WHERE category_id = ?', [id]);
+    db.runSync('DELETE FROM categories WHERE id = ?', [id]);
+  });
+  requestIdleCallback(() => recategorize('all'));
+}
+
+// Cascades manually (foreign_keys = ON, no ON DELETE CASCADE in the
+// schema) — an account's statements and transactions have no meaning
+// without it, so they go too, unlike a category's transactions which
+// fall back to Uncategorized instead.
+export function deleteAccount(id: string): void {
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM transactions WHERE account_id = ?', [id]);
+    db.runSync('DELETE FROM statements WHERE account_id = ?', [id]);
+    db.runSync('DELETE FROM accounts WHERE id = ?', [id]);
+  });
+}
+
+// Resets to a fresh install: every account/statement/transaction/rule,
+// every user-created category, and every setting. The two reserved
+// categories are kept (schema.ts seeds them at migration, not here).
+export function wipeAllData(): void {
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM transactions');
+    db.runSync('DELETE FROM statements');
+    db.runSync('DELETE FROM accounts');
+    db.runSync('DELETE FROM rules');
+    db.runSync('DELETE FROM categories WHERE id NOT IN (?, ?)', [UNCATEGORIZED_CATEGORY_ID, TRANSFER_CATEGORY_ID]);
+    db.runSync('DELETE FROM settings');
+  });
 }
