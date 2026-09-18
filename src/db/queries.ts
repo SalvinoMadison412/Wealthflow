@@ -3,8 +3,8 @@ import { describeRule } from '../data/rulePattern';
 import { db } from './db';
 import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
 
-// null/undefined = no restriction (Household scope — every account).
-// An empty array means "no accounts in this scope" and must return
+// null/undefined = no restriction (every account). An empty array
+// means "no accounts in this scope" and must return
 // nothing, not everything, hence the always-false clause rather than
 // silently skipping the filter.
 function accountsClause(accountIds: string[] | null | undefined, alias = 't'): { clause: string; params: string[] } {
@@ -18,9 +18,9 @@ export type TransactionFilters = {
   month?: string; // 'YYYY-MM'
   categoryId?: string;
   uncategorizedOnly?: boolean;
-  // The ScopeSwitch's resolved account ids (Me / Household / a named
-  // member) — ANDed with `accountId` above, which is the Transactions
-  // screen's own separate "which single account" filter chip.
+  // Restricts to a set of account ids (ANDed with `accountId` above,
+  // the Transactions screen's own single-account filter chip). Unused
+  // while the app is single-user; kept for when scoping returns.
   scopeAccountIds?: string[] | null;
 };
 
@@ -364,28 +364,3 @@ export function getSetting(key: string): string | null {
   return row?.value ?? null;
 }
 
-// Distinct owner labels across every account — the ScopeSwitch's list of
-// household members, and Profile's "who's on this phone" list.
-export function getOwnerLabels(): string[] {
-  const rows = db.getAllSync<{ owner_label: string }>(
-    'SELECT DISTINCT owner_label FROM accounts ORDER BY owner_label ASC'
-  );
-  return rows.map((r) => r.owner_label);
-}
-
-// Resolves a ScopeSwitch value to the account ids every scoped query
-// should filter to. 'household' returns null (no filter — see
-// accountsClause). 'me' is accounts labeled "Me", or the single account
-// when there's only one on the phone regardless of its label (the
-// common single-user case shouldn't require renaming anything).
-// Anything else is treated as a literal owner_label.
-export function getAccountIdsForScope(scope: string): string[] | null {
-  if (scope === 'household') return null;
-
-  const all = db.getAllSync<{ id: string; owner_label: string }>('SELECT id, owner_label FROM accounts');
-  if (scope === 'me') {
-    if (all.length === 1) return [all[0].id];
-    return all.filter((a) => a.owner_label === 'Me').map((a) => a.id);
-  }
-  return all.filter((a) => a.owner_label === scope).map((a) => a.id);
-}

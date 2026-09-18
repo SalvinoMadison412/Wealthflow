@@ -9,19 +9,15 @@ import { Amount } from '../components/Amount';
 import { AppHeader } from '../components/AppHeader';
 import { FilterChip } from '../components/FilterChip';
 import { PressableScale } from '../components/PressableScale';
-import { ScopeSwitch } from '../components/ScopeSwitch';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
 import {
-  getAccountIdsForScope,
-  getOwnerLabels,
-  getSetting,
   hasAnyTransactions,
   listCategoriesForFilter,
   listMonthsWithData,
   listTransactions,
   TransactionListItem,
 } from '../db/queries';
-import { listAccounts, setSetting } from '../db/transactions';
+import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { colors, contentWrap, spacing, type } from '../theme/tokens';
@@ -84,9 +80,6 @@ export function TransactionsScreen() {
   const accounts = useQuery(() => listAccounts(), []);
   const months = useQuery(() => listMonthsWithData(), []);
   const categories = useQuery(() => listCategoriesForFilter(), []);
-  const ownerLabels = useQuery(() => getOwnerLabels(), []);
-  const scope = useQuery(() => getSetting('scope') ?? 'me', []);
-  const scopeAccountIds = useQuery(() => getAccountIdsForScope(scope), [scope]);
   const items = useQuery(
     () =>
       listTransactions({
@@ -94,9 +87,8 @@ export function TransactionsScreen() {
         month: month ?? undefined,
         categoryId: categoryId ?? undefined,
         uncategorizedOnly,
-        scopeAccountIds,
       }),
-    [accountId, month, categoryId, uncategorizedOnly, scopeAccountIds]
+    [accountId, month, categoryId, uncategorizedOnly]
   );
 
   const sections = useMemo(() => toSections(items), [items]);
@@ -137,10 +129,6 @@ export function TransactionsScreen() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
       <Text style={styles.title}>Transactions</Text>
-
-      <View style={styles.scopeRow}>
-        <ScopeSwitch scope={scope} onChange={(s) => setSetting('scope', s)} ownerLabels={ownerLabels} />
-      </View>
 
       <ScrollView
         horizontal
@@ -230,10 +218,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     paddingHorizontal: spacing.pageGutter,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
-  scopeRow: {
-    paddingHorizontal: spacing.pageGutter,
     paddingBottom: spacing.sm,
   },
   filterRow: {

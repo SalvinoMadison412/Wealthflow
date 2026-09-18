@@ -22,6 +22,7 @@ export type RootStackParamList = {
   Import: undefined;
   NewRuleForm: undefined;
   CategorizeSheet: { transactionId: string };
+  Profile: undefined;
 };
 
 export type MainTabsParamList = {
@@ -29,17 +30,15 @@ export type MainTabsParamList = {
   Transactions: undefined;
   Budget: undefined;
   Rules: undefined;
-  Profile: undefined;
 };
 
-// Household (PR 11) is a scope control inside these screens, never a 6th
-// tab — see docs/REDESIGN_PLAN.md PR 3.
+// Profile moved off the tab bar and behind the header's menu icon so the
+// 4 remaining tabs sit evenly around the quick-add FAB (see MainTabs).
 const tabIcons: Record<keyof MainTabsParamList, keyof typeof Feather.glyphMap> = {
   Home: 'home',
   Transactions: 'list',
   Budget: 'pie-chart',
   Rules: 'sliders',
-  Profile: 'user',
 };
 
 const Tabs = createBottomTabNavigator<MainTabsParamList>();
@@ -103,7 +102,6 @@ function MainTabs() {
         <Tabs.Screen name="Transactions" component={TransactionsScreen} />
         <Tabs.Screen name="Budget" component={BudgetScreen} />
         <Tabs.Screen name="Rules" component={RulesListScreen} />
-        <Tabs.Screen name="Profile" component={ProfileScreen} />
       </Tabs.Navigator>
       <QuickAddFab bottom={barHeight - FAB_SIZE / 2} />
     </View>
@@ -137,6 +135,7 @@ export function RootNavigator() {
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="MainTabs" component={MainTabs} />
+        <RootStack.Screen name="Profile" component={ProfileScreen} />
         <RootStack.Screen name="Import" component={ImportScreen} options={{ presentation: 'modal' }} />
         <RootStack.Screen
           name="NewRuleForm"
