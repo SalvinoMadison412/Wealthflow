@@ -42,10 +42,11 @@ export const colors = {
   black: '#000000',
 
   // --- Legacy compatibility -------------------------------------------
-  // The moody-era screens (Insights, Home, Rules, NewRuleForm, Profile)
-  // reference the names below. Each is deleted as its screen is rewritten:
-  // Insights in PR 3, Home in PR 7, Rules/NewRuleForm in PR 8, Profile in
-  // PR 10. Do not add new usages — use the canonical keys above instead.
+  // The moody-era screens still reference the names below (Insights was
+  // deleted outright in PR 3, not rewritten). Each remaining reference is
+  // removed as its screen is rewritten: Home in PR 7, Rules/NewRuleForm in
+  // PR 8, Profile in PR 10. Do not add new usages — use the canonical keys
+  // above instead.
   surface: '#FFFFFF',
   surfaceContainerLowest: '#FFFFFF',
   surfaceContainerLow: track,

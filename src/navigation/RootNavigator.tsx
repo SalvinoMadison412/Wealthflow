@@ -1,32 +1,40 @@
 import { Feather } from '@expo/vector-icons';
 import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator, SceneStyleInterpolators } from '@react-navigation/bottom-tabs';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
+import { Text } from 'react-native';
 
+import { BudgetScreen } from '../screens/BudgetScreen';
 import { HomeScreen } from '../screens/HomeScreen';
-import { InsightsScreen } from '../screens/InsightsScreen';
+import { ImportScreen } from '../screens/ImportScreen';
 import { NewRuleFormScreen } from '../screens/NewRuleFormScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RulesListScreen } from '../screens/RulesListScreen';
+import { TransactionsScreen } from '../screens/TransactionsScreen';
 import { colors, type } from '../theme/tokens';
 
 export type RootStackParamList = {
   MainTabs: undefined;
+  Import: undefined;
   NewRuleForm: undefined;
 };
 
 export type MainTabsParamList = {
   Home: undefined;
-  Insights: undefined;
+  Transactions: undefined;
+  Budget: undefined;
   Rules: undefined;
   Profile: undefined;
 };
 
+// Household (PR 11) is a scope control inside these screens, never a 6th
+// tab — see docs/REDESIGN_PLAN.md PR 3.
 const tabIcons: Record<keyof MainTabsParamList, keyof typeof Feather.glyphMap> = {
   Home: 'home',
-  Insights: 'trending-up',
-  Rules: 'check-square',
+  Transactions: 'list',
+  Budget: 'pie-chart',
+  Rules: 'sliders',
   Profile: 'user',
 };
 
@@ -37,22 +45,37 @@ function MainTabs() {
     <Tabs.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.white,
-        tabBarInactiveTintColor: colors.outline,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: colors.black,
-          borderTopWidth: 0,
+          backgroundColor: colors.card,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
         },
-        tabBarLabelStyle: { ...type.labelSm, letterSpacing: 0 },
+        // bottom-tabs' tabBarLabelStyle has no maxFontSizeMultiplier hook,
+        // so the label is rendered directly: capped at 1.3x scale, and
+        // allowed to shrink (never wrap or clip) so "Transactions" — the
+        // longest of the five labels — fits its column at any font size.
+        tabBarLabel: ({ color, children }) => (
+          <Text
+            style={[type.caption, { color, textAlign: 'center' }]}
+            allowFontScaling
+            maxFontSizeMultiplier={1.3}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            {children}
+          </Text>
+        ),
         tabBarIcon: ({ color, size }) => (
           <Feather name={tabIcons[route.name as keyof MainTabsParamList]} color={color} size={size} />
         ),
-        sceneStyleInterpolator: SceneStyleInterpolators.forFade,
-        transitionSpec: { animation: 'spring', config: { stiffness: 260, damping: 26, mass: 1 } },
       })}
     >
       <Tabs.Screen name="Home" component={HomeScreen} />
-      <Tabs.Screen name="Insights" component={InsightsScreen} />
+      <Tabs.Screen name="Transactions" component={TransactionsScreen} />
+      <Tabs.Screen name="Budget" component={BudgetScreen} />
       <Tabs.Screen name="Rules" component={RulesListScreen} />
       <Tabs.Screen name="Profile" component={ProfileScreen} />
     </Tabs.Navigator>
@@ -66,6 +89,7 @@ export function RootNavigator() {
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="MainTabs" component={MainTabs} />
+        <RootStack.Screen name="Import" component={ImportScreen} options={{ presentation: 'modal' }} />
         <RootStack.Screen
           name="NewRuleForm"
           component={NewRuleFormScreen}
