@@ -184,7 +184,7 @@ sync (§6) with the session.
 | `CategorizeSheet` | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one") or `insertRule` (with `suggestPattern` prefill) |
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
-| `BudgetScreen` | `BalanceSummary` (selected month), `getIncomeForMonth`, `getCategoryBudgetRows`, `getSetting('monthly_income')`, `PRESETS` | `setCategoryBucket`, `setCategoryBudget`, budget preset setting |
+| `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions shows a "No statement for <month>" dialog with an Import button) | `BalanceSummary` (selected month), `countTransactionsInMonth`, `countUncategorized`, `getIncomeForMonth`, `getCategoryBudgetRows`, `getSetting('monthly_income')`, `PRESETS` | `setCategoryBucket`, `setCategoryBudget`, budget preset setting |
 | `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, rename/delete account, rename/recolour/delete category, `setSetting('monthly_income')`, `wipeAllData` |
 | `MenuSheet` | profile, `getSetting('appearance')` | `setSetting('appearance')`, `deleteSetting('tour_done')`; `replace()`s itself with Profile or Statements |
 | `StatementsScreen` | `listStatements` | `deleteStatement` |
