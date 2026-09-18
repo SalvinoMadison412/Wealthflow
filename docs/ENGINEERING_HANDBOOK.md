@@ -5,7 +5,7 @@ describes what the app does, what it is built with, how every part works,
 and how to run, test and ship it. Keep it current: when a PR changes
 behaviour described here, update the relevant section in the same PR.
 
-Last updated: 2026-09-19 (after PR #23, rules sync).
+Last updated: 2026-09-19 (after the menu / dark theme / tour PR).
 
 ---
 
@@ -51,8 +51,15 @@ Everything in the architecture follows from those promises:
 6. **Rules**: priority-ordered list; enable/disable, move up/down, delete.
 7. **Budget**: needs/wants/savings split (50/30/20, 60/20/20 or custom),
    per-category monthly budgets, progress against real income.
-8. **Profile** (menu icon): account (edit profile, sign out), accounts,
-   categories, income fallback, wipe all data, savings calculator.
+8. **Menu** (top-left icon): Profile, Statements, Appearance
+   (light / dark / system), Take the tour, and Family (locked, with a
+   note on what it will do).
+9. **Profile**: account (edit profile, sign out), accounts, categories,
+   income fallback, wipe all data, savings calculator.
+10. **Statements**: every import with period, count and reconciliation
+    badge; delete one (its transactions go, rules and categories stay).
+11. **Tour**: on a device's first signed-in launch, five spotlight steps
+    over Home (overview, import, categorise, rules, menu).
 
 ---
 
@@ -102,7 +109,8 @@ src/
   pdf/                      WebView extractor: HTML page, request/response bridge, provider
   screens/                  One file per screen
   statement/                Statement parsers, line grouping, reconciliation, fixtures
-  theme/tokens.ts           Colours, spacing, radii, type scale, fonts
+  theme/                    tokens.ts (palettes, spacing, radii, type), ThemeContext.tsx (useTheme/useStyles)
+  tour/                     Spotlight tour: target registry, overlay, card placement
 ```
 
 Conventions: pure logic lives in `src/data` and `src/statement` and is
@@ -135,7 +143,7 @@ extractor.
 |---|---|
 | No session | `Login`, `Otp` |
 | Session, no profile row | `Onboarding` |
-| Session + profile | `MainTabs` (Home, Transactions, Budget, Rules), `Profile`, `EditProfile`, `Import`, `NewRuleForm`, `CategorizeSheet` |
+| Session + profile | `MainTabs` (Home, Transactions, Budget, Rules), `Profile`, `EditProfile`, `Statements`, `Menu` (sheet), `Import`, `NewRuleForm`, `CategorizeSheet` |
 
 React Navigation swaps stacks automatically when `session` or `profile`
 changes. The edit-profile route is deliberately named `EditProfile`, not
@@ -178,6 +186,8 @@ sync (§6) with the session.
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
 | `BudgetScreen` | `getIncomeForMonth`, `getCategoryBudgetRows`, `getSetting('monthly_income')`, `PRESETS` | `setCategoryBucket`, `setCategoryBudget`, budget preset setting |
 | `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, rename/delete account, rename/recolour/delete category, `setSetting('monthly_income')`, `wipeAllData` |
+| `MenuSheet` | profile, `getSetting('appearance')` | `setSetting('appearance')`, `deleteSetting('tour_done')`; `replace()`s itself with Profile or Statements |
+| `StatementsScreen` | `listStatements` | `deleteStatement` |
 
 Screens re-run their queries through `useQuery(fn, deps)`
 (`src/db/useQuery.ts`), which subscribes to the SQLite change listener:
@@ -194,13 +204,50 @@ applies to the children), `Amount` (INR formatting with sign and colour),
 (react-native-svg arcs), `TransactionRow`, `CategoryPill`, `FilterChip`,
 `ProgressBar`, `SettingsRow` / `SettingsSection`.
 
-### 4.5 Theme (`src/theme/tokens.ts`)
+### 4.5 Theme (`src/theme/tokens.ts`, `src/theme/ThemeContext.tsx`)
 
-Single source for colours, the ten-colour category palette (index 9 is
-reserved for Uncategorized, 7 for Transfer), spacing, radii, the type
-scale (one font file per weight; Android does not reliably synthesise
-weights) and `contentWrap` (600 px max width on tablets). Use tokens, not
-literals.
+`tokens.ts` holds two palettes with identical keys, `lightColors` and
+`darkColors` (type `Colors`), plus `pillPaletteFor(colors, scheme)` for
+the ten category tints (index 9 reserved for Uncategorized, 7 for
+Transfer; dark pills are the hue as text over a 22 % wash of itself).
+Spacing, radii, the type scale (one font file per weight) and
+`contentWrap` are scheme-independent.
+
+`ThemeProvider` (mounted in `App.tsx`) resolves the `appearance` setting
+(`light` / `dark` / `system`, default system, reactive through `useQuery`)
+against `useColorScheme()` and provides `{ scheme, colors, pillPalette }`.
+Every screen and component follows one pattern:
+
+```ts
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({ ... });
+function Screen() {
+  const { colors } = useTheme();        // for inline props such as icon colours
+  const styles = useStyles(makeStyles);  // memoised once per theme
+  ...
+}
+```
+
+Never import `colors` from `tokens.ts` in a screen; the only consumers of
+the fixed light palette are the splash overlay and the native launch
+screen, which stay light on purpose. The navigator's theme and the status
+bar also follow `scheme` (`RootNavigator`, `App.tsx`). `app.json` sets
+`userInterfaceStyle: "automatic"` so Android reports the system scheme.
+A test (`palette.test.ts`) pins both palettes to the same key set.
+
+### 4.6 Spotlight tour (`src/tour/`)
+
+`useTourTarget(name)` returns `{ ref, onLayout }`; spreading it onto a
+`View`/`Pressable` registers that element's window rect under one of five
+names (`greeting`, `fab`, `transactionsTab`, `rulesTab`, `menu`).
+`TourOverlay` (mounted above the navigator in `App.tsx` when signed in
+with a profile) shows when `settings.tour_done` is unset: after a 600 ms
+layout settle it re-measures every target, dims the screen with four
+absolutely positioned panels around the current target, draws an accent
+ring, and places the step card below the target or above it when the
+target is in the bottom third (`cardPlacement`, unit tested). Skip/Done
+set `tour_done`; Menu › Take the tour deletes it to replay. Every target
+is on the Home tab, so the tour never navigates and blocks touches until
+finished.
 
 ---
 
@@ -258,10 +305,10 @@ SQL string to `MIGRATIONS` to change the schema. Current tables:
 | `transactions` | Every parsed row | id = `accountId|date|withdrawal|deposit|balance|refNo|description` (see `transactionId.ts`), so re-importing the same PDF is a no-op. `category_id` is the effective category, `category_override_id` a manual pin, `matched_rule_id` which rule set it, `is_transfer` |
 | `categories` | User categories + two seeded reserved ones | `bucket` needs/wants/savings, `monthly_budget`, `color_index`, `position` |
 | `rules` | Categorisation rules | `merchant_pattern` (regex or plain contains), `amount_json`, `category_id`, `enabled`, `position` (lower = higher priority) |
-| `settings` | Key/value | `profile` (JSON mirror), `monthly_income`, `rules_synced_at`, budget preset |
+| `settings` | Key/value | `profile` (JSON mirror), `monthly_income`, `rules_synced_at`, `appearance`, `tour_done`, budget preset |
 
-`transactions.ts` holds every write (`importStatement`, rule and category
-CRUD, overrides, `wipeAllData`). `queries.ts` holds every read the screens
+`transactions.ts` holds every write (`importStatement`, `deleteStatement`,
+`deleteAccount`, rule and category CRUD, overrides, `wipeAllData`). `queries.ts` holds every read the screens
 use. `recategorize.ts` re-runs the rule engine over all transactions (or
 one statement) and is called after any rule/category change, deferred
 with `requestIdleCallback` so toggles stay smooth.
@@ -399,7 +446,8 @@ npx jest                        # tests
 `npx jest` runs the pure-logic suites: statement row parsing and the
 Kotak parser against a synthetic statement fixture, reconciliation,
 transaction id derivation, rule matching, rule pattern suggestion,
-transfer detection, budget maths, staleness, sync decision. Screens and
+transfer detection, budget maths, staleness, sync decision, palette key
+parity, tour card placement. Screens and
 anything touching SQLite or Supabase are verified by hand on the
 emulator; when adding logic, put the decision in a pure function and test
 that.
