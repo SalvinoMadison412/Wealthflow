@@ -193,7 +193,11 @@ type TransactionDetail = {
   merchant: string;
   description: string;
   date: string;
+  refNo: string | null;
+  balance: number;
   accountBank: string;
+  accountOwner: string;
+  accountMasked: string | null;
   withdrawal: number | null;
   deposit: number | null;
   categoryId: string;
@@ -208,7 +212,11 @@ type TransactionDetailRow = {
   merchant: string;
   description: string;
   date: string;
+  ref_no: string | null;
+  balance: number;
   account_bank: string;
+  account_owner: string;
+  account_masked: string | null;
   withdrawal: number | null;
   deposit: number | null;
   category_id: string;
@@ -223,7 +231,8 @@ type TransactionDetailRow = {
 // plain language), or neither ("no rule matched" — still Uncategorized).
 export function getTransactionDetail(id: string): TransactionDetail | null {
   const row = db.getFirstSync<TransactionDetailRow>(
-    `SELECT t.id, t.merchant, t.description, t.date, a.bank as account_bank,
+    `SELECT t.id, t.merchant, t.description, t.date, t.ref_no, t.balance,
+            a.bank as account_bank, a.owner_label as account_owner, a.masked_number as account_masked,
             t.withdrawal, t.deposit, t.category_id, c.name as category_name, c.color_index,
             t.category_override_id, t.matched_rule_id
      FROM transactions t
@@ -256,7 +265,11 @@ export function getTransactionDetail(id: string): TransactionDetail | null {
     merchant: row.merchant,
     description: row.description,
     date: row.date,
+    refNo: row.ref_no,
+    balance: row.balance,
     accountBank: row.account_bank,
+    accountOwner: row.account_owner,
+    accountMasked: row.account_masked,
     withdrawal: row.withdrawal,
     deposit: row.deposit,
     categoryId: row.category_id,
