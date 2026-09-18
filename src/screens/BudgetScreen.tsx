@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '../components/AppHeader';
@@ -13,10 +13,13 @@ import {
   countTransactionsInMonth,
   countUncategorized,
   getCategoryBudgetRows,
+  getSetting,
   listMonthsWithData,
 } from '../db/queries';
+import { parseMonths } from '../data/decategorize';
 import { topWithOthers } from '../data/spending';
-import { enableAutoCategorise, setCategoryBudget } from '../db/transactions';
+import { DECATEGORIZED_MONTHS_SETTING } from '../db/recategorize';
+import { decategorizeMonth, enableAutoCategorise, setCategoryBudget } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
@@ -50,10 +53,11 @@ export function BudgetScreen() {
   const rows = useQuery(() => getCategoryBudgetRows(month), [month]);
   const uncategorizedCount = useQuery(() => countUncategorized(), []);
   const monthHasData = useQuery(() => countTransactionsInMonth(month) > 0, [month]);
+  const decategorized = useQuery(() => parseMonths(getSetting(DECATEGORIZED_MONTHS_SETTING)).includes(month), [month]);
   const [autoMessage, setAutoMessage] = useState<string | null>(null);
 
   function autoCategorize() {
-    const categorised = enableAutoCategorise();
+    const categorised = enableAutoCategorise(month);
     setAutoMessage(
       categorised === 0
         ? 'Nothing new matched. Add a rule for the rest.'
@@ -72,6 +76,24 @@ export function BudgetScreen() {
     ...(othersSpent > 0 ? [{ key: 'others', name: 'Others', spent: othersSpent, color: colors.textSecondary }] : []),
   ];
   const monthName = new Date(`${month}-01T00:00:00`).toLocaleDateString('en-IN', { month: 'long' });
+
+  function confirmDecategorize() {
+    Alert.alert(
+      `Decategorize ${monthName}?`,
+      `All ${countTransactionsInMonth(month)} transactions go back to Uncategorized, including ones you set by hand. Your own rules still apply.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decategorize',
+          style: 'destructive',
+          onPress: () => {
+            decategorizeMonth(month);
+            setAutoMessage(null);
+          },
+        },
+      ]
+    );
+  }
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -114,17 +136,23 @@ export function BudgetScreen() {
           )}
         </View>
 
-        {(uncategorizedCount > 0 || autoMessage) && (
+        {(uncategorizedCount > 0 || autoMessage || decategorized) && (
           <View style={styles.autoCard}>
             <View style={{ flex: 1 }}>
               <Text style={styles.autoTitle}>
-                {uncategorizedCount > 0 ? `${uncategorizedCount} uncategorised` : 'All categorised'}
+                {decategorized
+                  ? `${monthName} is decategorized`
+                  : uncategorizedCount > 0
+                    ? `${uncategorizedCount} uncategorised`
+                    : 'All categorised'}
               </Text>
               <Text style={styles.autoText}>
-                {autoMessage ?? 'Swiggy, Rapido, Blinkit, DMart and more, sorted in one tap.'}
+                {decategorized
+                  ? 'Add your own rules, or Auto-categorise to undo.'
+                  : (autoMessage ?? 'Swiggy, Rapido, Blinkit, DMart and more, sorted in one tap.')}
               </Text>
             </View>
-            {uncategorizedCount > 0 && (
+            {(uncategorizedCount > 0 || decategorized) && (
               <PressableScale style={styles.autoButton} onPress={autoCategorize}>
                 <Feather name="zap" size={14} color={colors.accentText} />
                 <Text style={styles.autoButtonText}>Auto-categorise</Text>
@@ -133,7 +161,14 @@ export function BudgetScreen() {
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Categories</Text>
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Categories</Text>
+          {monthHasData && !decategorized && (
+            <Pressable onPress={confirmDecategorize} hitSlop={8} accessibilityRole="button">
+              <Text style={styles.decategorizeText}>Decategorize {monthName}</Text>
+            </Pressable>
+          )}
+        </View>
         <View style={styles.categoryList}>
           {displayRows.length === 0 ? (
             <Text style={styles.noCategoriesText}>No spending yet this month.</Text>
@@ -271,6 +306,15 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   sectionTitle: {
     ...type.h3,
     color: colors.textPrimary,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  decategorizeText: {
+    ...type.caption,
+    color: colors.textSecondary,
   },
   categoryList: {
     gap: spacing.sm,
