@@ -49,7 +49,7 @@ type Status =
   // whatever the registry detected from the statement text, if anything;
   // there is no masked account number to detect (see statement/types.ts).
   | { kind: 'chooseAccount'; pages: PageContent[]; bank?: string }
-  | { kind: 'result'; statement: ParsedStatement; reconciliation: ReconciliationResult }
+  | { kind: 'result'; statement: ParsedStatement; reconciliation: ReconciliationResult; added: number; duplicates: number }
   | { kind: 'error'; message: string };
 
 export function ImportScreen() {
@@ -88,8 +88,7 @@ export function ImportScreen() {
   }
 
   function finishImport(pages: PageContent[], accountId: string) {
-    const { statement, reconciliation } = importStatement(pages, accountId);
-    setStatus({ kind: 'result', statement, reconciliation });
+    setStatus({ kind: 'result', ...importStatement(pages, accountId) });
   }
 
   async function pickPdf(forAccountId: string | null) {
@@ -132,6 +131,8 @@ export function ImportScreen() {
           <ResultCard
             statement={status.statement}
             reconciliation={status.reconciliation}
+            added={status.added}
+            duplicates={status.duplicates}
             onDone={() => navigation.goBack()}
           />
         ) : (
@@ -334,10 +335,14 @@ function AccountCard({
 function ResultCard({
   statement,
   reconciliation,
+  added,
+  duplicates,
   onDone,
 }: {
   statement: ParsedStatement;
   reconciliation: ReconciliationResult;
+  added: number;
+  duplicates: number;
   onDone: () => void;
 }) {
   const { pillPalette } = useTheme();
@@ -349,6 +354,13 @@ function ResultCard({
         Extracted <Text style={styles.numeral}>{statement.transactions.length}</Text> transaction
         {statement.transactions.length === 1 ? '' : 's'}
       </Text>
+      {duplicates > 0 && (
+        <Text style={styles.balanceLabel}>
+          {added === 0
+            ? 'Already imported. Nothing new added.'
+            : `${added} new · ${duplicates} duplicate${duplicates === 1 ? '' : 's'} skipped`}
+        </Text>
+      )}
 
       <View style={styles.balanceRow}>
         <View>

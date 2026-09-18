@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AccountFilter, useAccountFilter } from '../components/AccountFilter';
 import { AppHeader } from '../components/AppHeader';
 import { CategoryPill } from '../components/CategoryPill';
 import { Donut } from '../components/Donut';
@@ -50,9 +51,10 @@ export function BudgetScreen() {
   // Opens on the newest month that has data — the current calendar month is
   // usually empty, and the numbers the user just imported are the point.
   const [month, setMonth] = useState(() => listMonthsWithData()[0] ?? currentMonthKey());
-  const rows = useQuery(() => getCategoryBudgetRows(month), [month]);
+  const { accountId, accountIds } = useAccountFilter();
+  const rows = useQuery(() => getCategoryBudgetRows(month, accountIds), [month, accountId]);
   const uncategorizedCount = useQuery(() => countUncategorized(), []);
-  const monthHasData = useQuery(() => countTransactionsInMonth(month) > 0, [month]);
+  const monthHasData = useQuery(() => countTransactionsInMonth(month, accountIds) > 0, [month, accountId]);
   const decategorized = useQuery(() => parseMonths(getSetting(DECATEGORIZED_MONTHS_SETTING)).includes(month), [month]);
   const [autoMessage, setAutoMessage] = useState<string | null>(null);
 
@@ -98,6 +100,7 @@ export function BudgetScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
+      <AccountFilter />
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <View style={styles.monthRow}>
           <Pressable onPress={() => setMonth((m) => shiftMonth(m, -1))} hitSlop={13} accessibilityLabel="Previous month">

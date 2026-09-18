@@ -81,6 +81,13 @@ const MIGRATIONS: string[] = [
   // without rebuilding the table and its three foreign keys); the app
   // never writes it. Rebuild the table if the constraint ever matters.
   `UPDATE categories SET bucket = 'needs' WHERE bucket = 'wants';`,
+  // v3: duplicate prevention. dedupe_key is filled by importStatement and,
+  // for rows that predate this, by backfillDedupeKeys() in db.ts. NULLs
+  // don't collide in a UNIQUE index, so old rows are fine until backfilled.
+  `
+  ALTER TABLE transactions ADD COLUMN dedupe_key TEXT;
+  CREATE UNIQUE INDEX idx_transactions_dedupe ON transactions(dedupe_key);
+  `,
 ];
 
 // PRAGMA user_version-keyed migrations — each entry runs once, in its own
