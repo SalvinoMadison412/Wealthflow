@@ -269,7 +269,7 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.textPrimary,
+    backgroundColor: colors.inverse,
     borderRadius: radii.button,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,

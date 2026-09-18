@@ -16,7 +16,7 @@ import { contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 const BUCKETS: Bucket[] = ['needs', 'wants', 'savings'];
-const BUCKET_COLOR_INDEX: Record<Bucket, number> = { needs: 0, wants: 5, savings: 1 };
+const BUCKET_COLOR_INDEX: Record<Bucket, number> = { needs: 1, wants: 5, savings: 3 };
 const BUCKET_LABEL: Record<Bucket, string> = { needs: 'Needs', wants: 'Wants', savings: 'Savings' };
 const PRESET_KEYS: ('50/30/20' | '60/20/20' | 'custom')[] = ['50/30/20', '60/20/20', 'custom'];
 

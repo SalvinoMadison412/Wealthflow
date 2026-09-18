@@ -402,7 +402,7 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   },
 
   calcCard: {
-    backgroundColor: colors.textPrimary,
+    backgroundColor: colors.inverse,
     borderRadius: radii.sheet,
     padding: spacing.lg,
   },

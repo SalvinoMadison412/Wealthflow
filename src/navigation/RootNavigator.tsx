@@ -58,7 +58,7 @@ const tabIcons: Record<keyof MainTabsParamList, keyof typeof Feather.glyphMap> =
 const Tabs = createBottomTabNavigator<MainTabsParamList>();
 
 const TAB_BAR_HEIGHT = 64;
-const FAB_SIZE = 52;
+const FAB_SIZE = 60; // 50 disc + 5 ring
 
 // A quick-add shortcut to Import, not a nav destination — the tab bar
 // stays at 4 items (see the pinned decision above). Hovers above the
@@ -143,7 +143,7 @@ function MainTabs() {
   );
 }
 
-const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
+const makeStyles = ({ colors, scheme }: Theme) => StyleSheet.create({
   // Seamless: no card surface, no border, no shadow — sits directly on
   // the page background like the header does.
   tabBar: {
@@ -163,14 +163,18 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
     backgroundColor: colors.accent,
+    // The ring is the page colour, so the disc reads as cut out of the
+    // tab bar. Glow only in light; on dark it muddies the surface.
+    borderWidth: 5,
+    borderColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     ...cardShadow,
     shadowColor: colors.accent,
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
+    shadowOpacity: scheme === 'dark' ? 0 : 0.3,
+    shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
+    elevation: scheme === 'dark' ? 0 : 8,
   },
 });
 

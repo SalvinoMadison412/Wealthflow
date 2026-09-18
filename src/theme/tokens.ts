@@ -25,13 +25,13 @@ export const lightColors = {
   textPrimary: '#14161A',
   textSecondary: '#6B7280',
   border: '#E7E8EC',
-  accent: '#4C5FD5',
+  accent: '#0A8058', // emerald; 5:1 against white so button labels pass AA
   accentText: '#FFFFFF',
   // Accent/secondary text on a dark surface (e.g. the Smart Calculator
   // card) — the plain accent/textSecondary values don't have enough
   // contrast against textPrimary as a background.
-  accentOnDark: '#8B93E8',
-  onDarkSecondary: '#A6ABDE',
+  accentOnDark: '#6EE7B7',
+  onDarkSecondary: '#A7C4B8',
   incomeFill: '#1FAA6D',
   incomeText: '#15803D',
   expenseFill: '#E5484D',
@@ -39,6 +39,9 @@ export const lightColors = {
   warningFill: '#F5A623',
   warningText: '#92600B',
   track: '#EEF0F4',
+  // Fixed dark surface for cards that stay dark in both themes (Smart
+  // Calculator, snackbar). Not textPrimary: that goes near-white in dark.
+  inverse: '#14161A',
   white: '#FFFFFF',
   black: '#000000',
 };
@@ -51,10 +54,10 @@ export const darkColors: Colors = {
   textPrimary: '#F2F3F5',
   textSecondary: '#9AA0AA',
   border: '#2A2E36',
-  accent: '#7B8CF0',
-  accentText: '#FFFFFF',
-  accentOnDark: '#9AA6F0',
-  onDarkSecondary: '#B4B9E6',
+  accent: '#34D399',
+  accentText: '#0E1015', // dark ink on mint: 9.9:1
+  accentOnDark: '#6EE7B7',
+  onDarkSecondary: '#A7C4B8',
   incomeFill: '#1FAA6D',
   incomeText: '#4ADE80',
   expenseFill: '#E5484D',
@@ -62,6 +65,7 @@ export const darkColors: Colors = {
   warningFill: '#F5A623',
   warningText: '#FBBF24',
   track: '#232730',
+  inverse: '#232833',
   white: '#FFFFFF',
   black: '#000000',
 };
