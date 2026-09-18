@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { firstName } from '../auth/profile';
 import { Amount } from '../components/Amount';
+import { AccountFilter, useAccountFilter } from '../components/AccountFilter';
 import { AppHeader } from '../components/AppHeader';
 import { BarChart } from '../components/BarChart';
 import { BalanceSummary } from '../components/BalanceSummary';
@@ -95,11 +96,15 @@ export function HomeScreen() {
   const stale = isStatementStale(latestPeriodEnd, new Date());
   // Everything below anchors on the newest month that has data, not today:
   // a statement is usually a month or two behind the calendar.
-  const latestMonth = useQuery(() => listMonthsWithData()[0] ?? null, []);
+  const { accountId, accountIds } = useAccountFilter();
+  const latestMonth = useQuery(() => listMonthsWithData(accountIds)[0] ?? null, [accountId]);
   const dataMonth = latestMonth ?? MONTH_KEY;
-  const summary = useQuery(() => getMonthSummary(dataMonth), [dataMonth]);
-  const monthly = useQuery(() => getMonthlyTotals(6, chartEndMonth(listMonthsWithData(), 6, MONTH_KEY)), []);
-  const recent = useQuery(() => listRecentTransactions(5), []);
+  const summary = useQuery(() => getMonthSummary(dataMonth, accountIds), [dataMonth, accountId]);
+  const monthly = useQuery(
+    () => getMonthlyTotals(6, chartEndMonth(listMonthsWithData(accountIds), 6, MONTH_KEY), accountIds),
+    [accountId]
+  );
+  const recent = useQuery(() => listRecentTransactions(5, accountIds), [accountId]);
 
   const handlePressRow = useCallback(
     (id: string) => navigation.navigate('CategorizeSheet', { transactionId: id }),
@@ -188,6 +193,7 @@ export function HomeScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
+      <AccountFilter />
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <View {...greetingTarget}>
           <Text style={styles.greeting}>{greeting}</Text>
@@ -226,7 +232,7 @@ export function HomeScreen() {
           </View>
         </View>
 
-        {latestMonth && <BalanceSummary month={latestMonth} />}
+        {latestMonth && <BalanceSummary month={latestMonth} accountIds={accountIds} />}
 
         <View style={styles.card}>
           <Text style={styles.cardLabel}>INCOME VS. EXPENSES</Text>

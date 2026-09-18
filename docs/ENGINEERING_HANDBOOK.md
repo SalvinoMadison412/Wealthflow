@@ -50,6 +50,11 @@ Everything in the architecture follows from those promises:
 5. **Transactions**: full list with month and category filters; tap a row
    to categorise it ("just this one") or create a rule from it.
 6. **Rules**: priority-ordered list; enable/disable, move up/down, delete.
+   **Account filter** (Home, Transactions, Budget): with two or more
+   accounts, a quiet "All accounts ▾" caption under the header opens a
+   small list. The default is every account consolidated; picking one
+   scopes every number on all three tabs. The choice is shared across tabs
+   and kept in `settings` (`account_filter`).
 7. **Budget**: spending by category for a month (donut showing the top 4
    categories plus one grey "Others" slice, with a labelled legend; the
    category list below still lists every category sorted by spend with its
@@ -183,9 +188,9 @@ sync (§6) with the session.
 | `LoginScreen` | – | Supabase auth calls |
 | `OtpScreen` | route param `phone` | `verifyOtp`, resend with 30 s cooldown |
 | `OnboardingScreen` | session user metadata, existing profile | `saveProfile` (also used for edit) |
-| `HomeScreen` (Net card, chart and balance card anchor on the newest month with data, not today) | `hasAnyTransactions`, `listAccounts` (staleness), `listMonthsWithData`, `getMonthSummary(month)`, `getMonthlyTotals(6, month)`, `BalanceSummary`, `listRecentTransactions(5)`, profile | – |
+| `HomeScreen` (Net card, chart and balance card anchor on the newest month with data, not today) | `hasAnyTransactions`, `listAccounts` (staleness), `listMonthsWithData`, `getMonthSummary(month)`, `getMonthlyTotals(6, month)`, `BalanceSummary`, `listRecentTransactions(5)`, profile (all scoped by `useAccountFilter()`, see `AccountFilter.tsx`) | – |
 | `ImportScreen` | `listAccounts` | `createAccount`, `renameAccount`, `importStatement` |
-| `TransactionsScreen` | `listMonthsWithData`, `listCategoriesForFilter`, `listTransactions(filters)` (account, month, category, uncategorised, received/sent, amount range, recurring); month is a Budget-style ‹ March 2026 › stepper over months with data (label taps toggle All months) | – |
+| `TransactionsScreen` | `listMonthsWithData`, `listCategoriesForFilter`, `listTransactions(filters)` (account via the shared filter, month, category, uncategorised, received/sent, amount range, recurring); month is a Budget-style ‹ March 2026 › stepper over months with data (label taps toggle All months) | – |
 | `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one") or `insertRule` (with `suggestPattern` prefill) |
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |

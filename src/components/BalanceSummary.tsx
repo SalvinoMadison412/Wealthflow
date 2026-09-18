@@ -14,9 +14,9 @@ function monthLabel(month: string): string {
 
 // Opening / inflows / outflows / closing for one month, straight from the
 // statement balances. Renders nothing for a month with no transactions.
-export function BalanceSummary({ month }: { month: string }) {
+export function BalanceSummary({ month, accountIds }: { month: string; accountIds: string[] | null }) {
   const styles = useStyles(makeStyles);
-  const summary = useQuery(() => getBalanceSummary(month), [month]);
+  const summary = useQuery(() => getBalanceSummary(month, accountIds), [month, accountIds?.join(',')]);
   if (!summary) return null;
 
   const tiles = [
