@@ -5,24 +5,19 @@ import { StyleSheet, View } from 'react-native';
 import { Logo } from './Logo';
 import { colors, contentWrap, spacing } from '../theme/tokens';
 
+// Seamless: sits directly on the page background, no card surface or
+// border to separate it from the content below.
 export function AppHeader() {
   return (
-    <View style={styles.band}>
-      <View style={styles.header}>
-        <Feather name="menu" size={22} color={colors.textPrimary} />
-        <Logo size={18} color={colors.textPrimary} />
-        <Feather name="bell" size={20} color={colors.textSecondary} />
-      </View>
+    <View style={styles.header}>
+      <Feather name="menu" size={22} color={colors.textPrimary} />
+      <Logo size={18} color={colors.textPrimary} />
+      <Feather name="bell" size={20} color={colors.textSecondary} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  band: {
-    backgroundColor: colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
   header: {
     ...contentWrap,
     flexDirection: 'row',

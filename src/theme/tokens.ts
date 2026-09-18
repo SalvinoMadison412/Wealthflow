@@ -101,6 +101,9 @@ export const spacing = {
   xxxl,
   pageGutter: 16,
   contentMaxWidth: 600,
+  // Height a tab screen must clear at its bottom so scrollable content
+  // never sits under the floating tab bar / FAB (see RootNavigator).
+  floatingNavClearance: 110,
 
   // --- Legacy compatibility (see colors, above) ---
   marginPage: xxxl,

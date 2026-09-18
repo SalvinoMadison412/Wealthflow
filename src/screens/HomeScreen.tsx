@@ -86,16 +86,7 @@ export function HomeScreen() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
-        <View style={styles.greetingRow}>
-          <Text style={styles.greeting}>{MONTH_NAME}</Text>
-          <PressableScale
-            style={styles.importButton}
-            onPress={() => navigation.navigate('Import')}
-            accessibilityLabel="Import a statement"
-          >
-            <Feather name="plus" size={20} color={colors.accentText} />
-          </PressableScale>
-        </View>
+        <Text style={styles.greeting}>{MONTH_NAME}</Text>
 
         <ScopeSwitch scope={scope} onChange={(s) => setSetting('scope', s)} ownerLabels={ownerLabels} />
 
@@ -145,24 +136,12 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.pageGutter,
+    paddingBottom: spacing.floatingNavClearance,
     gap: spacing.lg,
-  },
-  greetingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   greeting: {
     ...type.h1,
     color: colors.textPrimary,
-  },
-  importButton: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.pill,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   card: {
     backgroundColor: colors.card,
