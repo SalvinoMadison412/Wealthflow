@@ -9,7 +9,15 @@ const TEMPLATES: { canParse: (pages: PageContent[]) => boolean; parse: (pages: P
   { canParse: canParseKotak, parse: parseKotak },
 ];
 
+// Bank name isn't part of any parser's own output (canParseKotak only
+// detects the transaction-row shape) — it's attached here, alongside the
+// template match, without touching a parser's internals.
+const TEMPLATE_BANK_NAME: Record<number, string> = {
+  0: 'Kotak Mahindra Bank',
+};
+
 export function parseStatement(pages: PageContent[]): ParsedStatement {
-  const template = TEMPLATES.find((t) => t.canParse(pages));
-  return template ? template.parse(pages) : parseGeneric(pages);
+  const index = TEMPLATES.findIndex((t) => t.canParse(pages));
+  if (index === -1) return parseGeneric(pages);
+  return { ...TEMPLATES[index].parse(pages), bank: TEMPLATE_BANK_NAME[index] };
 }

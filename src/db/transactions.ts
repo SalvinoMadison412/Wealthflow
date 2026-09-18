@@ -7,18 +7,68 @@ import { recategorize } from './recategorize';
 import { UNCATEGORIZED_CATEGORY_ID } from './schema';
 import { makeTransactionId, newId } from './transactionId';
 
-// PR 4 (Import Statement screen) gives accounts real bank/masked-number
-// identity from the parsed statement. Until then, every import lands on
-// this single placeholder account so the existing single-account Home
-// screen keeps working unmodified.
-const DEFAULT_ACCOUNT_ID = 'default';
+export type Account = {
+  id: string;
+  bank: string;
+  maskedNumber: string | null;
+  ownerLabel: string;
+  lastImportedPeriodEnd: string | null;
+  lastImportedAt: string | null;
+};
 
-function ensureDefaultAccount(): string {
-  db.runSync(
-    'INSERT OR IGNORE INTO accounts (id, bank, masked_number, owner_label, created_at) VALUES (?, ?, ?, ?, ?)',
-    [DEFAULT_ACCOUNT_ID, 'Statement', null, 'Me', new Date().toISOString()]
+type AccountRow = {
+  id: string;
+  bank: string;
+  masked_number: string | null;
+  owner_label: string;
+  last_period_end: string | null;
+  last_imported_at: string | null;
+};
+
+// Ordered by creation, oldest first — stable enough for a handful of
+// accounts without a user-facing reorder feature.
+export function listAccounts(): Account[] {
+  const rows = db.getAllSync<AccountRow>(
+    `SELECT a.id, a.bank, a.masked_number, a.owner_label,
+       (SELECT s.period_end FROM statements s WHERE s.account_id = a.id ORDER BY s.imported_at DESC LIMIT 1) as last_period_end,
+       (SELECT s.imported_at FROM statements s WHERE s.account_id = a.id ORDER BY s.imported_at DESC LIMIT 1) as last_imported_at
+     FROM accounts a
+     ORDER BY a.created_at ASC`
   );
-  return DEFAULT_ACCOUNT_ID;
+  return rows.map((r) => ({
+    id: r.id,
+    bank: r.bank,
+    maskedNumber: r.masked_number,
+    ownerLabel: r.owner_label,
+    lastImportedPeriodEnd: r.last_period_end,
+    lastImportedAt: r.last_imported_at,
+  }));
+}
+
+// `maskedNumber` is never extracted from the statement (see
+// statement/types.ts) — it's whatever nickname the user types in the
+// account chooser, or null if they skip it.
+export function createAccount(input: { bank: string; maskedNumber: string | null; ownerLabel: string }): string {
+  const id = newId();
+  db.runSync('INSERT INTO accounts (id, bank, masked_number, owner_label, created_at) VALUES (?, ?, ?, ?, ?)', [
+    id,
+    input.bank.trim(),
+    input.maskedNumber?.trim() || null,
+    input.ownerLabel.trim() || 'Me',
+    new Date().toISOString(),
+  ]);
+  return id;
+}
+
+// Account cards are tappable to rename the bank label or owner only — no
+// deletion in this PR (that's Profile, PR 10).
+export function renameAccount(id: string, input: { bank?: string; ownerLabel?: string }): void {
+  if (input.bank !== undefined) {
+    db.runSync('UPDATE accounts SET bank = ? WHERE id = ?', [input.bank.trim(), id]);
+  }
+  if (input.ownerLabel !== undefined) {
+    db.runSync('UPDATE accounts SET owner_label = ? WHERE id = ?', [input.ownerLabel.trim() || 'Me', id]);
+  }
 }
 
 // Parses + reconciles (as before) and now also persists: creates the
@@ -28,7 +78,7 @@ function ensureDefaultAccount(): string {
 // post-import UI, same as before this PR.
 export function importStatement(
   pages: PageContent[],
-  accountId: string = ensureDefaultAccount()
+  accountId: string
 ): { statement: ParsedStatement; reconciliation: ReconciliationResult } {
   const statement = parseStatement(pages);
   const reconciliation = reconcile(statement);

@@ -6,10 +6,15 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PressableScale } from '../components/PressableScale';
+import { Account, createAccount, listAccounts, renameAccount } from '../db/transactions';
+import { useQuery } from '../db/useQuery';
 import { useTransactions } from '../data/TransactionsContext';
 import { usePdfExtractor } from '../pdf/PdfExtractorProvider';
+import { PageContent } from '../pdf/types';
 import { PdfPasswordRequiredError } from '../pdf/types';
-import { colors, radii, spacing, type } from '../theme/tokens';
+import { parseStatement } from '../statement/registry';
+import { ParsedStatement, ReconciliationResult } from '../statement/types';
+import { colors, pillPalette, radii, spacing, type } from '../theme/tokens';
 
 // Reads a local file:// URI as base64 via RN's built-in fetch/Blob/FileReader
 // rather than expo-file-system: Expo Go sandboxes file access per-project,
@@ -30,45 +35,79 @@ function uriToBase64(uri: string): Promise<string> {
     );
 }
 
+function formatPeriod(account: Account): string {
+  if (!account.lastImportedPeriodEnd) return 'Never imported';
+  const date = new Date(account.lastImportedPeriodEnd);
+  return `Last statement through ${date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+
 type Status =
   | { kind: 'idle' }
   | { kind: 'loading' }
-  | { kind: 'needsPassword'; base64: string }
-  | { kind: 'result' }
+  | { kind: 'needsPassword'; base64: string; forAccountId: string | null }
+  // No account chosen yet — the dropzone's generic entry point. `bank` is
+  // whatever the registry detected from the statement text, if anything;
+  // there is no masked account number to detect (see statement/types.ts).
+  | { kind: 'chooseAccount'; pages: PageContent[]; bank?: string }
+  | { kind: 'result'; statement: ParsedStatement; reconciliation: ReconciliationResult }
   | { kind: 'error'; message: string };
 
-// PR 4 gives this screen its real design (dropzone + multiple bank
-// accounts). For now the pick/extract/password/result logic is moved here
-// unchanged from the old HomeScreen, just behind a modal header — see
-// docs/REDESIGN_PLAN.md PR 3.
 export function ImportScreen() {
   const navigation = useNavigation();
   const { extractPdfText } = usePdfExtractor();
-  const { loadFromPages, statement, reconciliation } = useTransactions();
+  const { loadFromPages } = useTransactions();
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [password, setPassword] = useState('');
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [newAccountOpen, setNewAccountOpen] = useState(false);
 
-  async function runExtraction(base64: string, opts?: { password?: string }) {
+  const accounts = useQuery(() => listAccounts(), [status.kind]);
+
+  async function runExtraction(
+    base64: string,
+    forAccountId: string | null,
+    opts?: { password?: string }
+  ) {
     setStatus({ kind: 'loading' });
     try {
       const result = await extractPdfText(base64, opts);
-      loadFromPages(result.pages);
-      setStatus({ kind: 'result' });
+      if (forAccountId) {
+        finishImport(result.pages, forAccountId);
+      } else {
+        const detected = parseStatement(result.pages);
+        setStatus({ kind: 'chooseAccount', pages: result.pages, bank: detected.bank });
+      }
     } catch (err) {
       if (err instanceof PdfPasswordRequiredError) {
-        setStatus({ kind: 'needsPassword', base64 });
+        setStatus({ kind: 'needsPassword', base64, forAccountId });
       } else {
         setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
       }
     }
   }
 
-  async function pickPdf() {
+  function finishImport(pages: PageContent[], accountId: string) {
+    const { statement, reconciliation } = loadFromPages(pages, accountId);
+    setStatus({ kind: 'result', statement, reconciliation });
+  }
+
+  async function pickPdf(forAccountId: string | null) {
     const picked = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
     if (picked.canceled) return;
 
     const base64 = await uriToBase64(picked.assets[0].uri);
-    await runExtraction(base64);
+    await runExtraction(base64, forAccountId);
+  }
+
+  function chooseExistingAccount(accountId: string) {
+    if (status.kind !== 'chooseAccount') return;
+    finishImport(status.pages, accountId);
+  }
+
+  function createAndChoose(bank: string, maskedNumber: string, ownerLabel: string) {
+    if (status.kind !== 'chooseAccount') return;
+    const accountId = createAccount({ bank: bank || 'Bank statement', maskedNumber: maskedNumber || null, ownerLabel });
+    finishImport(status.pages, accountId);
   }
 
   return (
@@ -81,95 +120,258 @@ export function ImportScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.dropzoneWrap}>
-          <PressableScale
-            style={styles.dropzone}
-            onPress={pickPdf}
-            disabled={status.kind === 'loading'}
-          >
-            {status.kind === 'loading' ? (
-              <ActivityIndicator size="large" color={colors.accent} />
-            ) : (
-              <>
-                <View style={styles.dropzoneIconWrap}>
-                  <Feather name="upload" size={22} color={colors.primary} />
-                </View>
-                <Text style={styles.dropzoneTitle}>Drop your statement</Text>
-                <View style={styles.orRow}>
-                  <View style={styles.orLine} />
-                  <Text style={styles.orText}>OR</Text>
-                  <View style={styles.orLine} />
-                </View>
-                <Text style={styles.dropzoneAction}>Tap to upload PDF/CSV</Text>
-              </>
-            )}
-          </PressableScale>
-        </View>
-
-        {status.kind === 'needsPassword' && (
-          <View style={styles.passwordBox}>
-            <Text style={styles.dropzoneTitle}>This PDF is password-protected</Text>
-            <TextInput
-              style={styles.passwordInput}
-              placeholder="Enter password"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-            <PressableScale
-              style={styles.passwordButton}
-              onPress={() => runExtraction(status.base64, { password })}
+        {status.kind === 'chooseAccount' ? (
+          <AccountChooser
+            bank={status.bank}
+            accounts={accounts}
+            onPick={chooseExistingAccount}
+            onCreate={createAndChoose}
+          />
+        ) : status.kind === 'result' ? (
+          <ResultCard
+            statement={status.statement}
+            reconciliation={status.reconciliation}
+            onDone={() => navigation.goBack()}
+          />
+        ) : (
+          <>
+            <Pressable
+              style={styles.dropzone}
+              onPress={() => pickPdf(null)}
+              disabled={status.kind === 'loading'}
             >
-              <Text style={styles.passwordButtonText}>Unlock</Text>
-            </PressableScale>
-          </View>
-        )}
+              {status.kind === 'loading' ? (
+                <ActivityIndicator size="large" color={colors.accent} />
+              ) : (
+                <>
+                  <View style={styles.dropzoneIconWrap}>
+                    <Feather name="upload" size={22} color={colors.accent} />
+                  </View>
+                  <Text style={styles.dropzoneTitle}>Choose a PDF statement</Text>
+                  <Text style={styles.dropzoneCaption}>Supports Kotak Mahindra Bank and generic layouts</Text>
+                </>
+              )}
+            </Pressable>
 
-        {status.kind === 'error' && <Text style={styles.errorText}>{status.message}</Text>}
-
-        {status.kind === 'result' && statement && reconciliation && (
-          <View style={styles.resultBox}>
-            <Text style={styles.dropzoneTitle}>
-              Extracted <Text style={styles.numeral}>{statement.transactions.length}</Text> transaction
-              {statement.transactions.length === 1 ? '' : 's'}
-            </Text>
-
-            <View style={styles.balanceRow}>
-              <View>
-                <Text style={styles.balanceLabel}>OPENING</Text>
-                <Text style={styles.balanceNumeral}>₹{statement.openingBalance.toFixed(2)}</Text>
+            {status.kind === 'needsPassword' && (
+              <View style={styles.passwordBox}>
+                <Text style={styles.dropzoneTitle}>This PDF is password-protected</Text>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Enter password"
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                />
+                <PressableScale
+                  style={styles.passwordButton}
+                  onPress={() => runExtraction(status.base64, status.forAccountId, { password })}
+                >
+                  <Text style={styles.passwordButtonText}>Unlock</Text>
+                </PressableScale>
               </View>
-              <View>
-                <Text style={styles.balanceLabel}>CLOSING</Text>
-                <Text style={styles.balanceNumeral}>₹{statement.closingBalance.toFixed(2)}</Text>
+            )}
+
+            {status.kind === 'error' && <Text style={styles.errorText}>{status.message}</Text>}
+
+            {accounts.length > 0 && (
+              <View style={styles.accountsSection}>
+                <Text style={styles.accountsHeading}>Accounts</Text>
+                {accounts.map((account) => (
+                  <AccountCard
+                    key={account.id}
+                    account={account}
+                    editing={editingAccountId === account.id}
+                    onEdit={() => setEditingAccountId(account.id)}
+                    onCancelEdit={() => setEditingAccountId(null)}
+                    onSaveEdit={(bank, ownerLabel) => {
+                      renameAccount(account.id, { bank, ownerLabel });
+                      setEditingAccountId(null);
+                    }}
+                    onImport={() => pickPdf(account.id)}
+                    disabled={status.kind === 'loading'}
+                  />
+                ))}
               </View>
-            </View>
-
-            <View style={[styles.reconciliationBanner, !reconciliation.ok && styles.reconciliationBannerFailed]}>
-              <Feather
-                name={reconciliation.ok ? 'check-circle' : 'alert-triangle'}
-                size={16}
-                color={reconciliation.ok ? colors.white : colors.error}
-              />
-              <Text
-                style={[
-                  styles.reconciliationText,
-                  !reconciliation.ok && styles.reconciliationTextFailed,
-                ]}
-              >
-                {reconciliation.ok
-                  ? 'Reconciled — opening + credits − debits matches the closing balance.'
-                  : `Reconciliation off by ₹${Math.abs(reconciliation.delta).toFixed(2)}.`}
-              </Text>
-            </View>
-
-            <PressableScale style={styles.doneButton} onPress={() => navigation.goBack()}>
-              <Text style={styles.doneButtonText}>Done</Text>
-            </PressableScale>
-          </View>
+            )}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function AccountChooser({
+  bank,
+  accounts,
+  onPick,
+  onCreate,
+}: {
+  bank?: string;
+  accounts: Account[];
+  onPick: (accountId: string) => void;
+  onCreate: (bank: string, maskedNumber: string, ownerLabel: string) => void;
+}) {
+  const [showNewForm, setShowNewForm] = useState(accounts.length === 0);
+  const [newBank, setNewBank] = useState(bank ?? '');
+  const [newNickname, setNewNickname] = useState('');
+  const [newOwner, setNewOwner] = useState('Me');
+
+  return (
+    <View>
+      <Text style={styles.chooserTitle}>Which account is this?</Text>
+      {bank && <Text style={styles.chooserHint}>Detected: {bank}</Text>}
+
+      {accounts.map((account) => (
+        <PressableScale key={account.id} style={styles.chooserRow} onPress={() => onPick(account.id)}>
+          <View style={styles.chooserRowIcon}>
+            <Feather name="credit-card" size={16} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.accountBank}>{account.bank}</Text>
+            <Text style={styles.accountMeta}>
+              {account.maskedNumber ? `${account.maskedNumber} · ` : ''}
+              {account.ownerLabel}
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+        </PressableScale>
+      ))}
+
+      {!showNewForm ? (
+        <PressableScale style={styles.addAccountButton} onPress={() => setShowNewForm(true)}>
+          <Feather name="plus" size={16} color={colors.accent} />
+          <Text style={styles.addAccountButtonText}>Add new account</Text>
+        </PressableScale>
+      ) : (
+        <View style={styles.newAccountForm}>
+          <Text style={styles.fieldLabel}>BANK</Text>
+          <TextInput style={styles.input} value={newBank} onChangeText={setNewBank} placeholder="e.g., HDFC Bank" />
+          <Text style={styles.fieldLabel}>NICKNAME (OPTIONAL)</Text>
+          <TextInput
+            style={styles.input}
+            value={newNickname}
+            onChangeText={setNewNickname}
+            placeholder="e.g., •••• 4821"
+          />
+          <Text style={styles.fieldLabel}>WHOSE ACCOUNT</Text>
+          <TextInput style={styles.input} value={newOwner} onChangeText={setNewOwner} placeholder="Me" />
+          <PressableScale
+            style={[styles.saveButton, !newBank.trim() && styles.saveButtonDisabled]}
+            onPress={() => onCreate(newBank.trim(), newNickname.trim(), newOwner.trim() || 'Me')}
+            disabled={!newBank.trim()}
+          >
+            <Text style={styles.saveButtonText}>Continue</Text>
+          </PressableScale>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function AccountCard({
+  account,
+  editing,
+  onEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onImport,
+  disabled,
+}: {
+  account: Account;
+  editing: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (bank: string, ownerLabel: string) => void;
+  onImport: () => void;
+  disabled: boolean;
+}) {
+  const [bank, setBank] = useState(account.bank);
+  const [ownerLabel, setOwnerLabel] = useState(account.ownerLabel);
+
+  if (editing) {
+    return (
+      <View style={styles.accountCard}>
+        <Text style={styles.fieldLabel}>BANK</Text>
+        <TextInput style={styles.input} value={bank} onChangeText={setBank} />
+        <Text style={styles.fieldLabel}>WHOSE ACCOUNT</Text>
+        <TextInput style={styles.input} value={ownerLabel} onChangeText={setOwnerLabel} />
+        <View style={styles.editRow}>
+          <PressableScale style={styles.editCancelButton} onPress={onCancelEdit}>
+            <Text style={styles.editCancelButtonText}>Cancel</Text>
+          </PressableScale>
+          <PressableScale style={styles.editSaveButton} onPress={() => onSaveEdit(bank, ownerLabel)}>
+            <Text style={styles.editSaveButtonText}>Save</Text>
+          </PressableScale>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <Pressable style={styles.accountCard} onPress={onEdit}>
+      <View style={styles.accountCardTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.accountBank}>{account.bank}</Text>
+          <Text style={styles.accountMeta}>
+            {account.maskedNumber ? `${account.maskedNumber} · ` : ''}
+            {account.ownerLabel}
+          </Text>
+          <Text style={styles.accountPeriod}>{formatPeriod(account)}</Text>
+        </View>
+        <PressableScale style={styles.importButton} onPress={onImport} disabled={disabled}>
+          <Text style={styles.importButtonText}>Import</Text>
+        </PressableScale>
+      </View>
+    </Pressable>
+  );
+}
+
+function ResultCard({
+  statement,
+  reconciliation,
+  onDone,
+}: {
+  statement: ParsedStatement;
+  reconciliation: ReconciliationResult;
+  onDone: () => void;
+}) {
+  const badge = reconciliation.ok ? pillPalette[1] : pillPalette[3];
+  return (
+    <View style={styles.resultBox}>
+      <Text style={styles.dropzoneTitle}>
+        Extracted <Text style={styles.numeral}>{statement.transactions.length}</Text> transaction
+        {statement.transactions.length === 1 ? '' : 's'}
+      </Text>
+
+      <View style={styles.balanceRow}>
+        <View>
+          <Text style={styles.balanceLabel}>OPENING</Text>
+          <Text style={styles.balanceNumeral}>₹{statement.openingBalance.toFixed(2)}</Text>
+        </View>
+        <View>
+          <Text style={styles.balanceLabel}>CLOSING</Text>
+          <Text style={styles.balanceNumeral}>₹{statement.closingBalance.toFixed(2)}</Text>
+        </View>
+      </View>
+
+      <View style={[styles.reconciliationBanner, { backgroundColor: badge.bg }]}>
+        <Feather
+          name={reconciliation.ok ? 'check-circle' : 'alert-triangle'}
+          size={16}
+          color={badge.text}
+        />
+        <Text style={[styles.reconciliationText, { color: badge.text }]}>
+          {reconciliation.ok
+            ? 'Balanced — opening + credits − debits matches the closing balance.'
+            : `Off by ₹${Math.abs(reconciliation.delta).toFixed(2)}.`}
+        </Text>
+      </View>
+
+      <PressableScale style={styles.doneButton} onPress={onDone}>
+        <Text style={styles.doneButtonText}>Done</Text>
+      </PressableScale>
+    </View>
   );
 }
 
@@ -193,87 +395,219 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.pageGutter,
   },
-  dropzoneWrap: {
-    marginBottom: spacing.xxl,
-  },
   dropzone: {
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
     borderRadius: radii.sheet,
-    backgroundColor: colors.surfaceContainerLow,
-    aspectRatio: 1,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    padding: spacing.lg,
-  },
-  numeral: {
-    ...type.amountMd,
-    color: colors.onSurface,
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xxl,
   },
   dropzoneIconWrap: {
     width: 48,
     height: 48,
     borderRadius: radii.card,
-    backgroundColor: colors.white,
+    backgroundColor: colors.track,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
   dropzoneTitle: {
     ...type.h2,
-    fontSize: 20,
-    color: colors.onSurface,
+    fontSize: 17,
+    color: colors.textPrimary,
     textAlign: 'center',
   },
-  orRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-    width: '60%',
-  },
-  orLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.outlineVariant,
-  },
-  orText: {
+  dropzoneCaption: {
     ...type.caption,
-    color: colors.outline,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
-  dropzoneAction: {
-    ...type.body,
-    color: colors.primary,
-    textDecorationLine: 'underline',
+  numeral: {
+    ...type.amountMd,
+    color: colors.textPrimary,
   },
   passwordBox: {
-    marginTop: spacing.xxl,
+    marginBottom: spacing.xxl,
     gap: spacing.sm,
   },
   passwordInput: {
     ...type.body,
     borderBottomWidth: 1,
-    borderColor: colors.onSurface,
+    borderColor: colors.textPrimary,
     paddingVertical: 12,
   },
   passwordButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
     borderRadius: radii.button,
     padding: 14,
     alignItems: 'center',
   },
   passwordButtonText: {
     ...type.label,
-    color: colors.white,
+    color: colors.accentText,
   },
   errorText: {
-    marginTop: spacing.xxl,
-    color: colors.error,
+    marginBottom: spacing.xxl,
+    color: colors.expenseText,
     textAlign: 'center',
   },
+  accountsSection: {
+    gap: spacing.sm,
+  },
+  accountsHeading: {
+    ...type.label,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  accountCard: {
+    backgroundColor: colors.card,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+  },
+  accountCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  accountBank: {
+    ...type.h3,
+    color: colors.textPrimary,
+  },
+  accountMeta: {
+    ...type.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  accountPeriod: {
+    ...type.caption,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  importButton: {
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  importButtonText: {
+    ...type.label,
+    color: colors.accent,
+  },
+  editRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  editCancelButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: radii.button,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  editCancelButtonText: {
+    ...type.label,
+    color: colors.textSecondary,
+  },
+  editSaveButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: radii.button,
+    backgroundColor: colors.accent,
+  },
+  editSaveButtonText: {
+    ...type.label,
+    color: colors.accentText,
+  },
+  chooserTitle: {
+    ...type.h2,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  chooserHint: {
+    ...type.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
+  },
+  chooserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  chooserRowIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.button,
+    backgroundColor: colors.track,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.accent,
+    borderRadius: radii.card,
+    paddingVertical: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  addAccountButtonText: {
+    ...type.label,
+    color: colors.accent,
+  },
+  newAccountForm: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  fieldLabel: {
+    ...type.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
+  input: {
+    ...type.body,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.sm,
+    color: colors.textPrimary,
+  },
+  saveButton: {
+    backgroundColor: colors.accent,
+    borderRadius: radii.button,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: spacing.lg,
+  },
+  saveButtonDisabled: {
+    opacity: 0.5,
+  },
+  saveButtonText: {
+    ...type.label,
+    color: colors.accentText,
+  },
   resultBox: {
-    marginTop: spacing.xxl,
     gap: spacing.xxl,
   },
   balanceRow: {
@@ -282,37 +616,27 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     ...type.caption,
-    color: colors.outline,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 2,
   },
   balanceNumeral: {
     ...type.amountMd,
     fontSize: 20,
-    color: colors.onSurface,
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   reconciliationBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.black,
     borderRadius: radii.button,
     padding: spacing.lg,
-  },
-  reconciliationBannerFailed: {
-    backgroundColor: colors.surfaceContainerLow,
-    borderWidth: 1,
-    borderColor: colors.error,
   },
   reconciliationText: {
     ...type.body,
     fontSize: 13,
-    color: colors.white,
     flex: 1,
-  },
-  reconciliationTextFailed: {
-    color: colors.error,
   },
   doneButton: {
     backgroundColor: colors.accent,

@@ -7,7 +7,10 @@ import { ParsedStatement, ReconciliationResult } from '../statement/types';
 interface TransactionsContextValue {
   statement: ParsedStatement | null;
   reconciliation: ReconciliationResult | null;
-  loadFromPages: (pages: PageContent[]) => ParsedStatement;
+  loadFromPages: (
+    pages: PageContent[],
+    accountId: string
+  ) => { statement: ParsedStatement; reconciliation: ReconciliationResult };
 }
 
 const TransactionsContext = createContext<TransactionsContextValue | null>(null);
@@ -22,11 +25,11 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const [statement, setStatement] = useState<ParsedStatement | null>(null);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult | null>(null);
 
-  const loadFromPages = useCallback((pages: PageContent[]) => {
-    const result = importStatement(pages);
+  const loadFromPages = useCallback((pages: PageContent[], accountId: string) => {
+    const result = importStatement(pages, accountId);
     setStatement(result.statement);
     setReconciliation(result.reconciliation);
-    return result.statement;
+    return result;
   }, []);
 
   const value = useMemo<TransactionsContextValue>(
