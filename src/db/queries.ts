@@ -1,5 +1,4 @@
 import { AccountMonth, BalanceSummaryData, combineAccountMonths } from '../data/balance';
-import { Bucket } from '../data/budget';
 import { findRecurringMerchants } from '../data/recurring';
 import { describeRule } from '../data/rulePattern';
 import { db } from './db';
@@ -283,21 +282,16 @@ export function getTransactionDetail(id: string): TransactionDetail | null {
   };
 }
 
-function currentMonthKey(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
 type MonthlyTotal = { month: string; income: number; expense: number };
 
-// Last `monthsBack` calendar months including this one, oldest first,
+// `monthsBack` calendar months ending at `endMonth`, oldest first,
 // zero-filled so the chart always shows a fixed number of bars — the
 // Home bar chart's input. Transfers are excluded from both totals.
-export function getMonthlyTotals(monthsBack: number, accountIds?: string[] | null): MonthlyTotal[] {
-  const now = new Date();
+export function getMonthlyTotals(monthsBack: number, endMonth: string, accountIds?: string[] | null): MonthlyTotal[] {
+  const [endYear, endMon] = endMonth.split('-').map(Number);
   const months: string[] = [];
   for (let i = monthsBack - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const d = new Date(endYear, endMon - 1 - i, 1);
     months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
 
@@ -317,14 +311,14 @@ export function getMonthlyTotals(monthsBack: number, accountIds?: string[] | nul
 
 type MonthSummary = { income: number; expense: number };
 
-// Home's "Net this month" card. Excludes transfers, same as the chart.
-export function getCurrentMonthSummary(accountIds?: string[] | null): MonthSummary {
+// Home's "Net" card for one month. Excludes transfers, same as the chart.
+export function getMonthSummary(month: string, accountIds?: string[] | null): MonthSummary {
   const scope = accountsClause(accountIds, 'transactions');
   const row = db.getFirstSync<{ income: number; expense: number }>(
     `SELECT COALESCE(SUM(deposit), 0) as income, COALESCE(SUM(withdrawal), 0) as expense
      FROM transactions
      WHERE is_transfer = 0 AND strftime('%Y-%m', date) = ? ${scope.clause}`,
-    [currentMonthKey(), ...scope.params]
+    [month, ...scope.params]
   );
   return { income: row?.income ?? 0, expense: row?.expense ?? 0 };
 }
@@ -388,25 +382,10 @@ export function listRulesForDisplay(): RuleListItem[] {
   }));
 }
 
-// This month's total deposits, excluding transfers — the Budget screen's
-// income base (falls back to settings.monthly_income when zero; see
-// db/transactions.ts's getMonthlyIncomeSetting).
-export function getIncomeForMonth(month: string, accountIds?: string[] | null): number {
-  const scope = accountsClause(accountIds, 'transactions');
-  const row = db.getFirstSync<{ income: number }>(
-    `SELECT COALESCE(SUM(deposit), 0) as income
-     FROM transactions
-     WHERE is_transfer = 0 AND strftime('%Y-%m', date) = ? ${scope.clause}`,
-    [month, ...scope.params]
-  );
-  return row?.income ?? 0;
-}
-
 export type CategoryBudgetRow = {
   id: string;
   name: string;
   colorIndex: number;
-  bucket: Bucket;
   monthlyBudget: number | null;
   spent: number;
 };
@@ -421,11 +400,10 @@ export function getCategoryBudgetRows(month: string, accountIds?: string[] | nul
     id: string;
     name: string;
     color_index: number;
-    bucket: string;
     monthly_budget: number | null;
     spent: number;
   }>(
-    `SELECT c.id, c.name, c.color_index, c.bucket, c.monthly_budget,
+    `SELECT c.id, c.name, c.color_index, c.monthly_budget,
             COALESCE((SELECT SUM(t.withdrawal) FROM transactions t
                       WHERE t.category_id = c.id AND t.is_transfer = 0
                         AND strftime('%Y-%m', t.date) = ? ${scope.clause}), 0) as spent
@@ -438,7 +416,6 @@ export function getCategoryBudgetRows(month: string, accountIds?: string[] | nul
     id: r.id,
     name: r.name,
     colorIndex: r.color_index,
-    bucket: r.bucket as Bucket,
     monthlyBudget: r.monthly_budget,
     spent: r.spent,
   }));

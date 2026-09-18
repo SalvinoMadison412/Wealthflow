@@ -1,7 +1,5 @@
 // Pure — no expo-sqlite import, unit tested directly.
-import { Bucket } from './budget';
-
-export type PresetRule = { category: string; bucket: Bucket; pattern: string };
+export type PresetRule = { category: string; pattern: string };
 
 // Built-in regex rules, applied only when the user taps Auto-categorise.
 // Tested case-insensitively against "merchant description" (see
@@ -18,72 +16,58 @@ export type PresetRule = { category: string; bucket: Bucket; pattern: string };
 export const PRESET_RULES: PresetRule[] = [
   {
     category: 'Income',
-    bucket: 'needs',
     pattern: String.raw`\bsalary\b|\bstipend\b|\bint\.pd\b|\binterest\b|\bdividend\b|refund|cashback|reimburs`,
   },
   {
     category: 'Investments',
-    bucket: 'savings',
     pattern: String.raw`zerodha|groww|upstox|kuvera|indmoney|smallcase|mutual ?fund|\bsip\b|safegold|\bnps\b|\bppf\b|angel ?one|icici ?direct`,
   },
   {
     category: 'Credit card & loans',
-    bucket: 'needs',
     pattern: String.raw`onecard|\bslice\b|\bcred\b|credit ?card|card ?bill|\bemi\b|\bloan\b|bajaj ?fin|lazypay|\bsimpl\b`,
   },
   {
     category: 'Subscriptions',
-    bucket: 'needs',
     pattern: String.raw`netflix|spotify|hotstar|prime ?video|amazon ?prime|\bprime\b|youtube|bookmyshow|zee5|sonyliv|crunchyr|apple\.com|google ?play|membership|subscription`,
   },
   {
     category: 'Rent & Home',
-    bucket: 'needs',
     pattern: String.raw`\brent\b|apartment|residency|\btower\b|skyview|\bsociety\b|maintenance|\bpg\b|hostel|\bflats?\b|\bvilla\b|\bhomes?\b`,
   },
   {
     category: 'Groceries',
-    bucket: 'needs',
     pattern: String.raw`instamart|bigbasket|blinkit|zepto|d-?mart|jiomart|milkbasket|country ?delight|\bkirana\b|supermarket|super ?bazaar|provision|\bgrocer|\bmart\b|general ?store|\bmilk\b|\bdairy\b|vegetable|\bfruits?\b`,
   },
   {
     category: 'Food & Dining',
-    bucket: 'needs',
     pattern: String.raw`swiggy|zomato|eatsure|domino|pizza|mcdonald|\bmcd\b|hardcastle|\bkfc\b|burger|starbucks|subway|haldiram|\bcafe\b|coffee|restaurant|\bkitchen\b|\bdhaba\b|biryani|pulao|\btiffin\b|\bmess\b|bakery|bakers|\bsweets?\b|ice ?cream|\bice\b|cream ?stone|\bfood|\bjuice\b|\bchai\b|\btea\b|\bsnacks?\b|\bwraps?\b|rooster|bombaiwala|\bdine\b|\beat(s|ery)\b`,
   },
   {
     category: 'Transport & Fuel',
-    bucket: 'needs',
     pattern: String.raw`rapido|\buber\b|\bola\b|redbus|irctc|fastag|\bmetro\b|blusmart|\bhpcl\b|\bbpcl\b|\biocl\b|indian ?oil|petrol|\bfuel\b|\bmotors?\b|\btyres?\b|batter(y|ies)|travels?\b|\bcabs?\b|parking`,
   },
   {
     category: 'Health & Fitness',
-    bucket: 'needs',
     pattern: String.raw`apollo|pharmeasy|1mg|netmeds|medplus|practo|cult\.?fit|\bgym\b|fitness|pharma|medical|hospital|clinic|dental|diagnost|\blab\b|health`,
   },
   {
     category: 'Personal care',
-    bucket: 'needs',
     pattern: String.raw`\bsalon\b|\bspa\b|barber|parlou?r|\bhair\b|grooming|beauty`,
   },
   {
     category: 'Bills & Utilities',
-    bucket: 'needs',
     pattern: String.raw`airtel|\bjio\b|vodafone|\bbsnl\b|\bvi\b|bescom|tata ?power|electricity|\bpower\b|broadband|fibernet|recharge|\bgas\b|water ?bill|\bdth\b|postpaid|prepaid`,
   },
   {
     category: 'Shopping',
-    bucket: 'needs',
     pattern: String.raw`amazon|flipkart|myntra|ajio|meesho|nykaa|croma|decathlon|trends|lifestyle|westside|\bstores?\b|boutique`,
   },
   {
     category: 'Other businesses',
-    bucket: 'needs',
     pattern: String.raw`ventures|\bpvt\b|\bltd\b|\bllp\b|enterprises?|traders|industries|solutions|services|technolog|bharatpe|razorpay|payu|cashfree|\bpaytm\b`,
   },
   {
     category: 'People & UPI',
-    bucket: 'needs',
     pattern: String.raw`\bupi/`,
   },
 ];

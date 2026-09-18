@@ -16,20 +16,19 @@ import { Donut } from '../components/Donut';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
 import {
-  getCurrentMonthSummary,
   getMonthlyTotals,
+  getMonthSummary,
   hasAnyTransactions,
   listMonthsWithData,
   listRecentTransactions,
   TransactionListItem,
 } from '../db/queries';
-import { PRESETS } from '../data/budget';
 import { isStatementStale } from '../data/staleness';
 import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { MainTabsParamList, RootStackParamList } from '../navigation/RootNavigator';
 import { useTourTarget } from '../tour/targets';
-import { bucketColors, contentWrap, radii, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 type Nav = CompositeNavigationProp<
@@ -50,18 +49,26 @@ function toRowData(item: TransactionListItem): TransactionRowData {
 }
 
 const MONTH_NAME = new Date().toLocaleDateString('en-IN', { month: 'long' });
+const MONTH_KEY = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 
-// Pre-import Home shows the app's default budget split (a real preset,
-// not sample data) and what the app does. No invented figures.
-const SPLIT = PRESETS['80/20'];
-const BUCKETS = [
-  { label: 'Needs', pct: SPLIT.needs, color: bucketColors.needs },
-  { label: 'Savings', pct: SPLIT.savings, color: bucketColors.savings },
+function longMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+}
+
+// Pre-import Home shows what the category split looks like (equal slices,
+// no amounts: Kevin wants no invented figures) and what the app does.
+const EXAMPLE_CATEGORIES = [
+  { label: 'Food & Dining', colorIndex: 0 },
+  { label: 'Rent & Home', colorIndex: 1 },
+  { label: 'Transport', colorIndex: 2 },
+  { label: 'Bills', colorIndex: 4 },
+  { label: 'Shopping', colorIndex: 5 },
 ];
 const FEATURES: { icon: keyof typeof Feather.glyphMap; title: string; text: string }[] = [
   { icon: 'file-text', title: 'Import a statement PDF', text: 'Every transaction is read off the page. No manual entry.' },
   { icon: 'tag', title: 'Categorised automatically', text: 'Write a rule once and every future statement sorts itself.' },
-  { icon: 'pie-chart', title: 'Needs and savings', text: 'See how your spending splits and set a monthly budget per category.' },
+  { icon: 'pie-chart', title: 'Spending by category', text: 'See where your money goes and set a monthly budget per category.' },
   { icon: 'check-circle', title: 'Checked against your balance', text: 'Each import is reconciled: opening balance plus credits minus debits must equal closing.' },
 ];
 
@@ -85,9 +92,12 @@ export function HomeScreen() {
     null
   );
   const stale = isStatementStale(latestPeriodEnd, new Date());
-  const summary = useQuery(() => getCurrentMonthSummary(), []);
-  const monthly = useQuery(() => getMonthlyTotals(6), []);
+  // Everything below anchors on the newest month that has data, not today:
+  // a statement is usually a month or two behind the calendar.
   const latestMonth = useQuery(() => listMonthsWithData()[0] ?? null, []);
+  const dataMonth = latestMonth ?? MONTH_KEY;
+  const summary = useQuery(() => getMonthSummary(dataMonth), [dataMonth]);
+  const monthly = useQuery(() => getMonthlyTotals(6, dataMonth), [dataMonth]);
   const recent = useQuery(() => listRecentTransactions(5), []);
 
   const handlePressRow = useCallback(
@@ -124,23 +134,25 @@ export function HomeScreen() {
             <Text style={styles.cardLabel}>HOW WE SPLIT YOUR SPENDING</Text>
             <View style={styles.donutRow}>
               <Donut
-                segments={BUCKETS.map(({ pct, color }) => ({ pct, color }))}
-                centerLabel={`${SPLIT.needs}/${SPLIT.savings}`}
-                centerSubLabel="default split"
+                segments={EXAMPLE_CATEGORIES.map((c) => ({
+                  pct: 100 / EXAMPLE_CATEGORIES.length,
+                  color: pillPalette[c.colorIndex].text,
+                }))}
+                centerLabel="By category"
+                centerSubLabel="example"
               />
               <View style={styles.legend}>
-                {BUCKETS.map((b) => (
-                  <View key={b.label} style={styles.legendRow}>
-                    <View style={[styles.legendDot, { backgroundColor: b.color }]} />
-                    <Text style={styles.legendText}>{b.label}</Text>
-                    <Text style={styles.legendPct}>{b.pct}%</Text>
+                {EXAMPLE_CATEGORIES.map((c) => (
+                  <View key={c.label} style={styles.legendRow}>
+                    <View style={[styles.legendDot, { backgroundColor: pillPalette[c.colorIndex].text }]} />
+                    <Text style={styles.legendText}>{c.label}</Text>
                   </View>
                 ))}
               </View>
             </View>
             <Text style={styles.cardNote}>
-              This is how we bifurcate your spending, so you can have a better look at your finances. Change the
-              split any time in Budget.
+              Once you import a statement, your spending is split by category like this, so you can see exactly
+              where your money goes.
             </Text>
           </View>
 
@@ -199,7 +211,7 @@ export function HomeScreen() {
         )}
 
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>NET THIS MONTH</Text>
+          <Text style={styles.cardLabel}>NET · {longMonth(dataMonth).toUpperCase()}</Text>
           <Amount value={net} kind={net >= 0 ? 'income' : 'expense'} size="lg" />
           <View style={styles.splitRow}>
             <View style={styles.splitItem}>

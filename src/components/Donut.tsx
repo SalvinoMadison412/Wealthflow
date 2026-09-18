@@ -9,11 +9,12 @@ const SIZE = 176;
 const STROKE = 18;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const GAP = 3;
 
 type DonutSegment = { pct: number; color: string };
 
 interface DonutProps {
-  segments: DonutSegment[]; // needs, savings order
+  segments: DonutSegment[]; // drawn clockwise from 12 o'clock, in array order
   centerLabel: string;
   centerSubLabel: string;
 }
@@ -40,7 +41,9 @@ export function Donut({ segments, centerLabel, centerSubLabel }: DonutProps) {
           fill="none"
         />
         {segments.map((s, i) => {
-          const length = arc(s);
+          // A small gap between slices; round caps would overlap once
+          // there are more than a few categories.
+          const length = segments.length > 1 ? Math.max(arc(s) - GAP, 0) : arc(s);
           return (
             <Circle
               key={i}
@@ -51,7 +54,6 @@ export function Donut({ segments, centerLabel, centerSubLabel }: DonutProps) {
               strokeWidth={STROKE}
               strokeDasharray={`${length} ${CIRCUMFERENCE}`}
               strokeDashoffset={-starts[i]}
-              strokeLinecap="round"
               fill="none"
               // rotate(-90) starts each arc at 12 o'clock instead of 3.
               transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
