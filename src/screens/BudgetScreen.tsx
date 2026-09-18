@@ -19,7 +19,7 @@ import {
   getSetting,
   listMonthsWithData,
 } from '../db/queries';
-import { applyPresetRules, setCategoryBucket, setCategoryBudget, setSetting } from '../db/transactions';
+import { enableAutoCategorise, setCategoryBucket, setCategoryBudget, setSetting } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { bucketColors, contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
@@ -74,11 +74,11 @@ export function BudgetScreen() {
   const preset = presetKey === 'custom' ? customPreset : PRESETS[presetKey];
 
   function autoCategorize() {
-    const { rulesAdded, categorised } = applyPresetRules();
+    const categorised = enableAutoCategorise();
     setAutoMessage(
-      rulesAdded === 0 && categorised === 0
+      categorised === 0
         ? 'Nothing new matched. Add a rule for the rest.'
-        : `Categorised ${categorised} transaction${categorised === 1 ? '' : 's'} · ${rulesAdded} rule${rulesAdded === 1 ? '' : 's'} added (see Rules)`
+        : `Categorised ${categorised} transaction${categorised === 1 ? '' : 's'}.`
     );
   }
 
