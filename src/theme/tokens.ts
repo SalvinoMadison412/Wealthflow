@@ -1,139 +1,171 @@
-// Transcribed from stitch_wealth_flow_money_mirror/wealth_flow/DESIGN.md.
-// Single source for color/spacing/radius/type so every screen stays in sync.
+// Redesign tokens — see docs/REDESIGN_PLAN.md PR 1 for the source of every
+// value below. Single source for color/spacing/radii/type so every screen
+// stays in sync.
 import { TextStyle } from 'react-native';
 
-export const colors = {
-  background: '#ffffff',
-  surface: '#ffffff',
-  surfaceContainerLowest: '#ffffff',
-  surfaceContainerLow: '#f5f5f5',
-  surfaceContainer: '#eeeeee',
-  surfaceContainerHigh: '#e2e2e2',
-  surfaceContainerHighest: '#d6d6d6',
-  onSurface: '#1a1a1a',
-  onSurfaceVariant: '#5d5f5e',
-  outline: '#8e8e8e',
-  outlineVariant: '#dadada',
-  primary: '#1a1c1c',
-  onPrimary: '#ffffff',
-  primaryContainer: '#3d3d3d',
-  signal: '#000000',
-  secondary: '#5d5f5e',
-  error: '#ba1a1a',
-  white: '#ffffff',
-  black: '#000000',
+// Loaded at runtime via useFonts in App.tsx, not the expo-font config
+// plugin: plugin-embedded fonts only take effect in a prebuilt/custom-dev-
+// client binary, not Expo Go, and CLAUDE.md requires staying Expo-Go-
+// compatible (no custom dev client). See docs/REDESIGN_PLAN.md PR 1 note.
+export const fontAssets = {
+  'Inter-Regular': require('../../assets/fonts/Inter-Regular.ttf'),
+  'Inter-Medium': require('../../assets/fonts/Inter-Medium.ttf'),
+  'Inter-SemiBold': require('../../assets/fonts/Inter-SemiBold.ttf'),
+  'Manrope-SemiBold': require('../../assets/fonts/Manrope-SemiBold.ttf'),
+  'Manrope-Bold': require('../../assets/fonts/Manrope-Bold.ttf'),
+  'Manrope-ExtraBold': require('../../assets/fonts/Manrope-ExtraBold.ttf'),
 } as const;
+
+// Canonical palette. Use these for anything new.
+const textPrimary = '#14161A';
+const textSecondary = '#6B7280';
+const border = '#E7E8EC';
+const accent = '#4C5FD5';
+const track = '#EEF0F4';
+
+export const colors = {
+  background: '#FAFAF8',
+  card: '#FFFFFF',
+  textPrimary,
+  textSecondary,
+  border,
+  accent,
+  accentText: '#FFFFFF',
+  incomeFill: '#1FAA6D',
+  incomeText: '#15803D',
+  expenseFill: '#E5484D',
+  expenseText: '#C0393E',
+  warningFill: '#F5A623',
+  warningText: '#92600B',
+  track,
+  white: '#FFFFFF',
+  black: '#000000',
+
+  // --- Legacy compatibility -------------------------------------------
+  // The moody-era screens (Insights, Home, Rules, NewRuleForm, Profile)
+  // reference the names below. Each is deleted as its screen is rewritten:
+  // Insights in PR 3, Home in PR 7, Rules/NewRuleForm in PR 8, Profile in
+  // PR 10. Do not add new usages — use the canonical keys above instead.
+  surface: '#FFFFFF',
+  surfaceContainerLowest: '#FFFFFF',
+  surfaceContainerLow: track,
+  surfaceContainer: track,
+  surfaceContainerHigh: border,
+  surfaceContainerHighest: border,
+  onSurface: textPrimary,
+  onSurfaceVariant: textSecondary,
+  outline: textSecondary,
+  outlineVariant: border,
+  primary: accent,
+  onPrimary: '#FFFFFF',
+  primaryContainer: accent,
+  signal: accent,
+  secondary: textSecondary,
+  error: '#C0393E',
+} as const;
+
+// Deterministic category-pill palette. Index by `category.position % 10`.
+// Index 9 (slate) is reserved for "Uncategorized"; index 7 (sky) is
+// reserved for "Transfer" — never assign either to a user category.
+export const pillPalette: { bg: string; text: string }[] = [
+  { bg: '#E8EBFA', text: '#3A4BB3' }, // 0 indigo
+  { bg: '#E1F5EB', text: '#15803D' }, // 1 green
+  { bg: '#FCE4E5', text: '#B3363B' }, // 2 coral
+  { bg: '#FDF0D5', text: '#92600B' }, // 3 amber
+  { bg: '#DDF4F2', text: '#0F766E' }, // 4 teal
+  { bg: '#EFE6FA', text: '#6D28D9' }, // 5 purple
+  { bg: '#FCE7F3', text: '#BE185D' }, // 6 pink
+  { bg: '#E0F2FE', text: '#0369A1' }, // 7 sky — Transfer
+  { bg: '#ECF5D8', text: '#4D7C0F' }, // 8 olive
+  { bg: '#EDEFF3', text: '#475569' }, // 9 slate — Uncategorized
+];
+
+const sm = 8;
+const lg = 16;
+const xxl = 24;
+const xxxl = 32;
 
 export const spacing = {
-  marginPage: 32,
-  gutter: 20,
-  stackSm: 8,
-  stackMd: 24,
-  stackLg: 48,
+  xs: 4,
+  sm,
+  md: 12,
+  lg,
+  xl: 20,
+  xxl,
+  xxxl,
+  pageGutter: 16,
+
+  // --- Legacy compatibility (see colors, above) ---
+  marginPage: xxxl,
+  gutter: lg,
+  stackSm: sm,
+  stackMd: xxl,
+  stackLg: xxxl,
 } as const;
 
+const buttonRadius = 12;
+const cardRadius = 16;
+const sheetRadius = 20;
+
 export const radii = {
-  sm: 2,
-  md: 4,
-  lg: 6,
-  xl: 8,
-  pill: 9999,
+  button: buttonRadius,
+  card: cardRadius,
+  sheet: sheetRadius,
+  pill: 999,
+
+  // --- Legacy compatibility (see colors, above) ---
+  sm: 8,
+  md: buttonRadius,
+  lg: cardRadius,
+  xl: sheetRadius,
 } as const;
 
 // One distinct font family per weight (not fontFamily + fontWeight): custom
 // fonts + fontWeight matching is unreliable on Android, so each token names
 // its exact weight-specific file directly.
-//
-// Two registers, deliberately not blended:
-// - Functional (Space Grotesk headlines + IBM Plex Mono body/labels/Doto
-//   numerals): everyday UI — nav, forms, transaction data. Technical,
-//   grid-based, stays legible.
-// - Expressive (Yuji Syuku): wordmark, motion intro, section dividers only.
-//   Never appears in a form field or a transaction row.
 type NamedTextStyle = Pick<
   TextStyle,
   'fontFamily' | 'fontSize' | 'fontWeight' | 'lineHeight' | 'letterSpacing'
 >;
 
-export const type: Record<
-  | 'displayLg'
-  | 'headlineLg'
-  | 'headlineMd'
-  | 'bodyLg'
-  | 'bodyMd'
-  | 'labelMd'
-  | 'labelSm'
-  | 'numeral'
-  | 'expressive',
-  NamedTextStyle
-> = {
-  displayLg: {
-    fontFamily: 'SpaceGrotesk-Bold',
-    fontSize: 48,
-    lineHeight: 56,
-    letterSpacing: -0.02 * 48,
-  },
-  headlineLg: {
-    fontFamily: 'SpaceGrotesk-Bold',
-    fontSize: 28,
-    lineHeight: 36,
-  },
-  headlineMd: {
-    fontFamily: 'SpaceGrotesk-Medium',
-    fontSize: 24,
-    lineHeight: 32,
-  },
-  bodyLg: {
-    fontFamily: 'IBMPlexMono-Regular',
-    fontSize: 18,
-    lineHeight: 28,
-  },
-  bodyMd: {
-    fontFamily: 'IBMPlexMono-Regular',
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  labelMd: {
-    fontFamily: 'IBMPlexMono-SemiBold',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.05 * 14,
-  },
-  labelSm: {
-    fontFamily: 'IBMPlexMono-Medium',
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  // Dot-matrix numerals — balance/amount figures only, the Nothing "Ndot"-
-  // style treatment. Never used for prose.
-  numeral: {
-    fontFamily: 'Doto-Bold',
-    fontSize: 18,
-    lineHeight: 24,
-  },
-  // Ink-brush expressive layer — wordmark/motion/dividers only.
-  expressive: {
-    fontFamily: 'YujiSyuku-Regular',
-    fontSize: 22,
-    lineHeight: 28,
-  },
-};
+const display: NamedTextStyle = { fontFamily: 'Manrope-ExtraBold', fontSize: 32, lineHeight: 40 };
+const h1: NamedTextStyle = { fontFamily: 'Manrope-Bold', fontSize: 24, lineHeight: 32 };
+const h2: NamedTextStyle = { fontFamily: 'Manrope-Bold', fontSize: 18, lineHeight: 26 };
+const body: NamedTextStyle = { fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 22 };
+const label: NamedTextStyle = { fontFamily: 'Inter-Medium', fontSize: 13, lineHeight: 18 };
+const caption: NamedTextStyle = { fontFamily: 'Inter-Regular', fontSize: 12, lineHeight: 16 };
+const amountMd: NamedTextStyle = { fontFamily: 'Inter-SemiBold', fontSize: 20, lineHeight: 26 };
 
-export const fontAssets = {
-  'SpaceGrotesk-Medium': require('../../assets/fonts/SpaceGrotesk-Medium.ttf'),
-  'SpaceGrotesk-Bold': require('../../assets/fonts/SpaceGrotesk-Bold.ttf'),
-  'IBMPlexMono-Regular': require('../../assets/fonts/IBMPlexMono-Regular.ttf'),
-  'IBMPlexMono-Medium': require('../../assets/fonts/IBMPlexMono-Medium.ttf'),
-  'IBMPlexMono-SemiBold': require('../../assets/fonts/IBMPlexMono-SemiBold.ttf'),
-  'Doto-Bold': require('../../assets/fonts/Doto-Bold.ttf'),
-  'YujiSyuku-Regular': require('../../assets/fonts/YujiSyuku-Regular.ttf'),
+export const type = {
+  display,
+  h1,
+  h2,
+  h3: { fontFamily: 'Manrope-SemiBold', fontSize: 16, lineHeight: 22 } as NamedTextStyle,
+  body,
+  bodyMedium: { fontFamily: 'Inter-Medium', fontSize: 15, lineHeight: 22 } as NamedTextStyle,
+  label,
+  caption,
+  amountSm: { fontFamily: 'Inter-SemiBold', fontSize: 15, lineHeight: 22 } as NamedTextStyle,
+  amountMd,
+  amountLg: { fontFamily: 'Inter-SemiBold', fontSize: 28, lineHeight: 34 } as NamedTextStyle,
+
+  // --- Legacy compatibility (see colors, above) ---
+  displayLg: display,
+  headlineLg: h1,
+  headlineMd: h2,
+  bodyLg: body,
+  bodyMd: body,
+  labelMd: label,
+  labelSm: caption,
+  numeral: amountMd,
+  expressive: display,
 } as const;
 
-// The single "ambient shadow" DESIGN.md specifies for lifted cards.
+// The single "ambient shadow" for lifted cards.
 export const cardShadow = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.04,
-  shadowRadius: 30,
-  elevation: 3,
+  shadowColor: '#14161A',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.06,
+  shadowRadius: 12,
+  elevation: 2,
 } as const;
