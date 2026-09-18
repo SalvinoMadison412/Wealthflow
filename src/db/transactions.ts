@@ -189,7 +189,33 @@ export function insertRule(rule: { merchant?: string; amount?: AmountCondition; 
 
 export function deleteRule(id: string): void {
   db.runSync('DELETE FROM rules WHERE id = ?', [id]);
-  recategorize('all');
+  requestIdleCallback(() => recategorize('all'));
+}
+
+// The write (one row) is instant; the expensive part — re-running every
+// transaction through the compiled rule set — is deferred past the
+// current interaction so the Switch's own flip animation stays smooth.
+export function setRuleEnabled(id: string, enabled: boolean): void {
+  db.runSync('UPDATE rules SET enabled = ? WHERE id = ?', [enabled ? 1 : 0, id]);
+  requestIdleCallback(() => recategorize('all'));
+}
+
+// Swaps this rule's position with its immediate neighbor — no
+// drag-and-drop (see docs/REDESIGN_PLAN.md PR 8), just move up/down.
+// A no-op at either end of the list.
+export function moveRule(id: string, direction: 'up' | 'down'): void {
+  const rules = db.getAllSync<{ id: string; position: number }>('SELECT id, position FROM rules ORDER BY position ASC');
+  const index = rules.findIndex((r) => r.id === id);
+  const swapIndex = direction === 'up' ? index - 1 : index + 1;
+  if (index === -1 || swapIndex < 0 || swapIndex >= rules.length) return;
+
+  const current = rules[index];
+  const neighbor = rules[swapIndex];
+  db.withTransactionSync(() => {
+    db.runSync('UPDATE rules SET position = ? WHERE id = ?', [neighbor.position, current.id]);
+    db.runSync('UPDATE rules SET position = ? WHERE id = ?', [current.position, neighbor.id]);
+  });
+  requestIdleCallback(() => recategorize('all'));
 }
 
 // "Just this one" — an override always wins over every rule (see
