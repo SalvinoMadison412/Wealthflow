@@ -29,13 +29,13 @@ export function LogoSplash({ onDone }: { onDone: () => void }) {
       Animated.delay(150),
       Animated.timing(wDraw, {
         toValue: 0,
-        duration: 700,
+        duration: 1000,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: false, // SVG props can't be driven natively
       }),
       Animated.timing(arrowDraw, {
         toValue: 0,
-        duration: 220,
+        duration: 320,
         easing: Easing.out(Easing.quad),
         useNativeDriver: false,
       }),
