@@ -1,0 +1,36 @@
+import React from 'react';
+import { StyleProp, Text, TextStyle } from 'react-native';
+
+import { colors, type } from '../theme/tokens';
+
+const inr = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 2,
+});
+
+const sizeStyle = { sm: type.amountSm, md: type.amountMd, lg: type.amountLg };
+const kindColor = { income: colors.incomeText, expense: colors.expenseText, neutral: colors.textPrimary };
+const sign = { income: '+', expense: '−', neutral: '' };
+
+interface AmountProps {
+  value: number;
+  kind?: 'income' | 'expense' | 'neutral';
+  size?: 'sm' | 'md' | 'lg';
+  style?: StyleProp<TextStyle>;
+}
+
+// The one place amounts are formatted: sign, ₹ grouping, and tabular
+// figures all live here so every screen's numbers line up and read the
+// same way. Never format a rupee amount inline — use this.
+export function Amount({ value, kind = 'neutral', size = 'md', style }: AmountProps) {
+  return (
+    <Text
+      style={[sizeStyle[size], { color: kindColor[kind], fontVariant: ['tabular-nums'] }, style]}
+      maxFontSizeMultiplier={1.3}
+    >
+      {sign[kind]}
+      {inr.format(Math.abs(value))}
+    </Text>
+  );
+}

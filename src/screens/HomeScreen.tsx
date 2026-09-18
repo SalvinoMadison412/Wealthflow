@@ -1,13 +1,11 @@
 import { Feather } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '../components/AppHeader';
-import { CornerBrackets } from '../components/CornerBrackets';
 import { PressableScale } from '../components/PressableScale';
-import { YinYangSpinner } from '../components/YinYangSpinner';
 import { useTransactions } from '../data/TransactionsContext';
 import { usePdfExtractor } from '../pdf/PdfExtractorProvider';
 import { PdfPasswordRequiredError } from '../pdf/types';
@@ -79,14 +77,14 @@ export function HomeScreen() {
           </Text>
         </View>
 
-        <CornerBrackets style={styles.dropzoneWrap}>
+        <View style={styles.dropzoneWrap}>
           <PressableScale
             style={styles.dropzone}
             onPress={pickPdf}
             disabled={status.kind === 'loading'}
           >
             {status.kind === 'loading' ? (
-              <YinYangSpinner size={44} />
+              <ActivityIndicator size="large" color={colors.accent} />
             ) : (
               <>
                 <View style={styles.dropzoneIconWrap}>
@@ -102,7 +100,7 @@ export function HomeScreen() {
               </>
             )}
           </PressableScale>
-        </CornerBrackets>
+        </View>
 
         {status.kind === 'needsPassword' && (
           <View style={styles.passwordBox}>

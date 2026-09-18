@@ -1,10 +1,9 @@
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { MotionIntro } from './src/components/MotionIntro';
 import { RulesProvider } from './src/data/RulesContext';
 import { TransactionsProvider } from './src/data/TransactionsContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -15,7 +14,6 @@ SplashScreen.preventAutoHideAsync();
 
 export default function App() {
   const [fontsLoaded] = useFonts(fontAssets);
-  const [showIntro, setShowIntro] = useState(true);
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded) {
@@ -35,8 +33,7 @@ export default function App() {
         <RulesProvider>
           <TransactionsProvider>
             <RootNavigator />
-            {showIntro && <MotionIntro onDone={() => setShowIntro(false)} />}
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
           </TransactionsProvider>
         </RulesProvider>
       </PdfExtractorProvider>
