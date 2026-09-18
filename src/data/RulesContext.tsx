@@ -1,4 +1,8 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
+
+import { db } from '../db/db';
+import { deleteRule, insertRule } from '../db/transactions';
+import { useQuery } from '../db/useQuery';
 
 export type AmountCondition =
   | { operator: 'moreThan' | 'lessThan' | 'equalTo'; value: number }
@@ -13,11 +17,21 @@ export interface Rule {
   category: string;
 }
 
-// Ships empty, per CLAUDE.md: categorization rules are entirely user-built,
-// starting from onboarding. Nothing here is pre-seeded from the internal
-// merchant display-name lookup table (src/statement/merchantNames.ts) either
-// — that table only cleans up names, it never assigns a category.
-const initialRules: Rule[] = [];
+type RuleRow = {
+  id: string;
+  merchant_pattern: string | null;
+  amount_json: string | null;
+  category: string;
+};
+
+function toRule(row: RuleRow): Rule {
+  return {
+    id: row.id,
+    merchant: row.merchant_pattern ?? undefined,
+    amount: row.amount_json ? JSON.parse(row.amount_json) : undefined,
+    category: row.category,
+  };
+}
 
 interface RulesContextValue {
   rules: Rule[];
@@ -27,16 +41,26 @@ interface RulesContextValue {
 
 const RulesContext = createContext<RulesContextValue | null>(null);
 
+// Persisted in SQLite (see src/db) — rules ship empty per CLAUDE.md
+// (entirely user-built, nothing pre-seeded) and survive app restarts.
 export function RulesProvider({ children }: { children: React.ReactNode }) {
-  const [rules, setRules] = useState<Rule[]>(initialRules);
+  const rows = useQuery(
+    () =>
+      db.getAllSync<RuleRow>(
+        `SELECT r.id, r.merchant_pattern, r.amount_json, c.name as category
+         FROM rules r JOIN categories c ON c.id = r.category_id
+         ORDER BY r.position ASC`
+      ),
+    []
+  );
 
   const value = useMemo<RulesContextValue>(
     () => ({
-      rules,
-      addRule: (rule) => setRules((prev) => [...prev, { ...rule, id: String(Date.now()) }]),
-      removeRule: (id) => setRules((prev) => prev.filter((r) => r.id !== id)),
+      rules: rows.map(toRule),
+      addRule: (rule) => insertRule(rule),
+      removeRule: (id) => deleteRule(id),
     }),
-    [rules]
+    [rows]
   );
 
   return <RulesContext.Provider value={value}>{children}</RulesContext.Provider>;

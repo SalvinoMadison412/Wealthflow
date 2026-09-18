@@ -1,8 +1,7 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
+import { importStatement } from '../db/transactions';
 import { PageContent } from '../pdf/types';
-import { parseStatement } from '../statement/registry';
-import { reconcile } from '../statement/reconciliation';
 import { ParsedStatement, ReconciliationResult } from '../statement/types';
 
 interface TransactionsContextValue {
@@ -13,24 +12,26 @@ interface TransactionsContextValue {
 
 const TransactionsContext = createContext<TransactionsContextValue | null>(null);
 
-// In-memory only — expo-sqlite persistence is CLAUDE.md's next build-order
-// step, not this one, so a parsed statement doesn't survive an app restart.
+// `statement`/`reconciliation` here are this session's last-import result,
+// for the current Home screen's immediate post-import confirmation UI —
+// not a durable read model (that's screens querying src/db directly,
+// starting with the Home rewrite in PR 7). The underlying data itself is
+// fully persisted in SQLite via importStatement and does survive a
+// restart; nothing in the app queries it back yet.
 export function TransactionsProvider({ children }: { children: React.ReactNode }) {
   const [statement, setStatement] = useState<ParsedStatement | null>(null);
   const [reconciliation, setReconciliation] = useState<ReconciliationResult | null>(null);
 
+  const loadFromPages = useCallback((pages: PageContent[]) => {
+    const result = importStatement(pages);
+    setStatement(result.statement);
+    setReconciliation(result.reconciliation);
+    return result.statement;
+  }, []);
+
   const value = useMemo<TransactionsContextValue>(
-    () => ({
-      statement,
-      reconciliation,
-      loadFromPages: (pages) => {
-        const parsed = parseStatement(pages);
-        setStatement(parsed);
-        setReconciliation(reconcile(parsed));
-        return parsed;
-      },
-    }),
-    [statement, reconciliation]
+    () => ({ statement, reconciliation, loadFromPages }),
+    [statement, reconciliation, loadFromPages]
   );
 
   return <TransactionsContext.Provider value={value}>{children}</TransactionsContext.Provider>;
