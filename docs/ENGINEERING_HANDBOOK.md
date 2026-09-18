@@ -31,7 +31,7 @@ Everything in the architecture follows from those promises:
 | Statements and transactions never leave the phone | PDF parsing runs in a hidden WebView on-device; transactions are stored only in a local SQLite database; there is no code path that uploads them. |
 | No AI | Extraction is pdf.js text positions plus regular expressions. Categorisation is user-written merchant patterns and amount thresholds, first match wins. `CLAUDE.md` forbids adding a model to either path. |
 | Only sign-in details and rules are kept on the account | Supabase holds three tables: `profiles`, `categories`, `rules`. Nothing else. |
-| Re-importing restores insights | Import is idempotent (a transaction id is derived from its content), and rules pulled from the account re-categorise re-imported transactions the same way. |
+| Re-importing restores insights | Import is idempotent (a transaction's `dedupe_key` is derived from its content, never from the account), and rules pulled from the account re-categorise re-imported transactions the same way. |
 
 ### User-facing flow
 
@@ -321,13 +321,13 @@ runs migrations, and exposes `subscribeToChanges(listener, tables?)`.
 `schema.ts` migrations are keyed on `PRAGMA user_version`; append a new
 SQL string to `MIGRATIONS` to change the schema (v2 folded the removed
 Wants bucket into Needs; v1's CHECK still allows `'wants'` because SQLite
-cannot alter a CHECK without a table rebuild, so the app just never writes it). Current tables:
+cannot alter a CHECK without a table rebuild, so the app just never writes it; v3 added `transactions.dedupe_key` with a UNIQUE index, backfilled once at startup by `backfillDedupeKeys()` in `db.ts`, which also deletes any pre-existing duplicates). Current tables:
 
 | Table | Purpose | Notes |
 |---|---|---|
 | `accounts` | A bank account the user imports into | `owner_label` defaults to "Me" (household phase 0) |
 | `statements` | One row per import | `period_start/end` from first/last transaction date, `reconciled_ok`, `imported_at` |
-| `transactions` | Every parsed row | id = `accountId|date|withdrawal|deposit|balance|refNo|description` (see `transactionId.ts`), so re-importing the same PDF is a no-op. `category_id` is the effective category, `category_override_id` a manual pin, `matched_rule_id` which rule set it, `is_transfer` |
+| `transactions` | Every parsed row | id = `accountId|date|withdrawal|deposit|balance|refNo|description` (see `transactionId.ts`). `dedupe_key` (UNIQUE, no account in it: bank ref + direction + amount + date when there is a ref, else date + amounts + balance + description) means a transaction seen again, in any account, is stored once. `category_id` is the effective category, `category_override_id` a manual pin, `matched_rule_id` which rule set it, `is_transfer` |
 | `categories` | User categories + two seeded reserved ones | `bucket` (unused, always 'needs'), `monthly_budget`, `color_index`, `position` |
 | `rules` | Categorisation rules | `merchant_pattern` (regex or plain contains), `amount_json`, `category_id`, `enabled`, `position` (lower = higher priority) |
 | `settings` | Key/value | `profile` (JSON mirror), `monthly_income`, `rules_synced_at`, `appearance`, `tour_done`, `auto_categorise`, budget preset |
@@ -339,8 +339,8 @@ one statement) and is called after any rule/category change, deferred
 with `requestIdleCallback` so toggles stay smooth.
 
 `importStatement(pages, accountId)`: parse → reconcile → insert statement
-and transactions (`INSERT OR IGNORE`) in one SQLite transaction →
-`recategorize` the new rows → `runTransferDetection`.
+and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLite transaction →
+`recategorize` the new rows → `runTransferDetection`. An import is never refused; it returns `{ added, duplicates }` and the result card says how many rows were skipped.
 
 ### 5.4 Categorisation (`src/db/matching.ts`, `src/data/rulePattern.ts`)
 

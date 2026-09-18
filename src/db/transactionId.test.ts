@@ -44,3 +44,27 @@ test('a null refNo is distinct from an empty-string refNo collision with another
   expect(a).toBe(b); // both serialize to '', which is correct: "no ref" is one case
 });
 
+
+import { makeDedupeKey } from './transactionId';
+
+const { accountId: _account, ...row } = base;
+
+test('dedupe key ignores the account: the same statement in two accounts collapses', () => {
+  expect(makeDedupeKey(row)).toBe(makeDedupeKey({ ...row }));
+});
+
+test('with a bank ref, balance and description formatting do not matter', () => {
+  expect(makeDedupeKey({ ...row, balance: 1, description: 'x' })).toBe(makeDedupeKey({ ...row, balance: 2, description: 'y' }));
+});
+
+test('both legs of a transfer sharing a ref stay distinct', () => {
+  const out = makeDedupeKey({ ...row, withdrawal: 500, deposit: null });
+  const inn = makeDedupeKey({ ...row, withdrawal: null, deposit: 500 });
+  expect(out).not.toBe(inn);
+});
+
+test('without a ref, falls back to date/amount/balance/description with whitespace normalised', () => {
+  const a = makeDedupeKey({ ...row, refNo: null, description: 'Interest  credit ' });
+  expect(a).toBe(makeDedupeKey({ ...row, refNo: null, description: 'Interest credit' }));
+  expect(a).not.toBe(makeDedupeKey({ ...row, refNo: null, description: 'Interest credit', balance: 1 }));
+});
