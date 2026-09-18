@@ -100,6 +100,7 @@ export const spacing = {
   xxl,
   xxxl,
   pageGutter: 16,
+  contentMaxWidth: 600,
 
   // --- Legacy compatibility (see colors, above) ---
   marginPage: xxxl,
@@ -174,4 +175,12 @@ export const cardShadow = {
   shadowOpacity: 0.06,
   shadowRadius: 12,
   elevation: 2,
+} as const;
+
+// Caps scrollable content width on tablets; a no-op on phones (width <
+// 600 already). Spread into a screen's contentContainerStyle.
+export const contentWrap = {
+  width: '100%',
+  maxWidth: spacing.contentMaxWidth,
+  alignSelf: 'center',
 } as const;

@@ -14,7 +14,7 @@ import { PageContent } from '../pdf/types';
 import { PdfPasswordRequiredError } from '../pdf/types';
 import { parseStatement } from '../statement/registry';
 import { ParsedStatement, ReconciliationResult } from '../statement/types';
-import { colors, pillPalette, radii, spacing, type } from '../theme/tokens';
+import { colors, contentWrap, pillPalette, radii, spacing, type } from '../theme/tokens';
 
 // Reads a local file:// URI as base64 via RN's built-in fetch/Blob/FileReader
 // rather than expo-file-system: Expo Go sandboxes file access per-project,
@@ -114,12 +114,12 @@ export function ImportScreen() {
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.title}>Import statement</Text>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={13} accessibilityLabel="Close">
           <Feather name="x" size={22} color={colors.textPrimary} />
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         {status.kind === 'chooseAccount' ? (
           <AccountChooser
             bank={status.bank}

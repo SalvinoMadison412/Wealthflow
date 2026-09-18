@@ -20,7 +20,7 @@ import {
 } from '../db/queries';
 import { setCategoryBucket, setCategoryBudget, setSetting } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
-import { colors, pillPalette, radii, spacing, type } from '../theme/tokens';
+import { colors, contentWrap, pillPalette, radii, spacing, type } from '../theme/tokens';
 
 const BUCKETS: Bucket[] = ['needs', 'wants', 'savings'];
 const BUCKET_COLOR_INDEX: Record<Bucket, number> = { needs: 0, wants: 5, savings: 1 };
@@ -111,15 +111,15 @@ export function BudgetScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <ScopeSwitch scope={scope} onChange={(s) => setSetting('scope', s)} ownerLabels={ownerLabels} />
 
         <View style={styles.monthRow}>
-          <Pressable onPress={() => setMonth((m) => shiftMonth(m, -1))} hitSlop={10} accessibilityLabel="Previous month">
+          <Pressable onPress={() => setMonth((m) => shiftMonth(m, -1))} hitSlop={13} accessibilityLabel="Previous month">
             <Feather name="chevron-left" size={22} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.monthLabel}>{monthLabel(month)}</Text>
-          <Pressable onPress={() => setMonth((m) => shiftMonth(m, 1))} hitSlop={10} accessibilityLabel="Next month">
+          <Pressable onPress={() => setMonth((m) => shiftMonth(m, 1))} hitSlop={13} accessibilityLabel="Next month">
             <Feather name="chevron-right" size={22} color={colors.textPrimary} />
           </Pressable>
         </View>

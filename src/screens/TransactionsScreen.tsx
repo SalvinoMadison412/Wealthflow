@@ -24,7 +24,7 @@ import {
 import { listAccounts, setSetting } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { colors, spacing, type } from '../theme/tokens';
+import { colors, contentWrap, spacing, type } from '../theme/tokens';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -200,6 +200,7 @@ export function TransactionsScreen() {
         </View>
       ) : (
         <SectionList
+          contentContainerStyle={contentWrap}
           sections={sections}
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled
