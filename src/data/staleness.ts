@@ -1,5 +1,5 @@
 // ponytail: fixed threshold; make it a setting only if users ask for one.
-export const STALE_AFTER_DAYS = 35;
+const STALE_AFTER_DAYS = 35;
 
 const DAY_MS = 86_400_000;
 

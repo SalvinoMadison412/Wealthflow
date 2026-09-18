@@ -6,7 +6,7 @@ import { colors, radii, spacing, type } from '../theme/tokens';
 
 const TRACK_HEIGHT = 96;
 
-export type MonthlyBar = { month: string; income: number; expense: number };
+type MonthlyBar = { month: string; income: number; expense: number };
 
 function monthLabel(month: string): string {
   const [y, m] = month.split('-').map(Number);

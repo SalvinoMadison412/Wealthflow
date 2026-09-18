@@ -45,29 +45,6 @@ export const colors = {
   track,
   white: '#FFFFFF',
   black: '#000000',
-
-  // --- Legacy compatibility -------------------------------------------
-  // The moody-era screens still reference the names below (Insights was
-  // deleted outright in PR 3, not rewritten). Each remaining reference is
-  // removed as its screen is rewritten: Home in PR 7, Rules/NewRuleForm in
-  // PR 8, Profile in PR 10. Do not add new usages — use the canonical keys
-  // above instead.
-  surface: '#FFFFFF',
-  surfaceContainerLowest: '#FFFFFF',
-  surfaceContainerLow: track,
-  surfaceContainer: track,
-  surfaceContainerHigh: border,
-  surfaceContainerHighest: border,
-  onSurface: textPrimary,
-  onSurfaceVariant: textSecondary,
-  outline: textSecondary,
-  outlineVariant: border,
-  primary: accent,
-  onPrimary: '#FFFFFF',
-  primaryContainer: accent,
-  signal: accent,
-  secondary: textSecondary,
-  error: '#C0393E',
 } as const;
 
 // Deterministic category-pill palette. Index by `category.position % 10`.
@@ -101,13 +78,6 @@ export const spacing = {
   xxxl,
   pageGutter: 16,
   contentMaxWidth: 600,
-
-  // --- Legacy compatibility (see colors, above) ---
-  marginPage: xxxl,
-  gutter: lg,
-  stackSm: sm,
-  stackMd: xxl,
-  stackLg: xxxl,
 } as const;
 
 const buttonRadius = 12;
@@ -119,12 +89,6 @@ export const radii = {
   card: cardRadius,
   sheet: sheetRadius,
   pill: 999,
-
-  // --- Legacy compatibility (see colors, above) ---
-  sm: 8,
-  md: buttonRadius,
-  lg: cardRadius,
-  xl: sheetRadius,
 } as const;
 
 // One distinct font family per weight (not fontFamily + fontWeight): custom
@@ -155,17 +119,6 @@ export const type = {
   amountSm: { fontFamily: 'Inter-SemiBold', fontSize: 15, lineHeight: 22 } as NamedTextStyle,
   amountMd,
   amountLg: { fontFamily: 'Inter-SemiBold', fontSize: 28, lineHeight: 34 } as NamedTextStyle,
-
-  // --- Legacy compatibility (see colors, above) ---
-  displayLg: display,
-  headlineLg: h1,
-  headlineMd: h2,
-  bodyLg: body,
-  bodyMd: body,
-  labelMd: label,
-  labelSm: caption,
-  numeral: amountMd,
-  expressive: display,
 } as const;
 
 // The single "ambient shadow" for lifted cards.

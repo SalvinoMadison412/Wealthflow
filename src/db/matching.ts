@@ -13,7 +13,7 @@ export type DbRuleRow = {
   category_id: string;
 };
 
-export type CompiledRule = {
+type CompiledRule = {
   id: string;
   categoryId: string;
   matches: (merchant: string, amount: number) => boolean;

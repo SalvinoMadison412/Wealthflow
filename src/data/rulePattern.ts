@@ -1,9 +1,7 @@
 // Pure — no expo-sqlite import, so it's unit tested directly (see
 // db/transactionId.ts for why the DB layer itself isn't).
 
-type AmountCondition =
-  | { operator: 'moreThan' | 'lessThan' | 'equalTo'; value: number }
-  | { operator: 'between'; min: number; max: number };
+import { AmountCondition } from '../db/matching';
 
 function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

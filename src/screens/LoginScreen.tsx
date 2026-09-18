@@ -13,7 +13,7 @@ import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
 
 // Indian numbers by default; anything typed with a leading "+" is taken
 // as already international.
-export function normalizePhone(raw: string): string | null {
+function normalizePhone(raw: string): string | null {
   const cleaned = raw.replace(/[^\d+]/g, '');
   if (cleaned.startsWith('+')) return cleaned.length >= 9 ? cleaned : null;
   return cleaned.length === 10 ? `+91${cleaned}` : null;

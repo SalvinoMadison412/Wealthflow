@@ -28,10 +28,6 @@ export function makeTransactionId(input: {
   ].join('|');
 }
 
-export function makeAccountId(bank: string, maskedNumber: string | null): string {
-  if (!maskedNumber) return `${bank}|manual-${Date.now()}`.toLowerCase();
-  return `${bank}|${maskedNumber}`.toLowerCase();
-}
 
 // Rule/category ids — good enough uniqueness for user-authored rows
 // created one at a time by a single device; not a UUID library.

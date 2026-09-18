@@ -7,8 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CategoryPill } from '../components/CategoryPill';
 import { FilterChip } from '../components/FilterChip';
 import { PressableScale } from '../components/PressableScale';
-import { AmountCondition, useRules } from '../data/RulesContext';
-import { getOrCreateCategoryByName } from '../db/transactions';
+import { AmountCondition } from '../db/matching';
+import { getOrCreateCategoryByName, insertRule } from '../db/transactions';
 import { listCategoriesForFilter } from '../db/queries';
 import { useQuery } from '../db/useQuery';
 import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
@@ -31,7 +31,6 @@ function isValidNumber(text: string): boolean {
 // "Blinkit" alone, "over ₹500" alone, or both together (AND).
 export function NewRuleFormScreen() {
   const navigation = useNavigation();
-  const { addRule } = useRules();
   const categories = useQuery(() => listCategoriesForFilter(), []);
 
   const [merchant, setMerchant] = useState('');
@@ -74,7 +73,7 @@ export function NewRuleFormScreen() {
           ? { operator: 'between', min: Number(min), max: Number(max) }
           : { operator, value: Number(value) };
 
-    addRule({
+    insertRule({
       category: categoryName,
       merchant: merchant.trim() || undefined,
       amount,

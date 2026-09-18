@@ -22,7 +22,7 @@ export class PdfPasswordRequiredError extends Error {
   }
 }
 
-export type ExtractRequestMessage = {
+type ExtractRequestMessage = {
   requestId: string;
   type: 'extract';
   base64: string;
