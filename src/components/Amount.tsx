@@ -10,6 +10,8 @@ const inr = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 2,
 });
 
+export const formatINR = (value: number) => inr.format(value);
+
 const sizeStyle = { sm: type.amountSm, md: type.amountMd, lg: type.amountLg };
 const sign = { income: '+', expense: '−', neutral: '' };
 

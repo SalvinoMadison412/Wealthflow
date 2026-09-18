@@ -4,9 +4,10 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Amount } from '../components/Amount';
+import { Amount, formatINR } from '../components/Amount';
 import { CategoryPill } from '../components/CategoryPill';
 import { PressableScale } from '../components/PressableScale';
+import { TransactionDetails } from '../components/TransactionDetails';
 import { suggestPattern } from '../data/rulePattern';
 import { getTransactionDetail, listCategoriesForFilter } from '../db/queries';
 import {
@@ -39,6 +40,7 @@ export function CategorizeSheet() {
   const [showNewCategoryField, setShowNewCategoryField] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [matcherText, setMatcherText] = useState('');
+  const [showDetails, setShowDetails] = useState(false);
 
   const retro = useMemo(
     () => (pendingCategoryId ? retroCount(matcherText.trim() || null, null) : 0),
@@ -100,6 +102,14 @@ export function CategorizeSheet() {
               {transaction.description}
             </Text>
           </View>
+          <Pressable
+            onPress={() => setShowDetails((v) => !v)}
+            hitSlop={13}
+            accessibilityLabel={showDetails ? 'Hide transaction details' : 'Show transaction details'}
+            accessibilityState={{ expanded: showDetails }}
+          >
+            <Feather name="info" size={22} color={showDetails ? colors.accent : colors.textPrimary} />
+          </Pressable>
           <Pressable onPress={() => navigation.goBack()} hitSlop={13} accessibilityLabel="Close">
             <Feather name="x" size={22} color={colors.textPrimary} />
           </Pressable>
@@ -122,6 +132,33 @@ export function CategorizeSheet() {
             {statusLine}
           </Text>
         </View>
+
+        {showDetails && (
+          <TransactionDetails
+            rows={[
+              ...(transaction.refNo ? [{ label: 'Reference no.', value: transaction.refNo }] : []),
+              { label: 'Merchant', value: transaction.merchant },
+              { label: 'Description', value: transaction.description },
+              {
+                label: 'Date',
+                value: new Date(transaction.date).toLocaleDateString('en-IN', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                }),
+              },
+              { label: 'Type', value: kind === 'income' ? 'Credit (money in)' : 'Debit (money out)' },
+              { label: 'Amount', value: formatINR(amount) },
+              { label: 'Balance after', value: formatINR(transaction.balance) },
+              {
+                label: 'Account',
+                value: [transaction.accountBank, transaction.accountOwner, transaction.accountMasked]
+                  .filter(Boolean)
+                  .join(' · '),
+              },
+            ]}
+          />
+        )}
 
         <Text style={styles.sectionLabel}>CATEGORY</Text>
         <View style={styles.grid}>

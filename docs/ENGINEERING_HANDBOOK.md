@@ -50,7 +50,7 @@ Everything in the architecture follows from those promises:
    to categorise it ("just this one") or create a rule from it.
 6. **Rules**: priority-ordered list; enable/disable, move up/down, delete.
 7. **Budget**: needs/savings split (80/20, 70/30 or custom),
-   per-category monthly budgets, progress against real income.
+   per-category monthly budgets (a category with no budget set shows its spend but no progress bar), progress against real income.
 8. **Menu** (top-left icon): Profile, Statements, Appearance
    (light / dark / system), Take the tour, and Family (locked, with a
    note on what it will do).
@@ -70,6 +70,7 @@ Everything in the architecture follows from those promises:
 | App framework | React Native + Expo, managed workflow | Expo SDK 57, RN 0.86, React 19.2 | One codebase for Android and iOS; no custom native code required for anything the app does. Stay in managed workflow (`CLAUDE.md`). |
 | Language | TypeScript, strict | TS 6.0 | |
 | Navigation | React Navigation 7 (native stack + bottom tabs) | | |
+| Clipboard | `expo-clipboard` | 57.x | One-tap copy of transaction details. Native module: a new dev build is needed after adding it. |
 | Local database | `expo-sqlite` (native SQLite) | 57.x | Transactions, statements, accounts, rules, categories, settings. Synchronous API, change listener for reactive screens. |
 | PDF extraction | `pdfjs-dist` inside a hidden `react-native-webview` | pdf.js 6.2, webview 13.16 | Cross-platform text extraction with positions, no native module. |
 | Auth + account data | Supabase (Postgres + Auth) via `@supabase/supabase-js` | 2.x | Google OAuth (PKCE web flow), phone OTP, three RLS-protected tables. |
@@ -181,7 +182,7 @@ sync (§6) with the session.
 | `HomeScreen` | `hasAnyTransactions`, `listAccounts` (staleness), `getCurrentMonthSummary`, `getMonthlyTotals(6)`, `listRecentTransactions(5)`, `listMonthsWithData` (for `BalanceSummary`), profile | – |
 | `ImportScreen` | `listAccounts` | `createAccount`, `renameAccount`, `importStatement` |
 | `TransactionsScreen` | `listMonthsWithData`, `listCategoriesForFilter`, `listTransactions(filters)` (account, month, category, uncategorised, received/sent, amount range, recurring); month is a Budget-style ‹ March 2026 › stepper over months with data (label taps toggle All months) | – |
-| `CategorizeSheet` | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one") or `insertRule` (with `suggestPattern` prefill) |
+| `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one") or `insertRule` (with `suggestPattern` prefill) |
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
 | `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `BalanceSummary` (selected month), `countTransactionsInMonth`, `countUncategorized`, `getIncomeForMonth`, `getCategoryBudgetRows`, `getSetting('monthly_income')`, `PRESETS` | `setCategoryBucket`, `setCategoryBudget`, budget preset setting |

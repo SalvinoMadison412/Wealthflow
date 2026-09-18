@@ -300,7 +300,7 @@ function CategoryBudgetCard({ row }: { row: CategoryBudgetRow }) {
       <Text style={styles.categorySpent}>
         {formatRupees(row.spent)} spent{row.monthlyBudget != null ? ` of ${formatRupees(row.monthlyBudget)}` : ''}
       </Text>
-      <ProgressBar spent={row.spent} budget={row.monthlyBudget ?? 0} />
+      {row.monthlyBudget != null && <ProgressBar spent={row.spent} budget={row.monthlyBudget} />}
     </View>
   );
 }
