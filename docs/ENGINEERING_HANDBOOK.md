@@ -194,7 +194,7 @@ sync (§6) with the session.
 | `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one") or `insertRule` (with `suggestPattern` prefill) |
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
-| `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `countTransactionsInMonth`, `countUncategorized`, `getCategoryBudgetRows` | `setCategoryBudget`, `enableAutoCategorise` |
+| `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `countTransactionsInMonth`, `countUncategorized`, `getCategoryBudgetRows` | `setCategoryBudget`, `enableAutoCategorise`, `decategorizeMonth` |
 | `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, rename/delete account, rename/recolour/delete category, `setSetting('monthly_income')`, `wipeAllData` |
 | `MenuSheet` | profile, `getSetting('appearance')` | `setSetting('appearance')`, `deleteSetting('tour_done')`; `replace()`s itself with Profile or Statements |
 | `StatementsScreen` | `listStatements` | `deleteStatement` |
@@ -366,7 +366,7 @@ and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLi
 - **Auto-categorise** (Budget tab, above Categories, shown while anything
   is Uncategorized) runs in the background and is **not** stored as rules:
   the Rules tab lists only rules the user wrote. Tapping it calls
-  `enableAutoCategorise()`, which sets the local `settings.auto_categorise`
+  `enableAutoCategorise(month)`, which sets the local `settings.auto_categorise`
   flag and recategorises. `recategorize()` then applies, per transaction:
   manual override → user rules → built-in pattern (`findPreset` over
   `PRESET_RULES` in `src/data/autoCategorize.ts`) → Uncategorized. A
@@ -374,6 +374,16 @@ and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLi
   says "Auto-categorised". Preset categories are created lazily, only when
   something lands in them. The flag is local (not synced); presets are not
   synced either, only the categories they create.
+- **Decategorize** (Budget tab, "Decategorize <month>" beside the
+  Categories title, behind a confirmation): `decategorizeMonth(month)`
+  clears every manual override in that month, adds it to
+  `settings.decategorized_months` (JSON array of `YYYY-MM`, see
+  `src/data/decategorize.ts`) and recategorises. `recategorize()` skips
+  the built-in patterns for those months, so the month is all Uncategorized
+  apart from the user's own rules, which still apply and are how they build
+  their own set. Auto-categorise while viewing that month removes it from
+  the list and brings the patterns back. New imports into a decategorized
+  month are not pattern-categorised either.
 - `PRESET_RULES`: 14 categories, first match wins, order matters. Income
   first (refunds, salary, interest); Subscriptions before Shopping (Amazon
   Prime vs an Amazon order); Groceries before Food (Swiggy Instamart);

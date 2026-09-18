@@ -6,8 +6,9 @@ import { detectTransferPairs, TransferCandidate } from '../data/transfers';
 import { db } from './db';
 import { AmountCondition, compileRules, matchText } from './matching';
 import { getOrCreateCategoryByName } from './categories';
-import { countUncategorized } from './queries';
-import { AUTO_CATEGORISE_SETTING, recategorize } from './recategorize';
+import { countUncategorized, getSetting } from './queries';
+import { addMonth, parseMonths, removeMonth } from '../data/decategorize';
+import { AUTO_CATEGORISE_SETTING, DECATEGORIZED_MONTHS_SETTING, recategorize } from './recategorize';
 import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
 import { makeDedupeKey, makeTransactionId, newId } from './transactionId';
 
@@ -208,15 +209,33 @@ export function insertRule(rule: { merchant?: string; amount?: AmountCondition; 
   recategorize('all');
 }
 
+function decategorizedMonths(): string[] {
+  return parseMonths(getSetting(DECATEGORIZED_MONTHS_SETTING));
+}
+
 // Turns on the built-in patterns (data/autoCategorize.ts). They are not
 // rules rows: recategorize() applies them after the user's own rules, so
-// the Rules tab only ever lists what the user wrote. Returns how many
-// transactions left Uncategorized.
-export function enableAutoCategorise(): number {
+// the Rules tab only ever lists what the user wrote. `month` is the month
+// being viewed: if it was decategorized, this brings the patterns back for
+// it. Returns how many transactions left Uncategorized.
+export function enableAutoCategorise(month: string): number {
   const before = countUncategorized();
   setSetting(AUTO_CATEGORISE_SETTING, '1');
+  setSetting(DECATEGORIZED_MONTHS_SETTING, JSON.stringify(removeMonth(decategorizedMonths(), month)));
   recategorize('all');
   return before - countUncategorized();
+}
+
+// Every transaction in `month` goes back to Uncategorized, manual "just
+// this one" picks included, and the built-in patterns stop applying to that
+// month; the user's own rules still do, so rules written afterwards
+// categorise it. Auto-categorise on that month undoes this.
+export function decategorizeMonth(month: string): void {
+  db.withTransactionSync(() => {
+    db.runSync("UPDATE transactions SET category_override_id = NULL WHERE strftime('%Y-%m', date) = ?", [month]);
+    setSetting(DECATEGORIZED_MONTHS_SETTING, JSON.stringify(addMonth(decategorizedMonths(), month)));
+  });
+  recategorize('all');
 }
 
 export function deleteRule(id: string): void {
