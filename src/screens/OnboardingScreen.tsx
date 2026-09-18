@@ -48,7 +48,7 @@ export function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={[styles.content, contentWrap]} keyboardShouldPersistTaps="handled">
         {editing && (
           <Pressable onPress={() => navigation.goBack()} hitSlop={13} accessibilityLabel="Back" style={styles.back}>
