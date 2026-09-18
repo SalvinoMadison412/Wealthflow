@@ -2,13 +2,13 @@ import { PageContent } from '../pdf/types';
 import { parseStatement } from '../statement/registry';
 import { reconcile } from '../statement/reconciliation';
 import { ParsedStatement, ReconciliationResult } from '../statement/types';
-import { PRESET_RULES } from '../data/autoCategorize';
 import { Bucket } from '../data/budget';
 import { detectTransferPairs, TransferCandidate } from '../data/transfers';
 import { db } from './db';
-import { AmountCondition, compileRules } from './matching';
+import { AmountCondition, compileRules, matchText } from './matching';
+import { getOrCreateCategoryByName } from './categories';
 import { countUncategorized } from './queries';
-import { recategorize } from './recategorize';
+import { AUTO_CATEGORISE_SETTING, recategorize } from './recategorize';
 import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
 import { makeTransactionId, newId } from './transactionId';
 
@@ -182,22 +182,6 @@ function runTransferDetection(): void {
   });
 }
 
-export function getOrCreateCategoryByName(name: string, bucket: Bucket = 'needs'): string {
-  const existing = db.getFirstSync<{ id: string }>('SELECT id FROM categories WHERE name = ?', [name]);
-  if (existing) return existing.id;
-
-  const { max } = db.getFirstSync<{ max: number | null }>('SELECT MAX(position) as max FROM categories') ?? {
-    max: null,
-  };
-  const position = (max ?? 0) + 1;
-  const id = newId();
-  db.runSync(
-    'INSERT INTO categories (id, name, color_index, bucket, monthly_budget, position) VALUES (?, ?, ?, ?, NULL, ?)',
-    [id, name, position % 10, bucket, position]
-  );
-  return id;
-}
-
 export function insertRule(rule: { merchant?: string; amount?: AmountCondition; category: string }): void {
   const categoryId = getOrCreateCategoryByName(rule.category);
   const { min } = db.getFirstSync<{ min: number | null }>('SELECT MIN(position) as min FROM rules') ?? {
@@ -223,31 +207,15 @@ export function insertRule(rule: { merchant?: string; amount?: AmountCondition; 
   recategorize('all');
 }
 
-// Auto-categorise: adds the built-in Indian-brand regex rules (see
-// data/autoCategorize.ts) at the LOWEST priority, so the user's own rules
-// and manual overrides always win. A preset whose pattern already exists
-// is skipped, which makes a second tap a no-op. Returns how many rules
-// were added and how many transactions left Uncategorized.
-export function applyPresetRules(): { rulesAdded: number; categorised: number } {
+// Turns on the built-in patterns (data/autoCategorize.ts). They are not
+// rules rows: recategorize() applies them after the user's own rules, so
+// the Rules tab only ever lists what the user wrote. Returns how many
+// transactions left Uncategorized.
+export function enableAutoCategorise(): number {
   const before = countUncategorized();
-  let rulesAdded = 0;
-
-  db.withTransactionSync(() => {
-    let position = (db.getFirstSync<{ max: number | null }>('SELECT MAX(position) as max FROM rules')?.max ?? 0) + 1;
-    for (const preset of PRESET_RULES) {
-      const exists = db.getFirstSync('SELECT 1 FROM rules WHERE merchant_pattern = ?', [preset.pattern]);
-      if (exists) continue;
-      db.runSync(
-        `INSERT INTO rules (id, merchant_pattern, amount_json, category_id, enabled, position, created_at)
-         VALUES (?, ?, NULL, ?, 1, ?, ?)`,
-        [newId(), preset.pattern, getOrCreateCategoryByName(preset.category, preset.bucket), position++, new Date().toISOString()]
-      );
-      rulesAdded++;
-    }
-  });
-
+  setSetting(AUTO_CATEGORISE_SETTING, '1');
   recategorize('all');
-  return { rulesAdded, categorised: before - countUncategorized() };
+  return before - countUncategorized();
 }
 
 export function deleteRule(id: string): void {
@@ -304,13 +272,13 @@ export function clearCategoryOverride(transactionId: string): void {
 // preview instead of a write.
 export function retroCount(merchantPattern: string | null, amount: AmountCondition | null): number {
   if (!merchantPattern && !amount) return 0;
-  const rows = db.getAllSync<{ merchant: string; withdrawal: number | null; deposit: number | null }>(
-    'SELECT merchant, withdrawal, deposit FROM transactions WHERE category_override_id IS NULL'
+  const rows = db.getAllSync<{ merchant: string; description: string; withdrawal: number | null; deposit: number | null }>(
+    'SELECT merchant, description, withdrawal, deposit FROM transactions WHERE category_override_id IS NULL'
   );
   const [compiled] = compileRules([
     { id: 'preview', merchant_pattern: merchantPattern, amount_json: amount ? JSON.stringify(amount) : null, category_id: 'preview' },
   ]);
-  return rows.filter((r) => compiled.matches(r.merchant, Math.abs(r.withdrawal ?? r.deposit ?? 0))).length;
+  return rows.filter((r) => compiled.matches(matchText(r.merchant, r.description), Math.abs(r.withdrawal ?? r.deposit ?? 0))).length;
 }
 
 export function deleteSetting(key: string): void {

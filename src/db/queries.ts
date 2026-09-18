@@ -3,6 +3,7 @@ import { Bucket } from '../data/budget';
 import { findRecurringMerchants } from '../data/recurring';
 import { describeRule } from '../data/rulePattern';
 import { db } from './db';
+import { AUTO_MATCH_ID } from './recategorize';
 import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
 
 // null/undefined = no restriction (every account). An empty array
@@ -205,6 +206,7 @@ type TransactionDetail = {
   colorIndex: number;
   isOverridden: boolean;
   matchedRuleDescription: string | null;
+  autoCategorised: boolean;
 };
 
 type TransactionDetailRow = {
@@ -244,7 +246,7 @@ export function getTransactionDetail(id: string): TransactionDetail | null {
   if (!row) return null;
 
   let matchedRuleDescription: string | null = null;
-  if (!row.category_override_id && row.matched_rule_id) {
+  if (!row.category_override_id && row.matched_rule_id && row.matched_rule_id !== AUTO_MATCH_ID) {
     const rule = db.getFirstSync<{ merchant_pattern: string | null; amount_json: string | null; category_name: string }>(
       `SELECT r.merchant_pattern, r.amount_json, c.name as category_name
        FROM rules r JOIN categories c ON c.id = r.category_id
@@ -277,6 +279,7 @@ export function getTransactionDetail(id: string): TransactionDetail | null {
     colorIndex: row.color_index,
     isOverridden: row.category_override_id !== null,
     matchedRuleDescription,
+    autoCategorised: !row.category_override_id && row.matched_rule_id === AUTO_MATCH_ID,
   };
 }
 

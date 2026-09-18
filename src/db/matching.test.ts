@@ -1,4 +1,4 @@
-import { compileRules, DbRuleRow, findMatch } from './matching';
+import { compileRules, DbRuleRow, findMatch, matchText } from './matching';
 
 function rule(overrides: Partial<DbRuleRow>): DbRuleRow {
   return { id: 'r1', merchant_pattern: null, amount_json: null, category_id: 'food', ...overrides };
@@ -52,4 +52,10 @@ test('a rule compiled once is reused across many transactions without recompilin
   for (let i = 0; i < 1000; i++) {
     expect(findMatch(compiled, 'Swiggy Order', 100)?.id).toBe('r1');
   }
+});
+
+test('matchText lets a pattern match text that is only in the description', () => {
+  const compiled = compileRules([rule({ merchant_pattern: 'mcd' })]);
+  expect(findMatch(compiled, 'Asha K', 100)).toBeUndefined();
+  expect(findMatch(compiled, matchText('Asha K', 'UPI/ASHA K/119/McD UPI-1'), 100)?.id).toBe('r1');
 });

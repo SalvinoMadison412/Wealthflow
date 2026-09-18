@@ -10,9 +10,9 @@ import { PressableScale } from '../components/PressableScale';
 import { TransactionDetails } from '../components/TransactionDetails';
 import { suggestPattern } from '../data/rulePattern';
 import { getTransactionDetail, listCategoriesForFilter } from '../db/queries';
+import { getOrCreateCategoryByName } from '../db/categories';
 import {
   clearCategoryOverride,
-  getOrCreateCategoryByName,
   insertRule,
   retroCount,
   setCategoryOverride,
@@ -88,7 +88,9 @@ export function CategorizeSheet() {
 
   const statusLine = transaction.isOverridden
     ? 'Manually set'
-    : transaction.matchedRuleDescription
+    : transaction.autoCategorised
+      ? 'Auto-categorised'
+      : transaction.matchedRuleDescription
       ? `Matched by rule: ${transaction.matchedRuleDescription}`
       : 'No rule matched';
 

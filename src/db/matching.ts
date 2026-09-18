@@ -68,6 +68,13 @@ export function compileRules(rows: DbRuleRow[]): CompiledRule[] {
   });
 }
 
+// What a rule's pattern is tested against: the cleaned merchant plus the
+// raw statement description. Statements truncate the merchant (Kotak cuts
+// it at 15 chars) while the description keeps UPI notes like "/McD".
+export function matchText(merchant: string, description: string): string {
+  return `${merchant} ${description}`;
+}
+
 // First-match-wins: `rules` must already be ordered by priority (position
 // ASC) and pre-filtered to enabled rules — both are the caller's job via
 // the SQL query, not this function's.

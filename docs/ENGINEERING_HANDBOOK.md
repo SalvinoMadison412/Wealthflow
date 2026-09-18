@@ -318,7 +318,7 @@ cannot alter a CHECK without a table rebuild, so the app just never writes it). 
 | `transactions` | Every parsed row | id = `accountId|date|withdrawal|deposit|balance|refNo|description` (see `transactionId.ts`), so re-importing the same PDF is a no-op. `category_id` is the effective category, `category_override_id` a manual pin, `matched_rule_id` which rule set it, `is_transfer` |
 | `categories` | User categories + two seeded reserved ones | `bucket` needs/savings, `monthly_budget`, `color_index`, `position` |
 | `rules` | Categorisation rules | `merchant_pattern` (regex or plain contains), `amount_json`, `category_id`, `enabled`, `position` (lower = higher priority) |
-| `settings` | Key/value | `profile` (JSON mirror), `monthly_income`, `rules_synced_at`, `appearance`, `tour_done`, budget preset |
+| `settings` | Key/value | `profile` (JSON mirror), `monthly_income`, `rules_synced_at`, `appearance`, `tour_done`, `auto_categorise`, budget preset |
 
 `transactions.ts` holds every write (`importStatement`, `deleteStatement`,
 `deleteAccount`, rule and category CRUD, overrides, `wipeAllData`). `queries.ts` holds every read the screens
@@ -335,6 +335,10 @@ and transactions (`INSERT OR IGNORE`) in one SQLite transaction →
 - A rule has an optional merchant pattern and an optional amount
   condition (`moreThan`, `lessThan`, `equalTo`, `between`). Both present
   → both must match.
+- A pattern is tested against `matchText(merchant, description)`: the
+  cleaned merchant plus the raw statement description. Statements truncate
+  the merchant (Kotak at 15 chars) while the description keeps UPI notes
+  such as `/McD` or `/Foodcharges`.
 - The merchant pattern is compiled once as a case-insensitive regex; if
   it is not a valid regex it falls back to a literal contains. A plain
   word is therefore both a "contains" rule and a regex.
@@ -342,18 +346,28 @@ and transactions (`INSERT OR IGNORE`) in one SQLite transaction →
   wins; no match → Uncategorized. A manual override always beats rules.
 - New rules are inserted at the top (`position = min − 1`) so a rule the
   user just made for a transaction wins.
-- **Auto-categorise** (Budget tab, above the Categories list, shown while
-  anything is Uncategorized): `applyPresetRules()` adds the built-in Indian-brand regex
-  rules from `src/data/autoCategorize.ts` (Groceries, Food & Dining,
-  Transport, Shopping, Bills & Utilities, Subscriptions, Health,
-  Investments) at the **lowest** priority, so the user's own rules and manual
-  overrides always win, then recategorises once. Patterns are matched on
-  the cleaned merchant name, ordered most-specific first (Swiggy Instamart
-  is Groceries before the generic swiggy rule), word-bounded for short
-  tokens (`ola`, `vi`, `jio`). It skips a pattern that already exists, so
-  it is safe to tap twice. Nothing is created until the user taps. The
-  rules are ordinary editable rules on the Rules tab. Add brands to
-  `PRESET_RULES` as real statements show gaps; deterministic regex only.
+- **Auto-categorise** (Budget tab, above Categories, shown while anything
+  is Uncategorized) runs in the background and is **not** stored as rules:
+  the Rules tab lists only rules the user wrote. Tapping it calls
+  `enableAutoCategorise()`, which sets the local `settings.auto_categorise`
+  flag and recategorises. `recategorize()` then applies, per transaction:
+  manual override → user rules → built-in pattern (`findPreset` over
+  `PRESET_RULES` in `src/data/autoCategorize.ts`) → Uncategorized. A
+  preset match stores `matched_rule_id = 'auto'` and the transaction sheet
+  says "Auto-categorised". Preset categories are created lazily, only when
+  something lands in them. The flag is local (not synced); presets are not
+  synced either, only the categories they create.
+- `PRESET_RULES`: 14 categories, first match wins, order matters. Income
+  first (refunds, salary, interest); Subscriptions before Shopping (Amazon
+  Prime vs an Amazon order); Groceries before Food (Swiggy Instamart);
+  generic keywords (cafe, kitchen, ice cream, salon, pharmacy, motors,
+  residency…) as well as brands; short tokens word-bounded (`ola`, `vi`,
+  `pg`). Last two are catch-alls: **Other businesses** (ventures, pvt,
+  traders, BharatPe QR…) and **People & UPI** (`upi/`), because a UPI
+  payment to a named person can't be categorised by regex. Measured on a
+  real Kotak statement: 42% into a specific category, 100% categorised
+  (the rest are person-to-person UPI). Extend the lists as statements show
+  gaps; deterministic regex only, never a model.
 - `suggestPattern(merchant)` proposes an escaped pattern when creating a
   rule from a transaction; `describeRule` renders the plain-language
   summary shown in lists.
