@@ -42,7 +42,13 @@ export async function signInWithGoogle(): Promise<string | null> {
   });
   if (error || !data.url) return error?.message ?? 'Could not start Google sign-in';
 
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  let result: WebBrowser.WebBrowserAuthSessionResult;
+  try {
+    result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  } catch (e) {
+    // e.g. a browser session is already open — surface it, don't crash.
+    return e instanceof Error ? e.message : String(e);
+  }
   if (result.type !== 'success') return null;
 
   const params = new URL(result.url).searchParams;
