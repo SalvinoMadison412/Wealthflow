@@ -1,8 +1,6 @@
 import { Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '../components/AppHeader';
@@ -24,7 +22,6 @@ import {
 import { applyPresetRules, setCategoryBucket, setCategoryBudget, setSetting } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { bucketColors, contentWrap, radii, spacing, type } from '../theme/tokens';
-import { RootStackParamList } from '../navigation/RootNavigator';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 const BUCKETS: Bucket[] = ['needs', 'savings'];
@@ -59,7 +56,6 @@ function nextBucket(bucket: Bucket): Bucket {
 export function BudgetScreen() {
   const { colors, pillPalette } = useTheme();
   const styles = useStyles(makeStyles);
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   // Opens on the newest month that has data — the current calendar month is
   // usually empty, and the numbers the user just imported are the point.
   const [month, setMonth] = useState(() => listMonthsWithData()[0] ?? currentMonthKey());
@@ -71,17 +67,11 @@ export function BudgetScreen() {
   const incomeSetting = useQuery(() => getSetting('monthly_income'), []);
   const rows = useQuery(() => getCategoryBudgetRows(month), [month]);
   const uncategorizedCount = useQuery(() => countUncategorized(), []);
-  const [emptyMonth, setEmptyMonth] = useState<string | null>(null);
+  const monthHasData = useQuery(() => countTransactionsInMonth(month) > 0, [month]);
   const [autoMessage, setAutoMessage] = useState<string | null>(null);
 
   const income = realIncome > 0 ? realIncome : Number(incomeSetting ?? 0);
   const preset = presetKey === 'custom' ? customPreset : PRESETS[presetKey];
-
-  function stepMonth(delta: number) {
-    const next = shiftMonth(month, delta);
-    setMonth(next);
-    setEmptyMonth(countTransactionsInMonth(next) > 0 ? null : next);
-  }
 
   function autoCategorize() {
     const { rulesAdded, categorised } = applyPresetRules();
@@ -137,11 +127,11 @@ export function BudgetScreen() {
       <AppHeader />
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <View style={styles.monthRow}>
-          <Pressable onPress={() => stepMonth(-1)} hitSlop={13} accessibilityLabel="Previous month">
+          <Pressable onPress={() => setMonth((m) => shiftMonth(m, -1))} hitSlop={13} accessibilityLabel="Previous month">
             <Feather name="chevron-left" size={22} color={colors.textPrimary} />
           </Pressable>
           <Text style={styles.monthLabel}>{monthLabel(month)}</Text>
-          <Pressable onPress={() => stepMonth(1)} hitSlop={13} accessibilityLabel="Next month">
+          <Pressable onPress={() => setMonth((m) => shiftMonth(m, 1))} hitSlop={13} accessibilityLabel="Next month">
             <Feather name="chevron-right" size={22} color={colors.textPrimary} />
           </Pressable>
         </View>
@@ -171,9 +161,9 @@ export function BudgetScreen() {
         <View style={styles.card}>
           <View style={styles.donutWrap}>
             <Donut
-              segments={BUCKETS.map((b) => ({ pct: preset[b], color: bucketColors[b] }))}
-              centerLabel={formatRupees(totalSpent)}
-              centerSubLabel={`of ${formatRupees(income)} planned`}
+              segments={monthHasData ? BUCKETS.map((b) => ({ pct: preset[b], color: bucketColors[b] })) : []}
+              centerLabel={monthHasData ? formatRupees(totalSpent) : 'No statement'}
+              centerSubLabel={monthHasData ? `of ${formatRupees(income)} planned` : monthLabel(month)}
             />
           </View>
 
@@ -225,32 +215,6 @@ export function BudgetScreen() {
         </View>
       </ScrollView>
 
-      <Modal visible={emptyMonth !== null} transparent animationType="fade" onRequestClose={() => setEmptyMonth(null)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setEmptyMonth(null)}>
-          <Pressable style={styles.dialog} onPress={() => {}}>
-            <View style={styles.dialogIcon}>
-              <Feather name="file-text" size={22} color={colors.accent} />
-            </View>
-            <Text style={styles.dialogTitle}>No statement for {emptyMonth ? monthLabel(emptyMonth) : ''}</Text>
-            <Text style={styles.dialogText}>
-              You don't have a statement assigned to this month. Import one to see your split and category spending.
-            </Text>
-            <PressableScale
-              style={styles.dialogPrimary}
-              onPress={() => {
-                setEmptyMonth(null);
-                navigation.navigate('Import');
-              }}
-            >
-              <Feather name="upload" size={16} color={colors.accentText} />
-              <Text style={styles.dialogPrimaryText}>Import a statement</Text>
-            </PressableScale>
-            <Pressable onPress={() => setEmptyMonth(null)} hitSlop={8} style={styles.dialogSecondary}>
-              <Text style={styles.dialogSecondaryText}>Not now</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -472,47 +436,6 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     ...type.caption,
     color: colors.textSecondary,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.pageGutter,
-  },
-  dialog: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: colors.card,
-    borderRadius: 28,
-    padding: spacing.xl,
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  dialogIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: pillPalette[1].bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xs,
-  },
-  dialogTitle: { ...type.h2, color: colors.textPrimary, textAlign: 'center' },
-  dialogText: { ...type.body, color: colors.textSecondary, textAlign: 'center' },
-  dialogPrimary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    alignSelf: 'stretch',
-    backgroundColor: colors.accent,
-    borderRadius: radii.pill,
-    paddingVertical: spacing.md,
-    marginTop: spacing.md,
-  },
-  dialogPrimaryText: { ...type.label, color: colors.accentText },
-  dialogSecondary: { paddingVertical: spacing.sm },
-  dialogSecondaryText: { ...type.label, color: colors.textSecondary },
   autoCard: {
     flexDirection: 'row',
     alignItems: 'center',
