@@ -58,6 +58,9 @@ for anything in this doc.
   reviewable.
 - Use plan mode before non-trivial implementation work to agree on approach
   before code is written.
+- `docs/ENGINEERING_HANDBOOK.md` is the record for the engineering team.
+  A PR that changes behaviour, schema, stack, or process updates the
+  relevant section in the same PR.
 
 ## Suggested build order
 
