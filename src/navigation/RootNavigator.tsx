@@ -25,6 +25,7 @@ export type RootStackParamList = {
   Login: undefined;
   Otp: { phone: string };
   Onboarding: undefined;
+  EditProfile: undefined;
   MainTabs: undefined;
   Import: undefined;
   NewRuleForm: undefined;
@@ -162,7 +163,11 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 // Three stacks keyed off auth state: signed out → Login/Otp; signed in
 // without a profile row → Onboarding; otherwise the app. React Navigation
-// swaps between them automatically as `session`/`profile` change.
+// swaps between them automatically as `session`/`profile` change. The
+// edit-profile route reuses the Onboarding screen under a different name
+// on purpose: if it were also called "Onboarding", finishing first-run
+// onboarding would leave the user parked on that route in the new stack
+// instead of landing on Home.
 export function RootNavigator() {
   const { session, profile } = useAuth();
   return (
@@ -179,7 +184,7 @@ export function RootNavigator() {
           <>
             <RootStack.Screen name="MainTabs" component={MainTabs} />
             <RootStack.Screen name="Profile" component={ProfileScreen} />
-            <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
+            <RootStack.Screen name="EditProfile" component={OnboardingScreen} />
             <RootStack.Screen name="Import" component={ImportScreen} options={{ presentation: 'modal' }} />
             <RootStack.Screen
               name="NewRuleForm"

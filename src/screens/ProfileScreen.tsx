@@ -43,7 +43,7 @@ export function ProfileScreen() {
             icon="user"
             label={profile?.fullName ?? 'Set up your profile'}
             value={profile?.email ?? profile?.phone ?? undefined}
-            onPress={() => navigation.navigate('Onboarding')}
+            onPress={() => navigation.navigate('EditProfile')}
           />
           <SettingsRow icon="log-out" label="Sign out" destructive showChevron={false} onPress={signOut} />
         </SettingsSection>
