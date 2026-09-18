@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { LogoSplash } from './src/components/LogoSplash';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { PdfExtractorProvider } from './src/pdf/PdfExtractorProvider';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { fontAssets } from './src/theme/tokens';
 
 SplashScreen.preventAutoHideAsync();
@@ -29,11 +30,13 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <PdfExtractorProvider>
-          <Root />
-        </PdfExtractorProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <PdfExtractorProvider>
+            <Root />
+          </PdfExtractorProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
@@ -43,13 +46,14 @@ export default function App() {
 // screen flash before Home.
 function Root() {
   const { loading } = useAuth();
+  const { scheme } = useTheme();
   const [splashDone, setSplashDone] = useState(false);
   const onSplashDone = useCallback(() => setSplashDone(true), []);
 
   return (
     <>
       {!loading && <RootNavigator />}
-      <StatusBar style="dark" />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       {!splashDone && <LogoSplash ready={!loading} onDone={onSplashDone} />}
     </>
   );

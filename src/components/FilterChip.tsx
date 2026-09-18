@@ -1,7 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { colors, radii, spacing, type } from '../theme/tokens';
+import { radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles } from '../theme/ThemeContext';
 
 interface FilterChipProps {
   label: string;
@@ -12,6 +13,7 @@ interface FilterChipProps {
 // Visually a compact pill, but padded out to a 48dp touch target via
 // hitSlop rather than growing the pill itself.
 export function FilterChip({ label, selected, onPress }: FilterChipProps) {
+  const styles = useStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -30,7 +32,7 @@ export function FilterChip({ label, selected, onPress }: FilterChipProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   chip: {
     height: 32,
     paddingHorizontal: spacing.md,

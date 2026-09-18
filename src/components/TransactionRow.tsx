@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Amount } from './Amount';
 import { CategoryPill } from './CategoryPill';
-import { colors, spacing, type } from '../theme/tokens';
+import { spacing, type } from '../theme/tokens';
+import { Theme, useStyles } from '../theme/ThemeContext';
 
 export interface TransactionRowData {
   id: string;
@@ -26,6 +27,7 @@ const SIGN_WORD = { income: 'plus', expense: 'minus', neutral: '' };
 // screen level) — the pattern that keeps a long SectionList from
 // re-rendering every row when one row's category changes.
 function TransactionRowBase({ data, onPress }: TransactionRowProps) {
+  const styles = useStyles(makeStyles);
   const spokenAmount = `${SIGN_WORD[data.kind]} ₹${Math.abs(data.amount).toFixed(2)} rupees`.trim();
 
   return (
@@ -49,7 +51,7 @@ function TransactionRowBase({ data, onPress }: TransactionRowProps) {
 
 export const TransactionRow = React.memo(TransactionRowBase);
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -2,7 +2,8 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
-import { colors, pillPalette, type } from '../theme/tokens';
+import { type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 const SIZE = 176;
 const STROKE = 18;
@@ -22,6 +23,8 @@ interface DonutProps {
 // overlay, not SVG Text (simpler font handling, same as the rest of the
 // app).
 export function Donut({ segments, centerLabel, centerSubLabel }: DonutProps) {
+  const { pillPalette } = useTheme();
+  const styles = useStyles(makeStyles);
   let consumed = 0;
 
   return (
@@ -69,7 +72,7 @@ export function Donut({ segments, centerLabel, centerSubLabel }: DonutProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   wrap: {
     width: SIZE,
     height: SIZE,

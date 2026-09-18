@@ -2,7 +2,8 @@ import { Feather } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radii, spacing, type } from '../theme/tokens';
+import { radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 interface SettingsRowProps {
   icon: keyof typeof Feather.glyphMap;
@@ -17,6 +18,8 @@ interface SettingsRowProps {
 // screen — icon, label, optional trailing value, optional chevron.
 // Always at least 48dp tall.
 export function SettingsRow({ icon, label, value, onPress, destructive, showChevron = true }: SettingsRowProps) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -38,7 +41,7 @@ export function SettingsRow({ icon, label, value, onPress, destructive, showChev
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -60,6 +63,7 @@ const styles = StyleSheet.create({
 });
 
 export function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const sectionStyles = useStyles(makeSectionStyles);
   const items = React.Children.toArray(children);
   return (
     <View>
@@ -75,7 +79,7 @@ export function SettingsSection({ title, children }: { title: string; children: 
   );
 }
 
-const sectionStyles = StyleSheet.create({
+const makeSectionStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   title: {
     ...type.caption,
     color: colors.textSecondary,

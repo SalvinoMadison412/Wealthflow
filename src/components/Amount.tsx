@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleProp, Text, TextStyle } from 'react-native';
 
-import { colors, type } from '../theme/tokens';
+import { type } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 const inr = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -10,7 +11,6 @@ const inr = new Intl.NumberFormat('en-IN', {
 });
 
 const sizeStyle = { sm: type.amountSm, md: type.amountMd, lg: type.amountLg };
-const kindColor = { income: colors.incomeText, expense: colors.expenseText, neutral: colors.textPrimary };
 const sign = { income: '+', expense: '−', neutral: '' };
 
 interface AmountProps {
@@ -24,6 +24,8 @@ interface AmountProps {
 // figures all live here so every screen's numbers line up and read the
 // same way. Never format a rupee amount inline — use this.
 export function Amount({ value, kind = 'neutral', size = 'md', style }: AmountProps) {
+  const { colors } = useTheme();
+  const kindColor = { income: colors.incomeText, expense: colors.expenseText, neutral: colors.textPrimary };
   return (
     <Text
       style={[sizeStyle[size], { color: kindColor[kind], fontVariant: ['tabular-nums'] }, style]}

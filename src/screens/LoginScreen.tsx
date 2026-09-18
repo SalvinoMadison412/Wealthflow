@@ -9,7 +9,8 @@ import { sendPhoneOtp, signInWithGoogle, supabaseConfigured } from '../auth/supa
 import { Logo } from '../components/Logo';
 import { PressableScale } from '../components/PressableScale';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 // Indian numbers by default; anything typed with a leading "+" is taken
 // as already international.
@@ -20,6 +21,8 @@ function normalizePhone(raw: string): string | null {
 }
 
 export function LoginScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState<'google' | 'phone' | null>(null);
@@ -107,7 +110,7 @@ export function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,

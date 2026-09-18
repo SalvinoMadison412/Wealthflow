@@ -7,11 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { sendPhoneOtp, verifyPhoneOtp } from '../auth/supabase';
 import { PressableScale } from '../components/PressableScale';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 const RESEND_SECONDS = 30;
 
 export function OtpScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation();
   const { phone } = useRoute<RouteProp<RootStackParamList, 'Otp'>>().params;
   const [code, setCode] = useState('');
@@ -86,7 +89,7 @@ export function OtpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,

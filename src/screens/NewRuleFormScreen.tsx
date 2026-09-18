@@ -11,7 +11,8 @@ import { AmountCondition } from '../db/matching';
 import { getOrCreateCategoryByName, insertRule } from '../db/transactions';
 import { listCategoriesForFilter } from '../db/queries';
 import { useQuery } from '../db/useQuery';
-import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 type AmountOperator = AmountCondition['operator'];
 
@@ -30,6 +31,8 @@ function isValidNumber(text: string): boolean {
 // one required) rather than an either/or toggle — a rule can be
 // "Blinkit" alone, "over ₹500" alone, or both together (AND).
 export function NewRuleFormScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation();
   const categories = useQuery(() => listCategoriesForFilter(), []);
 
@@ -210,7 +213,7 @@ export function NewRuleFormScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,

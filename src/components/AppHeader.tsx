@@ -6,11 +6,14 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Logo } from './Logo';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { colors, contentWrap, spacing } from '../theme/tokens';
+import { contentWrap, spacing } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 // Seamless: sits directly on the page background, no card surface or
 // border to separate it from the content below.
 export function AppHeader() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   return (
     <View style={styles.header}>
@@ -23,7 +26,7 @@ export function AppHeader() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   header: {
     ...contentWrap,
     flexDirection: 'row',

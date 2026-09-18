@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer, useNavigation } from '@react-navigation/native';
 import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
@@ -19,7 +19,8 @@ import { OtpScreen } from '../screens/OtpScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RulesListScreen } from '../screens/RulesListScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
-import { cardShadow, colors } from '../theme/tokens';
+import { cardShadow } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -58,6 +59,8 @@ const FAB_SIZE = 52;
 // stays at 4 items (see the pinned decision above). Hovers above the
 // (transparent, borderless) tab bar, overlapping its top edge.
 function QuickAddFab({ bottom }: { bottom: number }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   return (
     <PressableScale
@@ -77,6 +80,8 @@ function QuickAddFab({ bottom }: { bottom: number }) {
 // same width instead of 4 evenly-spaced tabs with the FAB dropped
 // asymmetrically into the middle seam.
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const barHeight = TAB_BAR_HEIGHT + insets.bottom;
   const routes = state.routes as { key: string; name: keyof MainTabsParamList }[];
@@ -128,7 +133,7 @@ function MainTabs() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   // Seamless: no card surface, no border, no shadow — sits directly on
   // the page background like the header does.
   tabBar: {
@@ -170,8 +175,16 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 // instead of landing on Home.
 export function RootNavigator() {
   const { session, profile } = useAuth();
+  const { scheme, colors } = useTheme();
+  // Stack transitions and sheet backgrounds come from the navigator's
+  // theme, not our StyleSheets, so it has to follow the scheme too.
+  const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+  const navTheme = {
+    ...base,
+    colors: { ...base.colors, background: colors.background, card: colors.card, text: colors.textPrimary, border: colors.border, primary: colors.accent },
+  };
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!session ? (
           <>

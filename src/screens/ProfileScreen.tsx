@@ -14,7 +14,8 @@ import { futureValue, monthsToGoal } from '../data/calculator';
 import { Account, deleteAccount, deleteCategory, listAccounts, renameAccount, renameCategory, setCategoryColor, setSetting, wipeAllData } from '../db/transactions';
 import { FilterCategory, getSetting, listCategoriesForFilter } from '../db/queries';
 import { useQuery } from '../db/useQuery';
-import { colors, contentWrap, pillPalette, radii, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 import { UNCATEGORIZED_CATEGORY_ID, TRANSFER_CATEGORY_ID } from '../db/schema';
 
 function formatRupees(n: number): string {
@@ -22,6 +23,8 @@ function formatRupees(n: number): string {
 }
 
 export function ProfileScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { profile, signOut } = useAuth();
   const accounts = useQuery(() => listAccounts(), []);
@@ -84,6 +87,8 @@ export function ProfileScreen() {
 }
 
 function SmartCalculatorCard() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [contribution, setContribution] = useState('5000');
   const [rate, setRate] = useState('8');
   const [years, setYears] = useState('5');
@@ -169,6 +174,8 @@ function SmartCalculatorCard() {
 }
 
 function AccountSettingsRow({ account }: { account: Account }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [editing, setEditing] = useState(false);
   const [ownerLabel, setOwnerLabel] = useState(account.ownerLabel);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -222,6 +229,7 @@ function AccountSettingsRow({ account }: { account: Account }) {
 }
 
 function MonthlyIncomeRow({ current }: { current: string | null }) {
+  const styles = useStyles(makeStyles);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(current ?? '');
 
@@ -258,6 +266,8 @@ function MonthlyIncomeRow({ current }: { current: string | null }) {
 }
 
 function CategorySettingsRow({ category }: { category: FilterCategory }) {
+  const { colors, pillPalette } = useTheme();
+  const styles = useStyles(makeStyles);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(category.name);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -315,6 +325,8 @@ function CategorySettingsRow({ category }: { category: FilterCategory }) {
 }
 
 function WipeDataRow() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [confirming, setConfirming] = useState(false);
   const [confirmText, setConfirmText] = useState('');
 
@@ -358,7 +370,7 @@ function WipeDataRow() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,

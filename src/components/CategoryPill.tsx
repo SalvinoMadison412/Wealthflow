@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { pillPalette, radii, type } from '../theme/tokens';
+import { radii, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 interface CategoryPillProps {
   name: string;
@@ -11,6 +12,8 @@ interface CategoryPillProps {
 // The one place a category renders as a colored pill — index into the
 // deterministic 10-color palette, never an ad hoc color.
 export function CategoryPill({ name, colorIndex }: CategoryPillProps) {
+  const { pillPalette } = useTheme();
+  const styles = useStyles(makeStyles);
   const { bg, text } = pillPalette[((colorIndex % 10) + 10) % 10];
   return (
     <View style={[styles.pill, { backgroundColor: bg }]}>
@@ -21,7 +24,7 @@ export function CategoryPill({ name, colorIndex }: CategoryPillProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   pill: {
     height: 24,
     paddingHorizontal: 10,

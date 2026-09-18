@@ -12,7 +12,8 @@ import { deleteRule, moveRule, setRuleEnabled } from '../db/transactions';
 import { listRulesForDisplay, RuleListItem } from '../db/queries';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -35,6 +36,8 @@ function RuleCard({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.card}>
       <View style={styles.topRow}>
@@ -66,6 +69,8 @@ function RuleCard({
 }
 
 export function RulesListScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation<Nav>();
   const allRules = useQuery(() => listRulesForDisplay(), []);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -153,7 +158,7 @@ export function RulesListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,

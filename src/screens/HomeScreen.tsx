@@ -26,7 +26,8 @@ import { isStatementStale } from '../data/staleness';
 import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { MainTabsParamList, RootStackParamList } from '../navigation/RootNavigator';
-import { colors, contentWrap, pillPalette, radii, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabsParamList, 'Home'>,
@@ -66,6 +67,8 @@ const FEATURES: { icon: keyof typeof Feather.glyphMap; title: string; text: stri
 // The real dashboard — PR 3/PR 4 had this as a placeholder CTA. See
 // docs/REDESIGN_PLAN.md PR 7.
 export function HomeScreen() {
+  const { colors, pillPalette } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation<Nav>();
   const { profile } = useAuth();
   const name = firstName(profile);
@@ -231,7 +234,7 @@ export function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
