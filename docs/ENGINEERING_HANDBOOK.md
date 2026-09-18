@@ -44,9 +44,13 @@ Everything in the architecture follows from those promises:
    income vs expenses starting at the oldest month with data and never
    running past the current month (`chartEndMonth`), recent transactions, plus a nudge when the newest
    statement is older than 35 days).
-4. **Import** (floating + button): pick a PDF, optional password, choose or
-   create the account it belongs to, see the parsed result and the
-   reconciliation check.
+4. **Import** (floating + button): pick one or more PDFs at once, optional
+   password (asked per protected file), choose or create the account they
+   belong to (one choice covers the whole pick; use an account's own Import
+   button for statements from another account), see the parsed result and
+   the reconciliation check. Several files show one summary: statements
+   imported, transactions, new vs duplicates skipped, how many balanced,
+   and any file that couldn't be read (skipped, not fatal).
 5. **Transactions**: full list with month and category filters; tap a row
    to categorise it ("just this one") or create a rule from it.
 6. **Rules**: priority-ordered list; enable/disable, move up/down, delete.

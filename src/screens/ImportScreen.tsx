@@ -41,15 +41,30 @@ function formatPeriod(account: Account): string {
   return `Last statement through ${date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 }
 
+// Running totals for one pick of one or more PDFs. `last` is the most
+// recent statement, shown in full when only one file was imported.
+type Summary = {
+  files: number;
+  extracted: number;
+  added: number;
+  duplicates: number;
+  unbalanced: number;
+  failed: string[];
+  last: { statement: ParsedStatement; reconciliation: ReconciliationResult } | null;
+};
+const EMPTY_SUMMARY: Summary = { files: 0, extracted: 0, added: 0, duplicates: 0, unbalanced: 0, failed: [], last: null };
+
+// `rest` = the base64 of the files still to process after the current one.
 type Status =
   | { kind: 'idle' }
   | { kind: 'loading' }
-  | { kind: 'needsPassword'; base64: string; forAccountId: string | null }
+  | { kind: 'needsPassword'; base64: string; forAccountId: string | null; rest: string[]; done: Summary }
   // No account chosen yet — the dropzone's generic entry point. `bank` is
   // whatever the registry detected from the statement text, if anything;
   // there is no masked account number to detect (see statement/types.ts).
-  | { kind: 'chooseAccount'; pages: PageContent[]; bank?: string }
-  | { kind: 'result'; statement: ParsedStatement; reconciliation: ReconciliationResult; added: number; duplicates: number }
+  // One choice covers every file in the pick.
+  | { kind: 'chooseAccount'; pages: PageContent[]; bank?: string; rest: string[]; done: Summary }
+  | { kind: 'result'; summary: Summary }
   | { kind: 'error'; message: string };
 
 export function ImportScreen() {
@@ -64,50 +79,75 @@ export function ImportScreen() {
 
   const accounts = useQuery(() => listAccounts(), [status.kind]);
 
-  async function runExtraction(
-    base64: string,
-    forAccountId: string | null,
-    opts?: { password?: string }
-  ) {
-    setStatus({ kind: 'loading' });
-    try {
-      const result = await extractPdfText(base64, opts);
-      if (forAccountId) {
-        finishImport(result.pages, forAccountId);
-      } else {
-        const detected = parseStatement(result.pages);
-        setStatus({ kind: 'chooseAccount', pages: result.pages, bank: detected.bank });
-      }
-    } catch (err) {
-      if (err instanceof PdfPasswordRequiredError) {
-        setStatus({ kind: 'needsPassword', base64, forAccountId });
-      } else {
-        setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
-      }
-    }
+  function importOne(pages: PageContent[], accountId: string, done: Summary): Summary {
+    const { statement, reconciliation, added, duplicates } = importStatement(pages, accountId);
+    return {
+      ...done,
+      files: done.files + 1,
+      extracted: done.extracted + statement.transactions.length,
+      added: done.added + added,
+      duplicates: done.duplicates + duplicates,
+      unbalanced: done.unbalanced + (reconciliation.ok ? 0 : 1),
+      last: { statement, reconciliation },
+    };
   }
 
-  function finishImport(pages: PageContent[], accountId: string) {
-    setStatus({ kind: 'result', ...importStatement(pages, accountId) });
+  // Processes `files` in order. Stops to ask for a password or (when no
+  // account is known yet) which account they belong to, then resumes with
+  // the rest. A file that can't be read is skipped and reported at the end.
+  async function runBatch(files: string[], accountId: string | null, done: Summary, opts?: { password?: string }) {
+    setStatus({ kind: 'loading' });
+    let summary = done;
+    for (let i = 0; i < files.length; i++) {
+      const rest = files.slice(i + 1);
+      try {
+        const result = await extractPdfText(files[i], i === 0 ? opts : undefined);
+        if (accountId) {
+          summary = importOne(result.pages, accountId, summary);
+        } else {
+          const detected = parseStatement(result.pages);
+          setStatus({ kind: 'chooseAccount', pages: result.pages, bank: detected.bank, rest, done: summary });
+          return;
+        }
+      } catch (err) {
+        if (err instanceof PdfPasswordRequiredError) {
+          setStatus({ kind: 'needsPassword', base64: files[i], forAccountId: accountId, rest, done: summary });
+          return;
+        }
+        summary = { ...summary, failed: [...summary.failed, err instanceof Error ? err.message : String(err)] };
+      }
+    }
+    if (summary.files === 0 && summary.failed.length > 0) setStatus({ kind: 'error', message: summary.failed[0] });
+    else setStatus({ kind: 'result', summary });
   }
 
   async function pickPdf(forAccountId: string | null) {
-    const picked = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
+    const picked = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true });
     if (picked.canceled) return;
 
-    const base64 = await uriToBase64(picked.assets[0].uri);
-    await runExtraction(base64, forAccountId);
+    try {
+      const files: string[] = [];
+      for (const asset of picked.assets) files.push(await uriToBase64(asset.uri));
+      await runBatch(files, forAccountId, EMPTY_SUMMARY);
+    } catch (err) {
+      setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  // The chosen account applies to this file and every one after it.
+  async function finishWithAccount(accountId: string) {
+    if (status.kind !== 'chooseAccount') return;
+    const done = importOne(status.pages, accountId, status.done);
+    await runBatch(status.rest, accountId, done);
   }
 
   function chooseExistingAccount(accountId: string) {
-    if (status.kind !== 'chooseAccount') return;
-    finishImport(status.pages, accountId);
+    void finishWithAccount(accountId);
   }
 
   function createAndChoose(bank: string, maskedNumber: string, ownerLabel: string) {
-    if (status.kind !== 'chooseAccount') return;
     const accountId = createAccount({ bank: bank || 'Bank statement', maskedNumber: maskedNumber || null, ownerLabel });
-    finishImport(status.pages, accountId);
+    void finishWithAccount(accountId);
   }
 
   return (
@@ -123,16 +163,14 @@ export function ImportScreen() {
         {status.kind === 'chooseAccount' ? (
           <AccountChooser
             bank={status.bank}
+            count={status.rest.length + 1 + status.done.files}
             accounts={accounts}
             onPick={chooseExistingAccount}
             onCreate={createAndChoose}
           />
         ) : status.kind === 'result' ? (
           <ResultCard
-            statement={status.statement}
-            reconciliation={status.reconciliation}
-            added={status.added}
-            duplicates={status.duplicates}
+            summary={status.summary}
             onDone={() => navigation.goBack()}
           />
         ) : (
@@ -149,7 +187,7 @@ export function ImportScreen() {
                   <View style={styles.dropzoneIconWrap}>
                     <Feather name="upload" size={22} color={colors.accent} />
                   </View>
-                  <Text style={styles.dropzoneTitle}>Choose a PDF statement</Text>
+                  <Text style={styles.dropzoneTitle}>Choose PDF statements</Text>
                   <Text style={styles.dropzoneCaption}>Supports Kotak Mahindra Bank and generic layouts</Text>
                 </>
               )}
@@ -167,7 +205,7 @@ export function ImportScreen() {
                 />
                 <PressableScale
                   style={styles.passwordButton}
-                  onPress={() => runExtraction(status.base64, status.forAccountId, { password })}
+                  onPress={() => runBatch([status.base64, ...status.rest], status.forAccountId, status.done, { password })}
                 >
                   <Text style={styles.passwordButtonText}>Unlock</Text>
                 </PressableScale>
@@ -205,11 +243,13 @@ export function ImportScreen() {
 
 function AccountChooser({
   bank,
+  count,
   accounts,
   onPick,
   onCreate,
 }: {
   bank?: string;
+  count: number;
   accounts: Account[];
   onPick: (accountId: string) => void;
   onCreate: (bank: string, maskedNumber: string, ownerLabel: string) => void;
@@ -223,7 +263,9 @@ function AccountChooser({
 
   return (
     <View>
-      <Text style={styles.chooserTitle}>Which account is this?</Text>
+      <Text style={styles.chooserTitle}>
+        {count > 1 ? `Which account are these ${count} statements from?` : 'Which account is this?'}
+      </Text>
       {bank && <Text style={styles.chooserHint}>Detected: {bank}</Text>}
 
       {accounts.map((account) => (
@@ -332,59 +374,58 @@ function AccountCard({
   );
 }
 
-function ResultCard({
-  statement,
-  reconciliation,
-  added,
-  duplicates,
-  onDone,
-}: {
-  statement: ParsedStatement;
-  reconciliation: ReconciliationResult;
-  added: number;
-  duplicates: number;
-  onDone: () => void;
-}) {
+function ResultCard({ summary, onDone }: { summary: Summary; onDone: () => void }) {
   const { pillPalette } = useTheme();
   const styles = useStyles(makeStyles);
-  const badge = reconciliation.ok ? pillPalette[1] : pillPalette[3];
+  const { statement, reconciliation } = summary.last!;
+  const single = summary.files === 1;
+  const balanced = single ? reconciliation.ok : summary.unbalanced === 0;
+  const badge = balanced ? pillPalette[1] : pillPalette[3];
   return (
     <View style={styles.resultBox}>
       <Text style={styles.dropzoneTitle}>
-        Extracted <Text style={styles.numeral}>{statement.transactions.length}</Text> transaction
-        {statement.transactions.length === 1 ? '' : 's'}
+        {single ? 'Extracted ' : `Imported ${summary.files} statements · `}
+        <Text style={styles.numeral}>{summary.extracted}</Text> transaction{summary.extracted === 1 ? '' : 's'}
       </Text>
-      {duplicates > 0 && (
+      {summary.duplicates > 0 && (
         <Text style={styles.balanceLabel}>
-          {added === 0
+          {summary.added === 0
             ? 'Already imported. Nothing new added.'
-            : `${added} new · ${duplicates} duplicate${duplicates === 1 ? '' : 's'} skipped`}
+            : `${summary.added} new · ${summary.duplicates} duplicate${summary.duplicates === 1 ? '' : 's'} skipped`}
         </Text>
       )}
 
-      <View style={styles.balanceRow}>
-        <View>
-          <Text style={styles.balanceLabel}>OPENING</Text>
-          <Text style={styles.balanceNumeral}>₹{statement.openingBalance.toFixed(2)}</Text>
+      {single && (
+        <View style={styles.balanceRow}>
+          <View>
+            <Text style={styles.balanceLabel}>OPENING</Text>
+            <Text style={styles.balanceNumeral}>₹{statement.openingBalance.toFixed(2)}</Text>
+          </View>
+          <View>
+            <Text style={styles.balanceLabel}>CLOSING</Text>
+            <Text style={styles.balanceNumeral}>₹{statement.closingBalance.toFixed(2)}</Text>
+          </View>
         </View>
-        <View>
-          <Text style={styles.balanceLabel}>CLOSING</Text>
-          <Text style={styles.balanceNumeral}>₹{statement.closingBalance.toFixed(2)}</Text>
-        </View>
-      </View>
+      )}
 
       <View style={[styles.reconciliationBanner, { backgroundColor: badge.bg }]}>
-        <Feather
-          name={reconciliation.ok ? 'check-circle' : 'alert-triangle'}
-          size={16}
-          color={badge.text}
-        />
+        <Feather name={balanced ? 'check-circle' : 'alert-triangle'} size={16} color={badge.text} />
         <Text style={[styles.reconciliationText, { color: badge.text }]}>
-          {reconciliation.ok
-            ? 'Balanced — opening + credits − debits matches the closing balance.'
-            : `Off by ₹${Math.abs(reconciliation.delta).toFixed(2)}.`}
+          {single
+            ? reconciliation.ok
+              ? 'Balanced — opening + credits − debits matches the closing balance.'
+              : `Off by ₹${Math.abs(reconciliation.delta).toFixed(2)}.`
+            : balanced
+              ? 'All statements balanced.'
+              : `${summary.unbalanced} of ${summary.files} statements didn't balance.`}
         </Text>
       </View>
+
+      {summary.failed.length > 0 && (
+        <Text style={styles.errorText}>
+          {summary.failed.length} file{summary.failed.length === 1 ? '' : 's'} couldn't be read: {summary.failed[0]}
+        </Text>
+      )}
 
       <PressableScale style={styles.doneButton} onPress={onDone}>
         <Text style={styles.doneButtonText}>Done</Text>
