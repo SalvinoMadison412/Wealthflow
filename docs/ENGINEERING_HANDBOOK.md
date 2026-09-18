@@ -41,7 +41,8 @@ Everything in the architecture follows from those promises:
    main goal, occupation. Stored in the account's `profiles` row.
 3. **Home**: greeting, and either a pre-import explainer (default budget
    split, what the app does) or the dashboard (net this month, six-month
-   income vs expenses, recent transactions, plus a nudge when the newest
+   income vs expenses starting at the oldest month with data and never
+   running past the current month (`chartEndMonth`), recent transactions, plus a nudge when the newest
    statement is older than 35 days).
 4. **Import** (floating + button): pick a PDF, optional password, choose or
    create the account it belongs to, see the parsed result and the
@@ -49,9 +50,11 @@ Everything in the architecture follows from those promises:
 5. **Transactions**: full list with month and category filters; tap a row
    to categorise it ("just this one") or create a rule from it.
 6. **Rules**: priority-ordered list; enable/disable, move up/down, delete.
-7. **Budget**: spending by category for a month (donut + category list
-   sorted by spend with each one's share), optional per-category monthly
-   budgets (no bar until a budget is set). There is no Needs/Savings split.
+7. **Budget**: spending by category for a month (donut showing the top 4
+   categories plus one grey "Others" slice, with a labelled legend; the
+   category list below still lists every category sorted by spend with its
+   share and transaction count), optional per-category monthly budgets set
+   from a small "Budget" pill on each card (no bar until a budget is set). There is no Needs/Savings split.
 8. **Menu** (top-left icon): Profile, Statements, Appearance
    (light / dark / system), Take the tour, and Family (locked, with a
    note on what it will do).
@@ -236,9 +239,10 @@ design), dark accent `#34D399` with dark ink text (`accentText`) on it.
 `inverse` is a surface that stays dark in both themes (Smart Calculator
 card, snackbar); do not use `textPrimary` as a fill, it goes near-white in
 dark. The quick-add button is the accent disc with a 5 px ring in the page
-colour, a soft accent shadow in light and no glow in dark. The Budget donut colours each category
-with its pill colour (`pillPalette[colorIndex].text`), flat ends and a
-small gap between slices.
+colour, a soft accent shadow in light and no glow in dark. The Budget donut colours its top 4
+categories with their pill colour (`pillPalette[colorIndex].text`) and the
+rest as one `textSecondary` "Others" slice (`topWithOthers`), flat ends and
+a small gap between slices.
 The Home income/expense chart (`BarChart`) draws income green and expenses
 red, with the red's opacity from `expenseTone(income, expense)`
 (`src/data/spending.ts`): pale at or under 50% of income, full red at 90%

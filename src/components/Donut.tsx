@@ -20,7 +20,7 @@ interface DonutProps {
 }
 
 // react-native-svg Circles, static (no animation) — a track circle plus
-// one per segment, at most 4 shapes total. Center text is a plain RN Text
+// one per segment (Budget passes at most 5). Center text is a plain RN Text
 // overlay, not SVG Text (simpler font handling, same as the rest of the
 // app).
 export function Donut({ segments, centerLabel, centerSubLabel }: DonutProps) {
