@@ -2,6 +2,7 @@ import { Session } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 import { INCOME_RANGES, Profile } from './profile';
+import { startRulesSync } from './rulesSync';
 import { supabase } from './supabase';
 import { getSetting } from '../db/queries';
 import { deleteSetting, setSetting } from '../db/transactions';
@@ -105,6 +106,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
+  }, [userId]);
+
+  // Rules/categories live on the account too (see rulesSync.ts): pull on
+  // sign-in, push after every local change, stop on sign-out.
+  useEffect(() => {
+    if (!userId) return;
+    return startRulesSync(userId);
   }, [userId]);
 
   const saveProfile = useCallback(

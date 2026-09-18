@@ -11,12 +11,14 @@ export const db = openDatabaseSync(DATABASE_NAME, { enableChangeListener: true }
 db.execSync('PRAGMA foreign_keys = ON;');
 migrate(db);
 
-// Fires after any write anywhere in the database. Callers filter further
-// (e.g. by table) only if they need to — most screens just want "something
-// changed, re-run my query."
-export function subscribeToChanges(listener: () => void): () => void {
+// Fires after any write anywhere in the database, or only for writes to
+// `tables` when given. Most screens just want "something changed, re-run
+// my query"; rules sync wants only rules/categories.
+export function subscribeToChanges(listener: () => void, tables?: string[]): () => void {
   const subscription = addDatabaseChangeListener((event) => {
-    if (event.databaseFilePath.endsWith(DATABASE_NAME)) listener();
+    if (!event.databaseFilePath.endsWith(DATABASE_NAME)) return;
+    if (tables && !tables.includes(event.tableName)) return;
+    listener();
   });
   return () => subscription.remove();
 }
