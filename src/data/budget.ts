@@ -20,7 +20,7 @@ export function planned(income: number, pct: number): number {
   return (income * pct) / 100;
 }
 
-export type CategorySpend = { bucket: Bucket; spent: number };
+type CategorySpend = { bucket: Bucket; spent: number };
 
 // Actual spend per bucket, summed from each category's spend and its
 // assigned bucket — the donut's "actual" ring and the three bucket rows.
@@ -30,7 +30,7 @@ export function bucketTotals(rows: CategorySpend[]): Record<Bucket, number> {
   return totals;
 }
 
-export type ProgressState = 'under' | 'warning' | 'over';
+type ProgressState = 'under' | 'warning' | 'over';
 
 // under 80%: accent, 80-100%: warning, over 100%: over (expense color) —
 // the category progress bars' color rule. A category with spend but no

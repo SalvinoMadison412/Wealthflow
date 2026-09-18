@@ -6,9 +6,8 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PressableScale } from '../components/PressableScale';
-import { Account, createAccount, listAccounts, renameAccount } from '../db/transactions';
+import { Account, createAccount, importStatement, listAccounts, renameAccount } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
-import { useTransactions } from '../data/TransactionsContext';
 import { usePdfExtractor } from '../pdf/PdfExtractorProvider';
 import { PageContent } from '../pdf/types';
 import { PdfPasswordRequiredError } from '../pdf/types';
@@ -55,7 +54,6 @@ type Status =
 export function ImportScreen() {
   const navigation = useNavigation();
   const { extractPdfText } = usePdfExtractor();
-  const { loadFromPages } = useTransactions();
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [password, setPassword] = useState('');
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
@@ -87,7 +85,7 @@ export function ImportScreen() {
   }
 
   function finishImport(pages: PageContent[], accountId: string) {
-    const { statement, reconciliation } = loadFromPages(pages, accountId);
+    const { statement, reconciliation } = importStatement(pages, accountId);
     setStatus({ kind: 'result', statement, reconciliation });
   }
 

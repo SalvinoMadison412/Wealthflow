@@ -4,7 +4,7 @@ import { reconcile } from '../statement/reconciliation';
 import { ParsedStatement, ReconciliationResult } from '../statement/types';
 import { detectTransferPairs, TransferCandidate } from '../data/transfers';
 import { db } from './db';
-import { compileRules } from './matching';
+import { AmountCondition, compileRules } from './matching';
 import { recategorize } from './recategorize';
 import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
 import { makeTransactionId, newId } from './transactionId';
@@ -148,7 +148,7 @@ export function importStatement(
 // deliberately overrides whatever recategorize() just set, since a
 // transfer should never carry a user category. See data/transfers.ts for
 // the matching rule.
-export function runTransferDetection(): void {
+function runTransferDetection(): void {
   const rows = db.getAllSync<{
     id: string;
     account_id: string;
@@ -195,12 +195,6 @@ export function getOrCreateCategoryByName(name: string): string {
   return id;
 }
 
-export type AmountCondition =
-  | { operator: 'moreThan' | 'lessThan' | 'equalTo'; value: number }
-  | { operator: 'between'; min: number; max: number };
-
-// Matches RulesContext's existing public shape (category by name, not id)
-// so the not-yet-rewritten Rules screens (PR 8) keep working unmodified.
 export function insertRule(rule: { merchant?: string; amount?: AmountCondition; category: string }): void {
   const categoryId = getOrCreateCategoryByName(rule.category);
   const { min } = db.getFirstSync<{ min: number | null }>('SELECT MIN(position) as min FROM rules') ?? {

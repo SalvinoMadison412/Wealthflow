@@ -7,7 +7,7 @@ import { colors } from '../theme/tokens';
 // from assets/splash-icon.png (1024 grid), cropped to the mark's bounds.
 export const LOGO_VIEWBOX = '240 290 550 450';
 export const LOGO_ASPECT = 550 / 450;
-export const LOGO_STROKE = 46;
+const LOGO_STROKE = 46;
 export const LOGO_W_PATH = 'M280 455 L378 700 L470 510 L565 700 L650 480 L735 340';
 export const LOGO_ARROW_PATH = 'M690 350 L745 322 L745 385';
 // Approximate path lengths in viewBox units, for stroke-dash draw-on.

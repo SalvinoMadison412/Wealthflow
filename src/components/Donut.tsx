@@ -9,7 +9,7 @@ const STROKE = 18;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export type DonutSegment = { pct: number; colorIndex: number };
+type DonutSegment = { pct: number; colorIndex: number };
 
 interface DonutProps {
   segments: DonutSegment[]; // needs, wants, savings order — at most 3

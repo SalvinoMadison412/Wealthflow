@@ -6,8 +6,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { LogoSplash } from './src/components/LogoSplash';
-import { RulesProvider } from './src/data/RulesContext';
-import { TransactionsProvider } from './src/data/TransactionsContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { PdfExtractorProvider } from './src/pdf/PdfExtractorProvider';
 import { fontAssets } from './src/theme/tokens';
@@ -33,11 +31,7 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <PdfExtractorProvider>
-          <RulesProvider>
-            <TransactionsProvider>
-              <Root />
-            </TransactionsProvider>
-          </RulesProvider>
+          <Root />
         </PdfExtractorProvider>
       </AuthProvider>
     </SafeAreaProvider>

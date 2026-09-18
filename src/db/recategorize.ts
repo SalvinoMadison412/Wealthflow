@@ -10,7 +10,7 @@ type TransactionRow = {
   category_override_id: string | null;
 };
 
-export type RecategorizeScope = 'all' | { statementId: string };
+type RecategorizeScope = 'all' | { statementId: string };
 
 // Recomputes category_id + matched_rule_id for every affected transaction.
 // Call after any rule or category write. Precedence: a manual override

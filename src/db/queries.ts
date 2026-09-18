@@ -13,7 +13,7 @@ function accountsClause(accountIds: string[] | null | undefined, alias = 't'): {
   return { clause: `AND ${alias}.account_id IN (${accountIds.map(() => '?').join(',')})`, params: accountIds };
 }
 
-export type TransactionFilters = {
+type TransactionFilters = {
   accountId?: string;
   month?: string; // 'YYYY-MM'
   categoryId?: string;
@@ -140,7 +140,7 @@ export function hasAnyTransactions(): boolean {
   return (row?.count ?? 0) > 0;
 }
 
-export type TransactionDetail = {
+type TransactionDetail = {
   id: string;
   merchant: string;
   description: string;
@@ -224,7 +224,7 @@ function currentMonthKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export type MonthlyTotal = { month: string; income: number; expense: number };
+type MonthlyTotal = { month: string; income: number; expense: number };
 
 // Last `monthsBack` calendar months including this one, oldest first,
 // zero-filled so the chart always shows a fixed number of bars — the
@@ -251,7 +251,7 @@ export function getMonthlyTotals(monthsBack: number, accountIds?: string[] | nul
   return months.map((m) => byMonth.get(m) ?? { month: m, income: 0, expense: 0 });
 }
 
-export type MonthSummary = { income: number; expense: number };
+type MonthSummary = { income: number; expense: number };
 
 // Home's "Net this month" card. Excludes transfers, same as the chart.
 export function getCurrentMonthSummary(accountIds?: string[] | null): MonthSummary {

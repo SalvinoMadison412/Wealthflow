@@ -1,4 +1,4 @@
-import { makeAccountId, makeTransactionId } from './transactionId';
+import { makeTransactionId } from './transactionId';
 
 const base = {
   accountId: 'hdfc|4821',
@@ -44,11 +44,3 @@ test('a null refNo is distinct from an empty-string refNo collision with another
   expect(a).toBe(b); // both serialize to '', which is correct: "no ref" is one case
 });
 
-test('account id lowercases and joins bank + masked number', () => {
-  expect(makeAccountId('HDFC', '4821')).toBe('hdfc|4821');
-});
-
-test('account id falls back to a manual id when no masked number is available', () => {
-  const id = makeAccountId('HDFC', null);
-  expect(id.startsWith('hdfc|manual-')).toBe(true);
-});
