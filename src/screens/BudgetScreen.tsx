@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '../components/AppHeader';
 import { CategoryPill } from '../components/CategoryPill';
+import { BalanceSummary } from '../components/BalanceSummary';
 import { Donut } from '../components/Donut';
 import { PressableScale } from '../components/PressableScale';
 import { ProgressBar } from '../components/ProgressBar';
@@ -112,6 +113,8 @@ export function BudgetScreen() {
             <Feather name="chevron-right" size={22} color={colors.textPrimary} />
           </Pressable>
         </View>
+
+        <BalanceSummary month={month} />
 
         <View style={styles.presetRow}>
           {PRESET_KEYS.map((key) => (

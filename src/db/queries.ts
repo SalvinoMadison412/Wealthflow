@@ -1,4 +1,6 @@
+import { AccountMonth, BalanceSummaryData, combineAccountMonths } from '../data/balance';
 import { Bucket } from '../data/budget';
+import { findRecurringMerchants } from '../data/recurring';
 import { describeRule } from '../data/rulePattern';
 import { db } from './db';
 import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
@@ -18,6 +20,10 @@ type TransactionFilters = {
   month?: string; // 'YYYY-MM'
   categoryId?: string;
   uncategorizedOnly?: boolean;
+  direction?: 'received' | 'sent';
+  minAmount?: number;
+  maxAmount?: number;
+  recurringOnly?: boolean;
   // Restricts to a set of account ids (ANDed with `accountId` above,
   // the Transactions screen's own single-account filter chip). Unused
   // while the app is single-user; kept for when scoping returns.
@@ -50,7 +56,7 @@ type TransactionRow = {
 // already-loaded array — the list can be thousands of rows.
 export function listTransactions(filters: TransactionFilters): TransactionListItem[] {
   const clauses: string[] = [];
-  const params: string[] = [];
+  const params: (string | number)[] = [];
 
   if (filters.accountId) {
     clauses.push('t.account_id = ?');
@@ -66,6 +72,23 @@ export function listTransactions(filters: TransactionFilters): TransactionListIt
   } else if (filters.categoryId) {
     clauses.push('t.category_id = ?');
     params.push(filters.categoryId);
+  }
+
+  if (filters.direction === 'received') clauses.push('t.deposit IS NOT NULL');
+  if (filters.direction === 'sent') clauses.push('t.withdrawal IS NOT NULL');
+  if (filters.minAmount != null) {
+    clauses.push('COALESCE(t.deposit, t.withdrawal) >= ?');
+    params.push(filters.minAmount);
+  }
+  if (filters.maxAmount != null) {
+    clauses.push('COALESCE(t.deposit, t.withdrawal) <= ?');
+    params.push(filters.maxAmount);
+  }
+  if (filters.recurringOnly) {
+    const merchants = listRecurringMerchants();
+    if (merchants.length === 0) return [];
+    clauses.push(`t.merchant IN (${merchants.map(() => '?').join(',')})`);
+    params.push(...merchants);
   }
 
   const scope = accountsClause(filters.scopeAccountIds);
@@ -113,6 +136,16 @@ export function listRecentTransactions(limit: number, accountIds?: string[] | nu
     [...scope.params, limit]
   );
   return rows.map(toTransactionListItem);
+}
+
+// Merchants that repeat across months at a near-fixed amount (see
+// data/recurring.ts). Transfers are excluded.
+function listRecurringMerchants(): string[] {
+  const rows = db.getAllSync<{ merchant: string; month: string; amount: number }>(
+    `SELECT merchant, strftime('%Y-%m', date) as month, COALESCE(withdrawal, deposit) as amount
+     FROM transactions WHERE is_transfer = 0`
+  );
+  return findRecurringMerchants(rows);
 }
 
 // Last 12 calendar months that actually have a transaction, newest first —
@@ -263,6 +296,27 @@ export function getCurrentMonthSummary(accountIds?: string[] | null): MonthSumma
     [currentMonthKey(), ...scope.params]
   );
   return { income: row?.income ?? 0, expense: row?.expense ?? 0 };
+}
+
+// Opening / inflows / outflows / closing for one month, from each
+// account's running balance. The closing row is the chronologically last
+// one (rows are inserted in statement order, so rowid breaks same-day
+// ties). Transfers are included: this is the account's actual money in
+// and out, unlike the income/expense cards. null = no data that month.
+export function getBalanceSummary(month: string, accountIds?: string[] | null): BalanceSummaryData | null {
+  const scope = accountsClause(accountIds, 't');
+  const rows = db.getAllSync<AccountMonth>(
+    `SELECT COALESCE(SUM(t.deposit), 0) as inflows,
+            COALESCE(SUM(t.withdrawal), 0) as outflows,
+            (SELECT t2.balance FROM transactions t2
+              WHERE t2.account_id = t.account_id AND strftime('%Y-%m', t2.date) = ?
+              ORDER BY t2.date DESC, t2.rowid DESC LIMIT 1) as closing
+     FROM transactions t
+     WHERE strftime('%Y-%m', t.date) = ? ${scope.clause}
+     GROUP BY t.account_id`,
+    [month, month, ...scope.params]
+  );
+  return combineAccountMonths(rows);
 }
 
 export type RuleListItem = {
