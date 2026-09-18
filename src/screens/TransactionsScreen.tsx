@@ -6,6 +6,7 @@ import { Pressable, ScrollView, SectionList, StyleSheet, Text, TextInput, View }
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Amount } from '../components/Amount';
+import { AccountFilter, useAccountFilter } from '../components/AccountFilter';
 import { AppHeader } from '../components/AppHeader';
 import { FilterChip } from '../components/FilterChip';
 import { PressableScale } from '../components/PressableScale';
@@ -17,7 +18,6 @@ import {
   listTransactions,
   TransactionListItem,
 } from '../db/queries';
-import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
@@ -87,7 +87,6 @@ export function TransactionsScreen() {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const navigation = useNavigation<Nav>();
-  const [accountId, setAccountId] = useState<string | null>(null);
   // undefined = newest month with data (follows new imports); 'all' = every month.
   const [monthChoice, setMonthChoice] = useState<string | 'all' | undefined>(undefined);
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -101,15 +100,15 @@ export function TransactionsScreen() {
   const maxAmount = parseAmount(maxText);
 
   const hasData = useQuery(() => hasAnyTransactions(), []);
-  const accounts = useQuery(() => listAccounts(), []);
-  const months = useQuery(() => listMonthsWithData(), []);
+  const { accountId, accountIds } = useAccountFilter();
+  const months = useQuery(() => listMonthsWithData(accountIds), [accountId]);
   const month = monthChoice === 'all' ? null : (monthChoice ?? months[0] ?? null);
   const monthIndex = month ? months.indexOf(month) : -1;
   const categories = useQuery(() => listCategoriesForFilter(), []);
   const items = useQuery(
     () =>
       listTransactions({
-        accountId: accountId ?? undefined,
+        scopeAccountIds: accountIds,
         month: month ?? undefined,
         categoryId: categoryId ?? undefined,
         uncategorizedOnly,
@@ -129,7 +128,6 @@ export function TransactionsScreen() {
   );
 
   const hasActiveFilters =
-    accountId !== null ||
     monthChoice !== undefined ||
     categoryId !== null ||
     uncategorizedOnly ||
@@ -138,7 +136,6 @@ export function TransactionsScreen() {
     minAmount != null ||
     maxAmount != null;
   const clearFilters = useCallback(() => {
-    setAccountId(null);
     setMonthChoice(undefined);
     setCategoryId(null);
     setUncategorizedOnly(false);
@@ -171,6 +168,7 @@ export function TransactionsScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
+      <AccountFilter />
       <Text style={styles.title}>Transactions</Text>
 
       <View style={styles.monthRow}>
@@ -249,19 +247,6 @@ export function TransactionsScreen() {
           setUncategorizedOnly((v) => !v);
           setCategoryId(null);
         }} />
-        {accounts.length > 1 && (
-          <>
-            <FilterChip label="All accounts" selected={accountId === null} onPress={() => setAccountId(null)} />
-            {accounts.map((a) => (
-              <FilterChip
-                key={a.id}
-                label={a.bank}
-                selected={accountId === a.id}
-                onPress={() => setAccountId(a.id)}
-              />
-            ))}
-          </>
-        )}
         <FilterChip
           label="All categories"
           selected={categoryId === null && !uncategorizedOnly}

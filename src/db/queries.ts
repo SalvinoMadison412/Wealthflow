@@ -150,9 +150,11 @@ function listRecurringMerchants(): string[] {
 
 // Last 12 calendar months that actually have a transaction, newest first —
 // the Month filter chip's option list.
-export function listMonthsWithData(): string[] {
+export function listMonthsWithData(accountIds?: string[] | null): string[] {
+  const scope = accountsClause(accountIds, 'transactions');
   const rows = db.getAllSync<{ month: string }>(
-    `SELECT DISTINCT strftime('%Y-%m', date) as month FROM transactions ORDER BY month DESC LIMIT 12`
+    `SELECT DISTINCT strftime('%Y-%m', date) as month FROM transactions WHERE 1 = 1 ${scope.clause} ORDER BY month DESC LIMIT 12`,
+    scope.params
   );
   return rows.map((r) => r.month);
 }
@@ -168,10 +170,11 @@ export function listCategoriesForFilter(): FilterCategory[] {
   return rows.map((r) => ({ id: r.id, name: r.name, colorIndex: r.color_index }));
 }
 
-export function countTransactionsInMonth(month: string): number {
+export function countTransactionsInMonth(month: string, accountIds?: string[] | null): number {
+  const scope = accountsClause(accountIds, 'transactions');
   const row = db.getFirstSync<{ n: number }>(
-    "SELECT COUNT(*) as n FROM transactions WHERE strftime('%Y-%m', date) = ?",
-    [month]
+    `SELECT COUNT(*) as n FROM transactions WHERE strftime('%Y-%m', date) = ? ${scope.clause}`,
+    [month, ...scope.params]
   );
   return row?.n ?? 0;
 }
