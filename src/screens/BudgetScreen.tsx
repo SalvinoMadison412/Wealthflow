@@ -10,15 +10,23 @@ import { Donut } from '../components/Donut';
 import { PressableScale } from '../components/PressableScale';
 import { ProgressBar } from '../components/ProgressBar';
 import { Bucket, bucketTotals, isValidPreset, planned, Preset, PRESETS } from '../data/budget';
-import { CategoryBudgetRow, getCategoryBudgetRows, getIncomeForMonth, getSetting } from '../db/queries';
-import { setCategoryBucket, setCategoryBudget, setSetting } from '../db/transactions';
+import {
+  CategoryBudgetRow,
+  countTransactionsInMonth,
+  countUncategorized,
+  getCategoryBudgetRows,
+  getIncomeForMonth,
+  getSetting,
+  listMonthsWithData,
+} from '../db/queries';
+import { applyPresetRules, setCategoryBucket, setCategoryBudget, setSetting } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { bucketColors, contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
-const BUCKETS: Bucket[] = ['needs', 'wants', 'savings'];
-const BUCKET_LABEL: Record<Bucket, string> = { needs: 'Needs', wants: 'Wants', savings: 'Savings' };
-const PRESET_KEYS: ('50/30/20' | '60/20/20' | 'custom')[] = ['50/30/20', '60/20/20', 'custom'];
+const BUCKETS: Bucket[] = ['needs', 'savings'];
+const BUCKET_LABEL: Record<Bucket, string> = { needs: 'Needs', savings: 'Savings' };
+const PRESET_KEYS: ('80/20' | '70/30' | 'custom')[] = ['80/20', '70/30', 'custom'];
 
 function currentMonthKey(): string {
   const d = new Date();
@@ -48,17 +56,31 @@ function nextBucket(bucket: Bucket): Bucket {
 export function BudgetScreen() {
   const { colors, pillPalette } = useTheme();
   const styles = useStyles(makeStyles);
-  const [month, setMonth] = useState(currentMonthKey);
-  const [presetKey, setPresetKey] = useState<'50/30/20' | '60/20/20' | 'custom'>('60/20/20');
-  const [customPreset, setCustomPreset] = useState<Preset>({ needs: 50, wants: 30, savings: 20 });
+  // Opens on the newest month that has data — the current calendar month is
+  // usually empty, and the numbers the user just imported are the point.
+  const [month, setMonth] = useState(() => listMonthsWithData()[0] ?? currentMonthKey());
+  const [presetKey, setPresetKey] = useState<'80/20' | '70/30' | 'custom'>('80/20');
+  const [customPreset, setCustomPreset] = useState<Preset>({ needs: 75, savings: 25 });
   const [incomeInput, setIncomeInput] = useState('');
 
   const realIncome = useQuery(() => getIncomeForMonth(month), [month]);
   const incomeSetting = useQuery(() => getSetting('monthly_income'), []);
   const rows = useQuery(() => getCategoryBudgetRows(month), [month]);
+  const uncategorizedCount = useQuery(() => countUncategorized(), []);
+  const monthHasData = useQuery(() => countTransactionsInMonth(month) > 0, [month]);
+  const [autoMessage, setAutoMessage] = useState<string | null>(null);
 
   const income = realIncome > 0 ? realIncome : Number(incomeSetting ?? 0);
   const preset = presetKey === 'custom' ? customPreset : PRESETS[presetKey];
+
+  function autoCategorize() {
+    const { rulesAdded, categorised } = applyPresetRules();
+    setAutoMessage(
+      rulesAdded === 0 && categorised === 0
+        ? 'Nothing new matched. Add a rule for the rest.'
+        : `Categorised ${categorised} transaction${categorised === 1 ? '' : 's'} · ${rulesAdded} rule${rulesAdded === 1 ? '' : 's'} added (see Rules)`
+    );
+  }
 
   function saveIncome() {
     const parsed = Number(incomeInput);
@@ -97,7 +119,7 @@ export function BudgetScreen() {
   }
 
   const actual = bucketTotals(rows.map((r) => ({ bucket: r.bucket, spent: r.spent })));
-  const totalSpent = actual.needs + actual.wants + actual.savings;
+  const totalSpent = actual.needs + actual.savings;
   const displayRows = rows.filter((r) => r.spent > 0 || r.monthlyBudget != null);
 
   return (
@@ -139,9 +161,9 @@ export function BudgetScreen() {
         <View style={styles.card}>
           <View style={styles.donutWrap}>
             <Donut
-              segments={BUCKETS.map((b) => ({ pct: preset[b], color: bucketColors[b] }))}
-              centerLabel={formatRupees(totalSpent)}
-              centerSubLabel={`of ${formatRupees(income)} planned`}
+              segments={monthHasData ? BUCKETS.map((b) => ({ pct: preset[b], color: bucketColors[b] })) : []}
+              centerLabel={monthHasData ? formatRupees(totalSpent) : 'No statement'}
+              centerSubLabel={monthHasData ? `of ${formatRupees(income)} planned` : monthLabel(month)}
             />
           </View>
 
@@ -164,6 +186,25 @@ export function BudgetScreen() {
           </View>
         </View>
 
+        {(uncategorizedCount > 0 || autoMessage) && (
+          <View style={styles.autoCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.autoTitle}>
+                {uncategorizedCount > 0 ? `${uncategorizedCount} uncategorised` : 'All categorised'}
+              </Text>
+              <Text style={styles.autoText}>
+                {autoMessage ?? 'Swiggy, Rapido, Blinkit, DMart and more, sorted in one tap.'}
+              </Text>
+            </View>
+            {uncategorizedCount > 0 && (
+              <PressableScale style={styles.autoButton} onPress={autoCategorize}>
+                <Feather name="zap" size={14} color={colors.accentText} />
+                <Text style={styles.autoButtonText}>Auto-categorise</Text>
+              </PressableScale>
+            )}
+          </View>
+        )}
+
         <Text style={styles.sectionTitle}>Categories</Text>
         <View style={styles.categoryList}>
           {displayRows.length === 0 ? (
@@ -173,6 +214,7 @@ export function BudgetScreen() {
           )}
         </View>
       </ScrollView>
+
     </SafeAreaView>
   );
 }
@@ -180,7 +222,7 @@ export function BudgetScreen() {
 function CustomPresetEditor({ preset, onChange }: { preset: Preset; onChange: (p: Preset) => void }) {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
-  const total = preset.needs + preset.wants + preset.savings;
+  const total = preset.needs + preset.savings;
   const valid = isValidPreset(preset);
 
   function adjust(bucket: Bucket, delta: number) {
@@ -394,6 +436,26 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     ...type.caption,
     color: colors.textSecondary,
   },
+  autoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: pillPalette[1].bg,
+    borderRadius: radii.sheet,
+    padding: spacing.md,
+  },
+  autoTitle: { ...type.label, color: colors.textPrimary },
+  autoText: { ...type.caption, color: colors.textSecondary },
+  autoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.accent,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  autoButtonText: { ...type.label, color: colors.accentText },
   sectionTitle: {
     ...type.h3,
     color: colors.textPrimary,

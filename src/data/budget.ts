@@ -1,18 +1,18 @@
 // Pure — no expo-sqlite import, unit tested directly (see
 // db/transactionId.ts for why the DB layer itself isn't).
 
-export type Bucket = 'needs' | 'wants' | 'savings';
+export type Bucket = 'needs' | 'savings';
 
-export type Preset = { needs: number; wants: number; savings: number };
+export type Preset = { needs: number; savings: number };
 
-export const PRESETS: Record<'50/30/20' | '60/20/20', Preset> = {
-  '50/30/20': { needs: 50, wants: 30, savings: 20 },
-  '60/20/20': { needs: 60, wants: 20, savings: 20 },
+export const PRESETS: Record<'80/20' | '70/30', Preset> = {
+  '80/20': { needs: 80, savings: 20 },
+  '70/30': { needs: 70, savings: 30 },
 };
 
 export function isValidPreset(preset: Preset): boolean {
-  const { needs, wants, savings } = preset;
-  return needs >= 0 && wants >= 0 && savings >= 0 && needs + wants + savings === 100;
+  const { needs, savings } = preset;
+  return needs >= 0 && savings >= 0 && needs + savings === 100;
 }
 
 // The planned rupee amount for one bucket: income * percentage.
@@ -25,7 +25,7 @@ type CategorySpend = { bucket: Bucket; spent: number };
 // Actual spend per bucket, summed from each category's spend and its
 // assigned bucket — the donut's "actual" ring and the three bucket rows.
 export function bucketTotals(rows: CategorySpend[]): Record<Bucket, number> {
-  const totals: Record<Bucket, number> = { needs: 0, wants: 0, savings: 0 };
+  const totals: Record<Bucket, number> = { needs: 0, savings: 0 };
   for (const row of rows) totals[row.bucket] += row.spent;
   return totals;
 }

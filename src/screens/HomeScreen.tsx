@@ -53,16 +53,15 @@ const MONTH_NAME = new Date().toLocaleDateString('en-IN', { month: 'long' });
 
 // Pre-import Home shows the app's default budget split (a real preset,
 // not sample data) and what the app does. No invented figures.
-const SPLIT = PRESETS['50/30/20'];
+const SPLIT = PRESETS['80/20'];
 const BUCKETS = [
   { label: 'Needs', pct: SPLIT.needs, color: bucketColors.needs },
-  { label: 'Wants', pct: SPLIT.wants, color: bucketColors.wants },
   { label: 'Savings', pct: SPLIT.savings, color: bucketColors.savings },
 ];
 const FEATURES: { icon: keyof typeof Feather.glyphMap; title: string; text: string }[] = [
   { icon: 'file-text', title: 'Import a statement PDF', text: 'Every transaction is read off the page. No manual entry.' },
   { icon: 'tag', title: 'Categorised automatically', text: 'Write a rule once and every future statement sorts itself.' },
-  { icon: 'pie-chart', title: 'Needs, wants, savings', text: 'See how your spending splits and set a monthly budget per category.' },
+  { icon: 'pie-chart', title: 'Needs and savings', text: 'See how your spending splits and set a monthly budget per category.' },
   { icon: 'check-circle', title: 'Checked against your balance', text: 'Each import is reconciled: opening balance plus credits minus debits must equal closing.' },
 ];
 
@@ -126,7 +125,7 @@ export function HomeScreen() {
             <View style={styles.donutRow}>
               <Donut
                 segments={BUCKETS.map(({ pct, color }) => ({ pct, color }))}
-                centerLabel={`${SPLIT.needs}/${SPLIT.wants}/${SPLIT.savings}`}
+                centerLabel={`${SPLIT.needs}/${SPLIT.savings}`}
                 centerSubLabel="default split"
               />
               <View style={styles.legend}>
