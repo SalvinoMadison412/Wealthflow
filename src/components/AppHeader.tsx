@@ -10,14 +10,15 @@ import { contentWrap, spacing } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 // Seamless: sits directly on the page background, no card surface or
-// border to separate it from the content below.
+// border to separate it from the content below. The menu icon opens the
+// Menu sheet (profile, statements, appearance, family).
 export function AppHeader() {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   return (
     <View style={styles.header}>
-      <Pressable onPress={() => navigation.navigate('Profile')} hitSlop={13} accessibilityLabel="Profile and settings">
+      <Pressable onPress={() => navigation.navigate('Menu')} hitSlop={13} accessibilityLabel="Menu">
         <Feather name="menu" size={22} color={colors.textPrimary} />
       </Pressable>
       <Logo size={22} />

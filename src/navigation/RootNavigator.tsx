@@ -13,11 +13,13 @@ import { CategorizeSheet } from '../screens/CategorizeSheet';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ImportScreen } from '../screens/ImportScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { MenuSheet } from '../screens/MenuSheet';
 import { NewRuleFormScreen } from '../screens/NewRuleFormScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { OtpScreen } from '../screens/OtpScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RulesListScreen } from '../screens/RulesListScreen';
+import { StatementsScreen } from '../screens/StatementsScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
 import { cardShadow } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
@@ -32,6 +34,8 @@ export type RootStackParamList = {
   NewRuleForm: undefined;
   CategorizeSheet: { transactionId: string };
   Profile: undefined;
+  Menu: undefined;
+  Statements: undefined;
 };
 
 export type MainTabsParamList = {
@@ -198,6 +202,17 @@ export function RootNavigator() {
             <RootStack.Screen name="MainTabs" component={MainTabs} />
             <RootStack.Screen name="Profile" component={ProfileScreen} />
             <RootStack.Screen name="EditProfile" component={OnboardingScreen} />
+            <RootStack.Screen name="Statements" component={StatementsScreen} />
+            <RootStack.Screen
+              name="Menu"
+              component={MenuSheet}
+              options={{
+                presentation: 'formSheet',
+                sheetAllowedDetents: [0.62, 1],
+                sheetGrabberVisible: true,
+                sheetCornerRadius: 20,
+              }}
+            />
             <RootStack.Screen name="Import" component={ImportScreen} options={{ presentation: 'modal' }} />
             <RootStack.Screen
               name="NewRuleForm"
