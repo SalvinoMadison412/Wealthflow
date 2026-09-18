@@ -9,7 +9,7 @@ import { PressableScale } from '../components/PressableScale';
 import { SettingsRow, SettingsSection } from '../components/SettingsRow';
 import { futureValue, monthsToGoal } from '../data/calculator';
 import { Account, deleteAccount, deleteCategory, listAccounts, renameAccount, renameCategory, setCategoryColor, setSetting, wipeAllData } from '../db/transactions';
-import { FilterCategory, getSetting, listCategoriesForFilter } from '../db/queries';
+import { FilterCategory, getOwnerLabels, getSetting, listCategoriesForFilter } from '../db/queries';
 import { useQuery } from '../db/useQuery';
 import { colors, pillPalette, radii, spacing, type } from '../theme/tokens';
 import { UNCATEGORIZED_CATEGORY_ID, TRANSFER_CATEGORY_ID } from '../db/schema';
@@ -22,6 +22,7 @@ export function ProfileScreen() {
   const accounts = useQuery(() => listAccounts(), []);
   const categories = useQuery(() => listCategoriesForFilter(), []);
   const monthlyIncomeSetting = useQuery(() => getSetting('monthly_income'), []);
+  const ownerLabels = useQuery(() => getOwnerLabels(), []);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -41,6 +42,17 @@ export function ProfileScreen() {
 
         <SettingsSection title="Preferences">
           <MonthlyIncomeRow current={monthlyIncomeSetting} />
+        </SettingsSection>
+
+        <SettingsSection title="Household">
+          <Text style={styles.householdNote}>
+            Everyone's statements on this phone. Nothing is shared or uploaded.
+          </Text>
+          {ownerLabels.length === 0 ? (
+            <SettingsRow icon="users" label="No one yet" showChevron={false} />
+          ) : (
+            ownerLabels.map((label) => <SettingsRow key={label} icon="user" label={label} showChevron={false} />)
+          )}
         </SettingsSection>
 
         <SettingsSection title="Categories">
@@ -355,6 +367,11 @@ const styles = StyleSheet.create({
   label: {
     ...type.body,
     color: colors.textPrimary,
+  },
+  householdNote: {
+    ...type.caption,
+    color: colors.textSecondary,
+    paddingVertical: spacing.md,
   },
   privacyNote: {
     ...type.caption,

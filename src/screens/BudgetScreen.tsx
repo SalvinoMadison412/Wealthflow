@@ -8,8 +8,16 @@ import { CategoryPill } from '../components/CategoryPill';
 import { Donut } from '../components/Donut';
 import { PressableScale } from '../components/PressableScale';
 import { ProgressBar } from '../components/ProgressBar';
+import { ScopeSwitch } from '../components/ScopeSwitch';
 import { Bucket, bucketTotals, isValidPreset, planned, Preset, PRESETS } from '../data/budget';
-import { CategoryBudgetRow, getCategoryBudgetRows, getIncomeForMonth, getSetting } from '../db/queries';
+import {
+  CategoryBudgetRow,
+  getAccountIdsForScope,
+  getCategoryBudgetRows,
+  getIncomeForMonth,
+  getOwnerLabels,
+  getSetting,
+} from '../db/queries';
 import { setCategoryBucket, setCategoryBudget, setSetting } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { colors, pillPalette, radii, spacing, type } from '../theme/tokens';
@@ -50,9 +58,12 @@ export function BudgetScreen() {
   const [customPreset, setCustomPreset] = useState<Preset>({ needs: 50, wants: 30, savings: 20 });
   const [incomeInput, setIncomeInput] = useState('');
 
-  const realIncome = useQuery(() => getIncomeForMonth(month), [month]);
+  const ownerLabels = useQuery(() => getOwnerLabels(), []);
+  const scope = useQuery(() => getSetting('scope') ?? 'me', []);
+  const scopeAccountIds = useQuery(() => getAccountIdsForScope(scope), [scope]);
+  const realIncome = useQuery(() => getIncomeForMonth(month, scopeAccountIds), [month, scopeAccountIds]);
   const incomeSetting = useQuery(() => getSetting('monthly_income'), []);
-  const rows = useQuery(() => getCategoryBudgetRows(month), [month]);
+  const rows = useQuery(() => getCategoryBudgetRows(month, scopeAccountIds), [month, scopeAccountIds]);
 
   const income = realIncome > 0 ? realIncome : Number(incomeSetting ?? 0);
   const preset = presetKey === 'custom' ? customPreset : PRESETS[presetKey];
@@ -101,6 +112,8 @@ export function BudgetScreen() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
       <ScrollView contentContainerStyle={styles.content}>
+        <ScopeSwitch scope={scope} onChange={(s) => setSetting('scope', s)} ownerLabels={ownerLabels} />
+
         <View style={styles.monthRow}>
           <Pressable onPress={() => setMonth((m) => shiftMonth(m, -1))} hitSlop={10} accessibilityLabel="Previous month">
             <Feather name="chevron-left" size={22} color={colors.textPrimary} />
