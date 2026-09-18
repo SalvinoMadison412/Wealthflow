@@ -242,3 +242,41 @@ export function getCurrentMonthSummary(): MonthSummary {
   );
   return { income: row?.income ?? 0, expense: row?.expense ?? 0 };
 }
+
+export type RuleListItem = {
+  id: string;
+  enabled: boolean;
+  description: string;
+  categoryName: string;
+  colorIndex: number;
+};
+
+// Every rule (enabled or not), in priority order — the Rules screen's
+// source of truth. `description` is the same plain-language summary the
+// categorize sheet shows for a matched rule.
+export function listRulesForDisplay(): RuleListItem[] {
+  const rows = db.getAllSync<{
+    id: string;
+    merchant_pattern: string | null;
+    amount_json: string | null;
+    enabled: number;
+    category_name: string;
+    color_index: number;
+  }>(
+    `SELECT r.id, r.merchant_pattern, r.amount_json, r.enabled, c.name as category_name, c.color_index
+     FROM rules r
+     JOIN categories c ON c.id = r.category_id
+     ORDER BY r.position ASC`
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    enabled: r.enabled === 1,
+    description: describeRule({
+      merchant: r.merchant_pattern ?? undefined,
+      amount: r.amount_json ? JSON.parse(r.amount_json) : undefined,
+      category: r.category_name,
+    }),
+    categoryName: r.category_name,
+    colorIndex: r.color_index,
+  }));
+}
