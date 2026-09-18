@@ -12,11 +12,10 @@ import { Bucket, bucketTotals, isValidPreset, planned, Preset, PRESETS } from '.
 import { CategoryBudgetRow, getCategoryBudgetRows, getIncomeForMonth, getSetting } from '../db/queries';
 import { setCategoryBucket, setCategoryBudget, setSetting } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
-import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { bucketGradients, contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 const BUCKETS: Bucket[] = ['needs', 'wants', 'savings'];
-const BUCKET_COLOR_INDEX: Record<Bucket, number> = { needs: 1, wants: 5, savings: 3 };
 const BUCKET_LABEL: Record<Bucket, string> = { needs: 'Needs', wants: 'Wants', savings: 'Savings' };
 const PRESET_KEYS: ('50/30/20' | '60/20/20' | 'custom')[] = ['50/30/20', '60/20/20', 'custom'];
 
@@ -137,7 +136,7 @@ export function BudgetScreen() {
         <View style={styles.card}>
           <View style={styles.donutWrap}>
             <Donut
-              segments={BUCKETS.map((b) => ({ pct: preset[b], colorIndex: BUCKET_COLOR_INDEX[b] }))}
+              segments={BUCKETS.map((b) => ({ pct: preset[b], from: bucketGradients[b][0], to: bucketGradients[b][1] }))}
               centerLabel={formatRupees(totalSpent)}
               centerSubLabel={`of ${formatRupees(income)} planned`}
             />
@@ -148,7 +147,7 @@ export function BudgetScreen() {
               <View key={b} style={styles.bucketRow}>
                 <View style={styles.bucketHeaderRow}>
                   <View style={styles.bucketNameRow}>
-                    <View style={[styles.dot, { backgroundColor: pillPalette[BUCKET_COLOR_INDEX[b]].text }]} />
+                    <View style={[styles.dot, { backgroundColor: bucketGradients[b][0] }]} />
                     <Text style={styles.bucketName}>{BUCKET_LABEL[b]}</Text>
                     <Text style={styles.bucketPct}>{preset[b]}%</Text>
                   </View>

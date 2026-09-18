@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 import { type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
@@ -10,7 +10,7 @@ const STROKE = 18;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-type DonutSegment = { pct: number; colorIndex: number };
+type DonutSegment = { pct: number; from: string; to: string };
 
 interface DonutProps {
   segments: DonutSegment[]; // needs, wants, savings order — at most 3
@@ -19,17 +19,40 @@ interface DonutProps {
 }
 
 // react-native-svg Circles, static (no animation) — a track circle plus
-// one per segment, at most 4 shapes total. Center text is a plain RN Text
+// one per segment, each stroked with a gradient that runs along its own arc
+// (start point to end point, in the circle's rotated frame). Center text is a plain RN Text
 // overlay, not SVG Text (simpler font handling, same as the rest of the
 // app).
 export function Donut({ segments, centerLabel, centerSubLabel }: DonutProps) {
   const { pillPalette } = useTheme();
   const styles = useStyles(makeStyles);
-  let consumed = 0;
+  const arc = (s: DonutSegment) => (Math.max(s.pct, 0) / 100) * CIRCUMFERENCE;
+  const starts = segments.map((_, i) => segments.slice(0, i).reduce((sum, s) => sum + arc(s), 0));
 
   return (
     <View style={styles.wrap}>
       <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+        <Defs>
+          {segments.map((s, i) => {
+            const a0 = (starts[i] / CIRCUMFERENCE) * 2 * Math.PI;
+            const a1 = ((starts[i] + arc(s)) / CIRCUMFERENCE) * 2 * Math.PI;
+            const c = SIZE / 2;
+            return (
+              <LinearGradient
+                key={i}
+                id={`arc${i}`}
+                gradientUnits="userSpaceOnUse"
+                x1={c + RADIUS * Math.cos(a0)}
+                y1={c + RADIUS * Math.sin(a0)}
+                x2={c + RADIUS * Math.cos(a1)}
+                y2={c + RADIUS * Math.sin(a1)}
+              >
+                <Stop offset="0" stopColor={s.from} />
+                <Stop offset="1" stopColor={s.to} />
+              </LinearGradient>
+            );
+          })}
+        </Defs>
         <Circle
           cx={SIZE / 2}
           cy={SIZE / 2}
@@ -39,19 +62,17 @@ export function Donut({ segments, centerLabel, centerSubLabel }: DonutProps) {
           fill="none"
         />
         {segments.map((s, i) => {
-          const length = (Math.max(s.pct, 0) / 100) * CIRCUMFERENCE;
-          const dashoffset = -consumed;
-          consumed += length;
+          const length = arc(s);
           return (
             <Circle
               key={i}
               cx={SIZE / 2}
               cy={SIZE / 2}
               r={RADIUS}
-              stroke={pillPalette[s.colorIndex].text}
+              stroke={`url(#arc${i})`}
               strokeWidth={STROKE}
               strokeDasharray={`${length} ${CIRCUMFERENCE}`}
-              strokeDashoffset={dashoffset}
+              strokeDashoffset={-starts[i]}
               strokeLinecap="round"
               fill="none"
               // rotate(-90) starts each arc at 12 o'clock instead of 3.
