@@ -13,7 +13,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 type DonutSegment = { pct: number; color: string };
 
 interface DonutProps {
-  segments: DonutSegment[]; // needs, wants, savings order — at most 3
+  segments: DonutSegment[]; // needs, savings order
   centerLabel: string;
   centerSubLabel: string;
 }

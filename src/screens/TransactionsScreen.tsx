@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ScrollView, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Amount } from '../components/Amount';
@@ -11,13 +11,14 @@ import { FilterChip } from '../components/FilterChip';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
 import {
+  countUncategorized,
   hasAnyTransactions,
   listCategoriesForFilter,
   listMonthsWithData,
   listTransactions,
   TransactionListItem,
 } from '../db/queries';
-import { listAccounts } from '../db/transactions';
+import { applyPresetRules, listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
@@ -29,7 +30,7 @@ type Section = { title: string; net: number; data: TransactionListItem[] };
 
 function monthLabel(month: string): string {
   const [y, m] = month.split('-').map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+  return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 }
 
 function longDateLabel(date: string): string {
@@ -88,7 +89,9 @@ export function TransactionsScreen() {
   const styles = useStyles(makeStyles);
   const navigation = useNavigation<Nav>();
   const [accountId, setAccountId] = useState<string | null>(null);
-  const [month, setMonth] = useState<string | null>(null);
+  // undefined = newest month with data (follows new imports); 'all' = every month.
+  const [monthChoice, setMonthChoice] = useState<string | 'all' | undefined>(undefined);
+  const [autoMessage, setAutoMessage] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [uncategorizedOnly, setUncategorizedOnly] = useState(false);
   const [direction, setDirection] = useState<'received' | 'sent' | null>(null);
@@ -102,6 +105,9 @@ export function TransactionsScreen() {
   const hasData = useQuery(() => hasAnyTransactions(), []);
   const accounts = useQuery(() => listAccounts(), []);
   const months = useQuery(() => listMonthsWithData(), []);
+  const uncategorizedCount = useQuery(() => countUncategorized(), []);
+  const month = monthChoice === 'all' ? null : (monthChoice ?? months[0] ?? null);
+  const monthIndex = month ? months.indexOf(month) : -1;
   const categories = useQuery(() => listCategoriesForFilter(), []);
   const items = useQuery(
     () =>
@@ -127,7 +133,7 @@ export function TransactionsScreen() {
 
   const hasActiveFilters =
     accountId !== null ||
-    month !== null ||
+    monthChoice !== undefined ||
     categoryId !== null ||
     uncategorizedOnly ||
     direction !== null ||
@@ -136,7 +142,7 @@ export function TransactionsScreen() {
     maxAmount != null;
   const clearFilters = useCallback(() => {
     setAccountId(null);
-    setMonth(null);
+    setMonthChoice(undefined);
     setCategoryId(null);
     setUncategorizedOnly(false);
     setDirection(null);
@@ -145,6 +151,15 @@ export function TransactionsScreen() {
     setMaxText('');
     setAmountOpen(false);
   }, []);
+
+  const autoCategorize = () => {
+    const { rulesAdded, categorised } = applyPresetRules();
+    setAutoMessage(
+      rulesAdded === 0 && categorised === 0
+        ? 'Nothing new matched. Add a rule for the rest.'
+        : `Categorised ${categorised} transaction${categorised === 1 ? '' : 's'} · ${rulesAdded} rule${rulesAdded === 1 ? '' : 's'} added (see Rules)`
+    );
+  };
 
   if (!hasData) {
     return (
@@ -169,6 +184,34 @@ export function TransactionsScreen() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
       <Text style={styles.title}>Transactions</Text>
+
+      <View style={styles.monthRow}>
+        <Pressable
+          onPress={() => setMonthChoice(months[monthIndex + 1])}
+          disabled={monthIndex < 0 || monthIndex >= months.length - 1}
+          hitSlop={13}
+          accessibilityLabel="Older month"
+          style={(monthIndex < 0 || monthIndex >= months.length - 1) && styles.chevronDisabled}
+        >
+          <Feather name="chevron-left" size={22} color={colors.textPrimary} />
+        </Pressable>
+        <Pressable
+          onPress={() => setMonthChoice(month ? 'all' : undefined)}
+          hitSlop={8}
+          accessibilityLabel={month ? 'Show all months' : 'Show one month'}
+        >
+          <Text style={styles.monthLabel}>{month ? monthLabel(month) : 'All months'}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setMonthChoice(months[monthIndex - 1])}
+          disabled={monthIndex <= 0}
+          hitSlop={13}
+          accessibilityLabel="Newer month"
+          style={monthIndex <= 0 && styles.chevronDisabled}
+        >
+          <Feather name="chevron-right" size={22} color={colors.textPrimary} />
+        </Pressable>
+      </View>
 
       <View style={styles.filterRow}>
         <FilterChip label="Received" selected={direction === 'received'} onPress={() => setDirection((d) => (d === 'received' ? null : 'received'))} />
@@ -231,10 +274,6 @@ export function TransactionsScreen() {
             ))}
           </>
         )}
-        <FilterChip label="All months" selected={month === null} onPress={() => setMonth(null)} />
-        {months.map((m) => (
-          <FilterChip key={m} label={monthLabel(m)} selected={month === m} onPress={() => setMonth(m)} />
-        ))}
         <FilterChip
           label="All categories"
           selected={categoryId === null && !uncategorizedOnly}
@@ -255,6 +294,25 @@ export function TransactionsScreen() {
           />
         ))}
       </ScrollView>
+
+      {(uncategorizedCount > 0 || autoMessage) && (
+        <View style={styles.autoCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.autoTitle}>
+              {uncategorizedCount > 0 ? `${uncategorizedCount} uncategorised` : 'All categorised'}
+            </Text>
+            <Text style={styles.autoText}>
+              {autoMessage ?? 'Swiggy, Rapido, Blinkit, DMart and more, sorted in one tap.'}
+            </Text>
+          </View>
+          {uncategorizedCount > 0 && (
+            <PressableScale style={styles.autoButton} onPress={autoCategorize}>
+              <Feather name="zap" size={14} color={colors.accentText} />
+              <Text style={styles.autoButtonText}>Auto-categorise</Text>
+            </PressableScale>
+          )}
+        </View>
+      )}
 
       {sections.length === 0 ? (
         <View style={styles.emptyState}>
@@ -308,7 +366,38 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.md,
   },
-  chipScroll: { flexGrow: 0 },
+  chipScroll: { flexGrow: 0, flexShrink: 0 },
+  monthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  monthLabel: { ...type.h2, color: colors.textPrimary, minWidth: 160, textAlign: 'center' },
+  chevronDisabled: { opacity: 0.3 },
+  autoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: pillPalette[1].bg,
+    borderRadius: radii.sheet,
+    marginHorizontal: spacing.pageGutter,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+  },
+  autoTitle: { ...type.label, color: colors.textPrimary },
+  autoText: { ...type.caption, color: colors.textSecondary },
+  autoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.accent,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  autoButtonText: { ...type.label, color: colors.accentText },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',

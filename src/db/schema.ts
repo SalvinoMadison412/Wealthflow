@@ -76,6 +76,11 @@ const MIGRATIONS: string[] = [
     ('${UNCATEGORIZED_CATEGORY_ID}', 'Uncategorized', 9, 'wants', NULL, -2),
     ('${TRANSFER_CATEGORY_ID}', 'Transfer', 7, 'needs', NULL, -1);
   `,
+  // v2: the Wants bucket is gone; fold existing categories into Needs.
+  // ponytail: v1's CHECK still allows 'wants' (SQLite can't alter a CHECK
+  // without rebuilding the table and its three foreign keys); the app
+  // never writes it. Rebuild the table if the constraint ever matters.
+  `UPDATE categories SET bucket = 'needs' WHERE bucket = 'wants';`,
 ];
 
 // PRAGMA user_version-keyed migrations — each entry runs once, in its own

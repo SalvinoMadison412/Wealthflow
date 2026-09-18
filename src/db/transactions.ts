@@ -2,9 +2,12 @@ import { PageContent } from '../pdf/types';
 import { parseStatement } from '../statement/registry';
 import { reconcile } from '../statement/reconciliation';
 import { ParsedStatement, ReconciliationResult } from '../statement/types';
+import { PRESET_RULES } from '../data/autoCategorize';
+import { Bucket } from '../data/budget';
 import { detectTransferPairs, TransferCandidate } from '../data/transfers';
 import { db } from './db';
 import { AmountCondition, compileRules } from './matching';
+import { countUncategorized } from './queries';
 import { recategorize } from './recategorize';
 import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
 import { makeTransactionId, newId } from './transactionId';
@@ -179,7 +182,7 @@ function runTransferDetection(): void {
   });
 }
 
-export function getOrCreateCategoryByName(name: string): string {
+export function getOrCreateCategoryByName(name: string, bucket: Bucket = 'needs'): string {
   const existing = db.getFirstSync<{ id: string }>('SELECT id FROM categories WHERE name = ?', [name]);
   if (existing) return existing.id;
 
@@ -190,7 +193,7 @@ export function getOrCreateCategoryByName(name: string): string {
   const id = newId();
   db.runSync(
     'INSERT INTO categories (id, name, color_index, bucket, monthly_budget, position) VALUES (?, ?, ?, ?, NULL, ?)',
-    [id, name, position % 10, 'wants', position]
+    [id, name, position % 10, bucket, position]
   );
   return id;
 }
@@ -218,6 +221,33 @@ export function insertRule(rule: { merchant?: string; amount?: AmountCondition; 
   );
 
   recategorize('all');
+}
+
+// Auto-categorise: adds the built-in Indian-brand regex rules (see
+// data/autoCategorize.ts) at the LOWEST priority, so the user's own rules
+// and manual overrides always win. A preset whose pattern already exists
+// is skipped, which makes a second tap a no-op. Returns how many rules
+// were added and how many transactions left Uncategorized.
+export function applyPresetRules(): { rulesAdded: number; categorised: number } {
+  const before = countUncategorized();
+  let rulesAdded = 0;
+
+  db.withTransactionSync(() => {
+    let position = (db.getFirstSync<{ max: number | null }>('SELECT MAX(position) as max FROM rules')?.max ?? 0) + 1;
+    for (const preset of PRESET_RULES) {
+      const exists = db.getFirstSync('SELECT 1 FROM rules WHERE merchant_pattern = ?', [preset.pattern]);
+      if (exists) continue;
+      db.runSync(
+        `INSERT INTO rules (id, merchant_pattern, amount_json, category_id, enabled, position, created_at)
+         VALUES (?, ?, NULL, ?, 1, ?, ?)`,
+        [newId(), preset.pattern, getOrCreateCategoryByName(preset.category, preset.bucket), position++, new Date().toISOString()]
+      );
+      rulesAdded++;
+    }
+  });
+
+  recategorize('all');
+  return { rulesAdded, categorised: before - countUncategorized() };
 }
 
 export function deleteRule(id: string): void {
@@ -294,10 +324,10 @@ export function setSetting(key: string, value: string): void {
   );
 }
 
-// Bucket default for a newly created category is 'wants' (set at
+// Bucket default for a newly created category is 'needs' (set at
 // creation in getOrCreateCategoryByName); this is only for re-assigning
-// an existing one from the Budget screen's tap-to-cycle chip.
-export function setCategoryBucket(categoryId: string, bucket: 'needs' | 'wants' | 'savings'): void {
+// an existing one from the Budget screen's tap-to-toggle chip.
+export function setCategoryBucket(categoryId: string, bucket: Bucket): void {
   db.runSync('UPDATE categories SET bucket = ? WHERE id = ?', [bucket, categoryId]);
 }
 

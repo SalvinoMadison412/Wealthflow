@@ -168,6 +168,13 @@ export function listCategoriesForFilter(): FilterCategory[] {
   return rows.map((r) => ({ id: r.id, name: r.name, colorIndex: r.color_index }));
 }
 
+export function countUncategorized(): number {
+  const row = db.getFirstSync<{ n: number }>('SELECT COUNT(*) as n FROM transactions WHERE category_id = ?', [
+    UNCATEGORIZED_CATEGORY_ID,
+  ]);
+  return row?.n ?? 0;
+}
+
 export function hasAnyTransactions(): boolean {
   const row = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM transactions');
   return (row?.count ?? 0) > 0;

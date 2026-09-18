@@ -96,7 +96,7 @@ function replaceLocal(categories: ServerCategory[], rules: ServerRule[]) {
     for (const c of categories) {
       db.runSync(
         'INSERT INTO categories (id, name, color_index, bucket, monthly_budget, position) VALUES (?, ?, ?, ?, ?, ?)',
-        [c.id, c.name, c.color_index, c.bucket, c.monthly_budget, c.position]
+        [c.id, c.name, c.color_index, c.bucket === 'wants' ? 'needs' : c.bucket, c.monthly_budget, c.position]
       );
     }
     for (const r of rules) {

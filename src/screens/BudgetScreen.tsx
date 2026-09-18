@@ -16,9 +16,9 @@ import { useQuery } from '../db/useQuery';
 import { bucketColors, contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
-const BUCKETS: Bucket[] = ['needs', 'wants', 'savings'];
-const BUCKET_LABEL: Record<Bucket, string> = { needs: 'Needs', wants: 'Wants', savings: 'Savings' };
-const PRESET_KEYS: ('50/30/20' | '60/20/20' | 'custom')[] = ['50/30/20', '60/20/20', 'custom'];
+const BUCKETS: Bucket[] = ['needs', 'savings'];
+const BUCKET_LABEL: Record<Bucket, string> = { needs: 'Needs', savings: 'Savings' };
+const PRESET_KEYS: ('80/20' | '70/30' | 'custom')[] = ['80/20', '70/30', 'custom'];
 
 function currentMonthKey(): string {
   const d = new Date();
@@ -49,8 +49,8 @@ export function BudgetScreen() {
   const { colors, pillPalette } = useTheme();
   const styles = useStyles(makeStyles);
   const [month, setMonth] = useState(currentMonthKey);
-  const [presetKey, setPresetKey] = useState<'50/30/20' | '60/20/20' | 'custom'>('60/20/20');
-  const [customPreset, setCustomPreset] = useState<Preset>({ needs: 50, wants: 30, savings: 20 });
+  const [presetKey, setPresetKey] = useState<'80/20' | '70/30' | 'custom'>('80/20');
+  const [customPreset, setCustomPreset] = useState<Preset>({ needs: 75, savings: 25 });
   const [incomeInput, setIncomeInput] = useState('');
 
   const realIncome = useQuery(() => getIncomeForMonth(month), [month]);
@@ -97,7 +97,7 @@ export function BudgetScreen() {
   }
 
   const actual = bucketTotals(rows.map((r) => ({ bucket: r.bucket, spent: r.spent })));
-  const totalSpent = actual.needs + actual.wants + actual.savings;
+  const totalSpent = actual.needs + actual.savings;
   const displayRows = rows.filter((r) => r.spent > 0 || r.monthlyBudget != null);
 
   return (
@@ -180,7 +180,7 @@ export function BudgetScreen() {
 function CustomPresetEditor({ preset, onChange }: { preset: Preset; onChange: (p: Preset) => void }) {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
-  const total = preset.needs + preset.wants + preset.savings;
+  const total = preset.needs + preset.savings;
   const valid = isValidPreset(preset);
 
   function adjust(bucket: Bucket, delta: number) {
