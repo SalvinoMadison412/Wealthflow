@@ -12,7 +12,7 @@ import { deleteRule, moveRule, setRuleEnabled } from '../db/transactions';
 import { listRulesForDisplay, RuleListItem } from '../db/queries';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { colors, radii, spacing, type } from '../theme/tokens';
+import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -50,13 +50,13 @@ function RuleCard({
       <View style={styles.bottomRow}>
         <CategoryPill name={rule.categoryName} colorIndex={rule.colorIndex} />
         <View style={styles.actions}>
-          <Pressable onPress={onMoveUp} disabled={isFirst} hitSlop={10} accessibilityLabel="Move up">
+          <Pressable onPress={onMoveUp} disabled={isFirst} hitSlop={15} accessibilityLabel="Move up">
             <Feather name="chevron-up" size={18} color={isFirst ? colors.border : colors.textSecondary} />
           </Pressable>
-          <Pressable onPress={onMoveDown} disabled={isLast} hitSlop={10} accessibilityLabel="Move down">
+          <Pressable onPress={onMoveDown} disabled={isLast} hitSlop={15} accessibilityLabel="Move down">
             <Feather name="chevron-down" size={18} color={isLast ? colors.border : colors.textSecondary} />
           </Pressable>
-          <Pressable onPress={onDelete} hitSlop={10} accessibilityLabel="Delete rule">
+          <Pressable onPress={onDelete} hitSlop={15} accessibilityLabel="Delete rule">
             <Feather name="trash-2" size={18} color={colors.expenseText} />
           </Pressable>
         </View>
@@ -95,7 +95,7 @@ export function RulesListScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <View style={styles.titleBlock}>
           <Text style={styles.headline}>My Rules</Text>
           <Text style={styles.subtitle}>Rules are checked top to bottom; the first match wins.</Text>

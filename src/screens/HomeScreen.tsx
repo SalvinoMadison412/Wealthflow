@@ -25,7 +25,7 @@ import {
 import { setSetting } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { MainTabsParamList, RootStackParamList } from '../navigation/RootNavigator';
-import { colors, radii, spacing, type } from '../theme/tokens';
+import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabsParamList, 'Home'>,
@@ -85,7 +85,7 @@ export function HomeScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <View style={styles.greetingRow}>
           <Text style={styles.greeting}>{MONTH_NAME}</Text>
           <PressableScale

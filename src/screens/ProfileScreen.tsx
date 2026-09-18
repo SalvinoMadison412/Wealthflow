@@ -11,7 +11,7 @@ import { futureValue, monthsToGoal } from '../data/calculator';
 import { Account, deleteAccount, deleteCategory, listAccounts, renameAccount, renameCategory, setCategoryColor, setSetting, wipeAllData } from '../db/transactions';
 import { FilterCategory, getOwnerLabels, getSetting, listCategoriesForFilter } from '../db/queries';
 import { useQuery } from '../db/useQuery';
-import { colors, pillPalette, radii, spacing, type } from '../theme/tokens';
+import { colors, contentWrap, pillPalette, radii, spacing, type } from '../theme/tokens';
 import { UNCATEGORIZED_CATEGORY_ID, TRANSFER_CATEGORY_ID } from '../db/schema';
 
 function formatRupees(n: number): string {
@@ -27,7 +27,7 @@ export function ProfileScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <Text style={styles.title}>Profile</Text>
 
         <SmartCalculatorCard />
@@ -207,7 +207,7 @@ function AccountSettingsRow({ account }: { account: Account }) {
           <Text style={styles.accountMeta}>{account.ownerLabel}</Text>
         </View>
       </Pressable>
-      <Pressable onPress={() => setConfirmingDelete(true)} hitSlop={10} accessibilityLabel={`Delete ${account.bank}`}>
+      <Pressable onPress={() => setConfirmingDelete(true)} hitSlop={15} accessibilityLabel={`Delete ${account.bank}`}>
         <Feather name="trash-2" size={18} color={colors.expenseText} />
       </Pressable>
     </View>
@@ -277,7 +277,7 @@ function CategorySettingsRow({ category }: { category: FilterCategory }) {
         <TextInput style={styles.editInput} value={name} onChangeText={setName} autoFocus />
         <View style={styles.colorRow}>
           {pillPalette.map((p, i) => (
-            <Pressable key={i} onPress={() => setCategoryColor(category.id, i)} hitSlop={4}>
+            <Pressable key={i} onPress={() => setCategoryColor(category.id, i)} hitSlop={12}>
               <View style={[styles.colorSwatch, { backgroundColor: p.text }, category.colorIndex === i && styles.colorSwatchSelected]} />
             </Pressable>
           ))}
@@ -300,7 +300,7 @@ function CategorySettingsRow({ category }: { category: FilterCategory }) {
         <View style={[styles.colorSwatch, { backgroundColor: pillPalette[category.colorIndex].text }]} />
         <Text style={styles.label}>{category.name}</Text>
       </Pressable>
-      <Pressable onPress={() => setConfirmingDelete(true)} hitSlop={10} accessibilityLabel={`Delete ${category.name}`}>
+      <Pressable onPress={() => setConfirmingDelete(true)} hitSlop={15} accessibilityLabel={`Delete ${category.name}`}>
         <Feather name="trash-2" size={18} color={colors.expenseText} />
       </Pressable>
     </View>

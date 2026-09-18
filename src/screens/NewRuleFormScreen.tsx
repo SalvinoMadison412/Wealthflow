@@ -11,7 +11,7 @@ import { AmountCondition, useRules } from '../data/RulesContext';
 import { getOrCreateCategoryByName } from '../db/transactions';
 import { listCategoriesForFilter } from '../db/queries';
 import { useQuery } from '../db/useQuery';
-import { colors, radii, spacing, type } from '../theme/tokens';
+import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
 
 type AmountOperator = AmountCondition['operator'];
 
@@ -88,12 +88,12 @@ export function NewRuleFormScreen() {
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.title}>New Rule</Text>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={13} accessibilityLabel="Close">
           <Feather name="x" size={22} color={colors.textPrimary} />
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.form, contentWrap]} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>MERCHANT CONTAINS</Text>
           <TextInput
@@ -168,14 +168,14 @@ export function NewRuleFormScreen() {
           <Text style={styles.fieldLabel}>CATEGORY</Text>
           <View style={styles.grid}>
             {categories.map((c) => (
-              <Pressable key={c.id} onPress={() => setCategoryName(c.name)} hitSlop={4}>
+              <Pressable key={c.id} onPress={() => setCategoryName(c.name)} hitSlop={12}>
                 <View style={categoryName === c.name ? styles.pillSelected : undefined}>
                   <CategoryPill name={c.name} colorIndex={c.colorIndex} />
                 </View>
               </Pressable>
             ))}
             {!showNewCategoryField && (
-              <Pressable onPress={() => setShowNewCategoryField(true)} style={styles.newCategoryChip} hitSlop={4}>
+              <Pressable onPress={() => setShowNewCategoryField(true)} style={styles.newCategoryChip} hitSlop={12}>
                 <Feather name="plus" size={12} color={colors.accent} />
                 <Text style={styles.newCategoryChipText}>New category…</Text>
               </Pressable>

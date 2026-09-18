@@ -18,7 +18,7 @@ import {
 } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { colors, radii, spacing, type } from '../theme/tokens';
+import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
 
 type Route = RouteProp<RootStackParamList, 'CategorizeSheet'>;
 
@@ -89,7 +89,7 @@ export function CategorizeSheet() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.content, contentWrap]} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.merchant}>{transaction.merchant}</Text>
@@ -97,7 +97,7 @@ export function CategorizeSheet() {
               {transaction.description}
             </Text>
           </View>
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
+          <Pressable onPress={() => navigation.goBack()} hitSlop={13} accessibilityLabel="Close">
             <Feather name="x" size={22} color={colors.textPrimary} />
           </Pressable>
         </View>
@@ -123,12 +123,12 @@ export function CategorizeSheet() {
         <Text style={styles.sectionLabel}>CATEGORY</Text>
         <View style={styles.grid}>
           {categories.map((c) => (
-            <Pressable key={c.id} onPress={() => pickCategory(c.id, c.name)} hitSlop={4}>
+            <Pressable key={c.id} onPress={() => pickCategory(c.id, c.name)} hitSlop={12}>
               <CategoryPill name={c.name} colorIndex={c.colorIndex} />
             </Pressable>
           ))}
           {!showNewCategoryField && (
-            <Pressable onPress={() => setShowNewCategoryField(true)} style={styles.newCategoryChip} hitSlop={4}>
+            <Pressable onPress={() => setShowNewCategoryField(true)} style={styles.newCategoryChip} hitSlop={12}>
               <Feather name="plus" size={12} color={colors.accent} />
               <Text style={styles.newCategoryChipText}>New category…</Text>
             </Pressable>
