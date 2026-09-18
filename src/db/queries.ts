@@ -55,8 +55,7 @@ export function listTransactions(filters: TransactionFilters): TransactionListIt
 
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.getAllSync<TransactionRow>(
-    `SELECT t.id, t.date, t.merchant, t.withdrawal, t.deposit, t.is_transfer,
-            c.name as category_name, c.color_index
+    `SELECT ${TRANSACTION_ITEM_COLUMNS}
      FROM transactions t
      JOIN categories c ON c.id = t.category_id
      ${where}
@@ -64,7 +63,14 @@ export function listTransactions(filters: TransactionFilters): TransactionListIt
     params
   );
 
-  return rows.map((r) => ({
+  return rows.map(toTransactionListItem);
+}
+
+const TRANSACTION_ITEM_COLUMNS = `t.id, t.date, t.merchant, t.withdrawal, t.deposit, t.is_transfer,
+            c.name as category_name, c.color_index`;
+
+function toTransactionListItem(r: TransactionRow): TransactionListItem {
+  return {
     id: r.id,
     date: r.date,
     merchant: r.merchant,
@@ -73,7 +79,20 @@ export function listTransactions(filters: TransactionFilters): TransactionListIt
     isTransfer: r.is_transfer === 1,
     categoryName: r.category_name,
     colorIndex: r.color_index,
-  }));
+  };
+}
+
+// Home's "Recent" card — most recent N transactions across every account.
+export function listRecentTransactions(limit: number): TransactionListItem[] {
+  const rows = db.getAllSync<TransactionRow>(
+    `SELECT ${TRANSACTION_ITEM_COLUMNS}
+     FROM transactions t
+     JOIN categories c ON c.id = t.category_id
+     ORDER BY t.date DESC, t.id DESC
+     LIMIT ?`,
+    [limit]
+  );
+  return rows.map(toTransactionListItem);
 }
 
 // Last 12 calendar months that actually have a transaction, newest first —
@@ -178,4 +197,48 @@ export function getTransactionDetail(id: string): TransactionDetail | null {
     isOverridden: row.category_override_id !== null,
     matchedRuleDescription,
   };
+}
+
+function currentMonthKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export type MonthlyTotal = { month: string; income: number; expense: number };
+
+// Last `monthsBack` calendar months including this one, oldest first,
+// zero-filled so the chart always shows a fixed number of bars — the
+// Home bar chart's input. Transfers are excluded from both totals.
+export function getMonthlyTotals(monthsBack: number): MonthlyTotal[] {
+  const now = new Date();
+  const months: string[] = [];
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  const rows = db.getAllSync<{ month: string; income: number; expense: number }>(
+    `SELECT strftime('%Y-%m', date) as month,
+            COALESCE(SUM(deposit), 0) as income,
+            COALESCE(SUM(withdrawal), 0) as expense
+     FROM transactions
+     WHERE is_transfer = 0 AND strftime('%Y-%m', date) IN (${months.map(() => '?').join(',')})
+     GROUP BY month`,
+    months
+  );
+  const byMonth = new Map(rows.map((r) => [r.month, r]));
+  return months.map((m) => byMonth.get(m) ?? { month: m, income: 0, expense: 0 });
+}
+
+export type MonthSummary = { income: number; expense: number };
+
+// Home's "Net this month" card. Excludes transfers, same as the chart.
+export function getCurrentMonthSummary(): MonthSummary {
+  const row = db.getFirstSync<{ income: number; expense: number }>(
+    `SELECT COALESCE(SUM(deposit), 0) as income, COALESCE(SUM(withdrawal), 0) as expense
+     FROM transactions
+     WHERE is_transfer = 0 AND strftime('%Y-%m', date) = ?`,
+    [currentMonthKey()]
+  );
+  return { income: row?.income ?? 0, expense: row?.expense ?? 0 };
 }
