@@ -2,6 +2,7 @@ import { PageContent } from '../pdf/types';
 import { parseStatement } from '../statement/registry';
 import { reconcile } from '../statement/reconciliation';
 import { ParsedStatement, ReconciliationResult } from '../statement/types';
+import { detectTransferPairs, TransferCandidate } from '../data/transfers';
 import { db } from './db';
 import { compileRules } from './matching';
 import { recategorize } from './recategorize';
@@ -136,8 +137,46 @@ export function importStatement(
   });
 
   recategorize({ statementId });
+  runTransferDetection();
 
   return { statement, reconciliation };
+}
+
+// Scans every not-yet-marked transaction (across all accounts — a
+// transfer can only be recognized once both legs exist) and marks any
+// detected pair transfer. Runs after every import; category_id
+// deliberately overrides whatever recategorize() just set, since a
+// transfer should never carry a user category. See data/transfers.ts for
+// the matching rule.
+export function runTransferDetection(): void {
+  const rows = db.getAllSync<{
+    id: string;
+    account_id: string;
+    date: string;
+    withdrawal: number | null;
+    deposit: number | null;
+  }>('SELECT id, account_id, date, withdrawal, deposit FROM transactions WHERE is_transfer = 0');
+
+  const candidates: TransferCandidate[] = rows.map((r) => ({
+    id: r.id,
+    accountId: r.account_id,
+    date: r.date,
+    withdrawal: r.withdrawal,
+    deposit: r.deposit,
+  }));
+
+  const pairs = detectTransferPairs(candidates);
+  if (pairs.length === 0) return;
+
+  db.withTransactionSync(() => {
+    for (const [withdrawalId, depositId] of pairs) {
+      db.runSync('UPDATE transactions SET is_transfer = 1, category_id = ?, matched_rule_id = NULL WHERE id IN (?, ?)', [
+        TRANSFER_CATEGORY_ID,
+        withdrawalId,
+        depositId,
+      ]);
+    }
+  });
 }
 
 export function getOrCreateCategoryByName(name: string): string {

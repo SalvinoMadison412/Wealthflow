@@ -10,14 +10,19 @@ import { Amount } from '../components/Amount';
 import { AppHeader } from '../components/AppHeader';
 import { BarChart } from '../components/BarChart';
 import { PressableScale } from '../components/PressableScale';
+import { ScopeSwitch } from '../components/ScopeSwitch';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
 import {
+  getAccountIdsForScope,
   getCurrentMonthSummary,
   getMonthlyTotals,
+  getOwnerLabels,
+  getSetting,
   hasAnyTransactions,
   listRecentTransactions,
   TransactionListItem,
 } from '../db/queries';
+import { setSetting } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { MainTabsParamList, RootStackParamList } from '../navigation/RootNavigator';
 import { colors, radii, spacing, type } from '../theme/tokens';
@@ -47,9 +52,12 @@ export function HomeScreen() {
   const navigation = useNavigation<Nav>();
 
   const hasData = useQuery(() => hasAnyTransactions(), []);
-  const summary = useQuery(() => getCurrentMonthSummary(), []);
-  const monthly = useQuery(() => getMonthlyTotals(6), []);
-  const recent = useQuery(() => listRecentTransactions(5), []);
+  const ownerLabels = useQuery(() => getOwnerLabels(), []);
+  const scope = useQuery(() => getSetting('scope') ?? 'me', []);
+  const scopeAccountIds = useQuery(() => getAccountIdsForScope(scope), [scope]);
+  const summary = useQuery(() => getCurrentMonthSummary(scopeAccountIds), [scopeAccountIds]);
+  const monthly = useQuery(() => getMonthlyTotals(6, scopeAccountIds), [scopeAccountIds]);
+  const recent = useQuery(() => listRecentTransactions(5, scopeAccountIds), [scopeAccountIds]);
 
   const handlePressRow = useCallback(
     (id: string) => navigation.navigate('CategorizeSheet', { transactionId: id }),
@@ -88,6 +96,8 @@ export function HomeScreen() {
             <Feather name="plus" size={20} color={colors.accentText} />
           </PressableScale>
         </View>
+
+        <ScopeSwitch scope={scope} onChange={(s) => setSetting('scope', s)} ownerLabels={ownerLabels} />
 
         <View style={styles.card}>
           <Text style={styles.cardLabel}>NET THIS MONTH</Text>
