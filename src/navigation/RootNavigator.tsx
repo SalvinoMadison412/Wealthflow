@@ -94,10 +94,20 @@ function MainTabs() {
             shadowOffset: { width: 0, height: 8 },
             elevation: 8,
           },
+          // Without a visible label, bottom-tabs' default item layout still
+          // reserves label space below the icon, pushing it toward the top
+          // of the bar instead of centering it. Force true centering.
+          tabBarItemStyle: {
+            height: TAB_BAR_HEIGHT,
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.tabIconWrap}>
               <Feather name={tabIcons[route.name as keyof MainTabsParamList]} color={color} size={20} />
-              {focused && <View style={styles.tabDot} />}
+              {/* Dot always mounted (transparent when inactive) so the icon's
+                  own position never shifts between focused/unfocused. */}
+              <View style={[styles.tabDot, { backgroundColor: focused ? colors.accent : 'transparent' }]} />
             </View>
           ),
         })}
@@ -124,7 +134,6 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.accent,
   },
   fab: {
     position: 'absolute',
