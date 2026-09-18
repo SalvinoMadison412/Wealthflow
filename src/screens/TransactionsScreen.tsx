@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Amount } from '../components/Amount';
@@ -20,7 +20,7 @@ import {
 import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { contentWrap, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -70,6 +70,19 @@ function toRowData(item: TransactionListItem): TransactionRowData {
   };
 }
 
+function parseAmount(text: string): number | undefined {
+  const n = Number(text.replace(/,/g, ''));
+  return text.trim() !== '' && Number.isFinite(n) ? n : undefined;
+}
+
+function amountChipLabel(min?: number, max?: number): string {
+  const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+  if (min != null && max != null) return `${fmt(min)}–${fmt(max)}`;
+  if (min != null) return `${fmt(min)}+`;
+  if (max != null) return `Up to ${fmt(max)}`;
+  return 'Amount';
+}
+
 export function TransactionsScreen() {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
@@ -78,6 +91,13 @@ export function TransactionsScreen() {
   const [month, setMonth] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [uncategorizedOnly, setUncategorizedOnly] = useState(false);
+  const [direction, setDirection] = useState<'received' | 'sent' | null>(null);
+  const [recurringOnly, setRecurringOnly] = useState(false);
+  const [amountOpen, setAmountOpen] = useState(false);
+  const [minText, setMinText] = useState('');
+  const [maxText, setMaxText] = useState('');
+  const minAmount = parseAmount(minText);
+  const maxAmount = parseAmount(maxText);
 
   const hasData = useQuery(() => hasAnyTransactions(), []);
   const accounts = useQuery(() => listAccounts(), []);
@@ -90,8 +110,12 @@ export function TransactionsScreen() {
         month: month ?? undefined,
         categoryId: categoryId ?? undefined,
         uncategorizedOnly,
+        direction: direction ?? undefined,
+        recurringOnly,
+        minAmount,
+        maxAmount,
       }),
-    [accountId, month, categoryId, uncategorizedOnly]
+    [accountId, month, categoryId, uncategorizedOnly, direction, recurringOnly, minAmount, maxAmount]
   );
 
   const sections = useMemo(() => toSections(items), [items]);
@@ -101,12 +125,25 @@ export function TransactionsScreen() {
     [navigation]
   );
 
-  const hasActiveFilters = accountId !== null || month !== null || categoryId !== null || uncategorizedOnly;
+  const hasActiveFilters =
+    accountId !== null ||
+    month !== null ||
+    categoryId !== null ||
+    uncategorizedOnly ||
+    direction !== null ||
+    recurringOnly ||
+    minAmount != null ||
+    maxAmount != null;
   const clearFilters = useCallback(() => {
     setAccountId(null);
     setMonth(null);
     setCategoryId(null);
     setUncategorizedOnly(false);
+    setDirection(null);
+    setRecurringOnly(false);
+    setMinText('');
+    setMaxText('');
+    setAmountOpen(false);
   }, []);
 
   if (!hasData) {
@@ -133,9 +170,48 @@ export function TransactionsScreen() {
       <AppHeader />
       <Text style={styles.title}>Transactions</Text>
 
+      <View style={styles.filterRow}>
+        <FilterChip label="Received" selected={direction === 'received'} onPress={() => setDirection((d) => (d === 'received' ? null : 'received'))} />
+        <FilterChip label="Sent" selected={direction === 'sent'} onPress={() => setDirection((d) => (d === 'sent' ? null : 'sent'))} />
+        <FilterChip label="Recurring" selected={recurringOnly} onPress={() => setRecurringOnly((v) => !v)} />
+        <FilterChip
+          label={amountChipLabel(minAmount, maxAmount)}
+          selected={amountOpen || minAmount != null || maxAmount != null}
+          onPress={() => setAmountOpen((v) => !v)}
+        />
+      </View>
+      {amountOpen && (
+        <View style={styles.amountRow}>
+          <View style={styles.amountField}>
+            <Text style={styles.amountCurrency}>₹</Text>
+            <TextInput
+              style={styles.amountInput}
+              value={minText}
+              onChangeText={setMinText}
+              keyboardType="decimal-pad"
+              placeholder="Min"
+              placeholderTextColor={colors.textSecondary}
+            />
+          </View>
+          <Text style={styles.amountTo}>to</Text>
+          <View style={styles.amountField}>
+            <Text style={styles.amountCurrency}>₹</Text>
+            <TextInput
+              style={styles.amountInput}
+              value={maxText}
+              onChangeText={setMaxText}
+              keyboardType="decimal-pad"
+              placeholder="Max"
+              placeholderTextColor={colors.textSecondary}
+            />
+          </View>
+        </View>
+      )}
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
         contentContainerStyle={styles.filterRow}
       >
         <FilterChip label="Uncategorized only" selected={uncategorizedOnly} onPress={() => {
@@ -183,6 +259,9 @@ export function TransactionsScreen() {
       {sections.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No transactions match these filters</Text>
+          {recurringOnly && (
+            <Text style={styles.emptySubtitle}>Recurring needs at least two months of statements.</Text>
+          )}
           {hasActiveFilters && (
             <PressableScale style={styles.clearButton} onPress={clearFilters}>
               <Text style={styles.clearButtonText}>Clear filters</Text>
@@ -224,10 +303,32 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   filterRow: {
+    flexDirection: 'row',
     paddingHorizontal: spacing.pageGutter,
     gap: spacing.sm,
     paddingBottom: spacing.md,
   },
+  chipScroll: { flexGrow: 0 },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.pageGutter,
+    paddingBottom: spacing.md,
+  },
+  amountField: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  amountCurrency: { ...type.body, color: colors.textSecondary },
+  amountInput: { flex: 1, ...type.body, color: colors.textPrimary, paddingVertical: spacing.sm, marginLeft: spacing.xs },
+  amountTo: { ...type.caption, color: colors.textSecondary },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

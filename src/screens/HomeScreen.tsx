@@ -11,6 +11,7 @@ import { firstName } from '../auth/profile';
 import { Amount } from '../components/Amount';
 import { AppHeader } from '../components/AppHeader';
 import { BarChart } from '../components/BarChart';
+import { BalanceSummary } from '../components/BalanceSummary';
 import { Donut } from '../components/Donut';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
@@ -18,6 +19,7 @@ import {
   getCurrentMonthSummary,
   getMonthlyTotals,
   hasAnyTransactions,
+  listMonthsWithData,
   listRecentTransactions,
   TransactionListItem,
 } from '../db/queries';
@@ -86,6 +88,7 @@ export function HomeScreen() {
   const stale = isStatementStale(latestPeriodEnd, new Date());
   const summary = useQuery(() => getCurrentMonthSummary(), []);
   const monthly = useQuery(() => getMonthlyTotals(6), []);
+  const latestMonth = useQuery(() => listMonthsWithData()[0] ?? null, []);
   const recent = useQuery(() => listRecentTransactions(5), []);
 
   const handlePressRow = useCallback(
@@ -210,6 +213,8 @@ export function HomeScreen() {
             </View>
           </View>
         </View>
+
+        {latestMonth && <BalanceSummary month={latestMonth} />}
 
         <View style={styles.card}>
           <Text style={styles.cardLabel}>INCOME VS. EXPENSES</Text>

@@ -178,13 +178,13 @@ sync (§6) with the session.
 | `LoginScreen` | – | Supabase auth calls |
 | `OtpScreen` | route param `phone` | `verifyOtp`, resend with 30 s cooldown |
 | `OnboardingScreen` | session user metadata, existing profile | `saveProfile` (also used for edit) |
-| `HomeScreen` | `hasAnyTransactions`, `listAccounts` (staleness), `getCurrentMonthSummary`, `getMonthlyTotals(6)`, `listRecentTransactions(5)`, profile | – |
+| `HomeScreen` | `hasAnyTransactions`, `listAccounts` (staleness), `getCurrentMonthSummary`, `getMonthlyTotals(6)`, `listRecentTransactions(5)`, `listMonthsWithData` (for `BalanceSummary`), profile | – |
 | `ImportScreen` | `listAccounts` | `createAccount`, `renameAccount`, `importStatement` |
-| `TransactionsScreen` | `listMonthsWithData`, `listCategoriesForFilter`, `listTransactions(filters)` | – |
+| `TransactionsScreen` | `listMonthsWithData`, `listCategoriesForFilter`, `listTransactions(filters)` (account, month, category, uncategorised, received/sent, amount range, recurring) | – |
 | `CategorizeSheet` | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one") or `insertRule` (with `suggestPattern` prefill) |
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
-| `BudgetScreen` | `getIncomeForMonth`, `getCategoryBudgetRows`, `getSetting('monthly_income')`, `PRESETS` | `setCategoryBucket`, `setCategoryBudget`, budget preset setting |
+| `BudgetScreen` | `BalanceSummary` (selected month), `getIncomeForMonth`, `getCategoryBudgetRows`, `getSetting('monthly_income')`, `PRESETS` | `setCategoryBucket`, `setCategoryBudget`, budget preset setting |
 | `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, rename/delete account, rename/recolour/delete category, `setSetting('monthly_income')`, `wipeAllData` |
 | `MenuSheet` | profile, `getSetting('appearance')` | `setSetting('appearance')`, `deleteSetting('tour_done')`; `replace()`s itself with Profile or Statements |
 | `StatementsScreen` | `listStatements` | `deleteStatement` |
@@ -202,7 +202,8 @@ is the entire reactivity model; there is no cache to invalidate.
 applies to the children), `Amount` (INR formatting with sign and colour),
 `BarChart` (paired income/expense bars, tap for values), `Donut`
 (react-native-svg arcs), `TransactionRow`, `CategoryPill`, `FilterChip`,
-`ProgressBar`, `SettingsRow` / `SettingsSection`.
+`ProgressBar`, `SettingsRow` / `SettingsSection`, `BalanceSummary`
+(opening / closing / inflows / outflows card for one month; see §5.5).
 
 ### 4.5 Theme (`src/theme/tokens.ts`, `src/theme/ThemeContext.tsx`)
 
@@ -351,6 +352,21 @@ and transactions (`INSERT OR IGNORE`) in one SQLite transaction →
 - `budget.ts`: presets (50/30/20, 60/20/20), `bucketTotals`, and the
   under/warning/over progress state used by `ProgressBar`. Income for a
   month is real deposits, falling back to `settings.monthly_income`.
+- `recurring.ts`: the Transactions "Recurring" filter. A merchant is
+  recurring when it appears in 2+ distinct calendar months and every
+  amount is within 10% of its median (rent, subscriptions, EMIs, salary).
+  Needs two months of statements; there is no cadence detection.
+- `balance.ts` + `getBalanceSummary(month)`: the Home and Budget balance
+  card. Per account: inflows and outflows are the month's deposit and
+  withdrawal sums, closing is the running balance of the chronologically
+  last row (`ORDER BY date DESC, rowid DESC`; rows are inserted in
+  statement order, so `rowid` breaks same-day ties), and opening is
+  derived as closing - inflows + outflows, so the four numbers always
+  reconcile. Accounts are then summed. Transfers are included (it is the
+  account's real money movement), unlike the income/expense cards. Home
+  shows the latest month that has data, not the current calendar month;
+  Budget follows its month selector. An account with no rows in a month
+  contributes nothing to that month's balance.
 - `staleness.ts`: Home nudges to import when the newest statement's
   period end is more than 35 days ago.
 
