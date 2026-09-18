@@ -1,3 +1,4 @@
+import { describeRule } from '../data/rulePattern';
 import { db } from './db';
 import { UNCATEGORIZED_CATEGORY_ID } from './schema';
 
@@ -98,4 +99,83 @@ export function listCategoriesForFilter(): FilterCategory[] {
 export function hasAnyTransactions(): boolean {
   const row = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM transactions');
   return (row?.count ?? 0) > 0;
+}
+
+export type TransactionDetail = {
+  id: string;
+  merchant: string;
+  description: string;
+  date: string;
+  accountBank: string;
+  withdrawal: number | null;
+  deposit: number | null;
+  categoryId: string;
+  categoryName: string;
+  colorIndex: number;
+  isOverridden: boolean;
+  matchedRuleDescription: string | null;
+};
+
+type TransactionDetailRow = {
+  id: string;
+  merchant: string;
+  description: string;
+  date: string;
+  account_bank: string;
+  withdrawal: number | null;
+  deposit: number | null;
+  category_id: string;
+  category_name: string;
+  color_index: number;
+  category_override_id: string | null;
+  matched_rule_id: string | null;
+};
+
+// The categorize sheet's source of truth for one transaction, including
+// whether its current category came from an override, a matched rule (in
+// plain language), or neither ("no rule matched" — still Uncategorized).
+export function getTransactionDetail(id: string): TransactionDetail | null {
+  const row = db.getFirstSync<TransactionDetailRow>(
+    `SELECT t.id, t.merchant, t.description, t.date, a.bank as account_bank,
+            t.withdrawal, t.deposit, t.category_id, c.name as category_name, c.color_index,
+            t.category_override_id, t.matched_rule_id
+     FROM transactions t
+     JOIN accounts a ON a.id = t.account_id
+     JOIN categories c ON c.id = t.category_id
+     WHERE t.id = ?`,
+    [id]
+  );
+  if (!row) return null;
+
+  let matchedRuleDescription: string | null = null;
+  if (!row.category_override_id && row.matched_rule_id) {
+    const rule = db.getFirstSync<{ merchant_pattern: string | null; amount_json: string | null; category_name: string }>(
+      `SELECT r.merchant_pattern, r.amount_json, c.name as category_name
+       FROM rules r JOIN categories c ON c.id = r.category_id
+       WHERE r.id = ?`,
+      [row.matched_rule_id]
+    );
+    if (rule) {
+      matchedRuleDescription = describeRule({
+        merchant: rule.merchant_pattern ?? undefined,
+        amount: rule.amount_json ? JSON.parse(rule.amount_json) : undefined,
+        category: rule.category_name,
+      });
+    }
+  }
+
+  return {
+    id: row.id,
+    merchant: row.merchant,
+    description: row.description,
+    date: row.date,
+    accountBank: row.account_bank,
+    withdrawal: row.withdrawal,
+    deposit: row.deposit,
+    categoryId: row.category_id,
+    categoryName: row.category_name,
+    colorIndex: row.color_index,
+    isOverridden: row.category_override_id !== null,
+    matchedRuleDescription,
+  };
 }
