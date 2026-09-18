@@ -21,6 +21,7 @@ import {
   listRecentTransactions,
   TransactionListItem,
 } from '../db/queries';
+import { PRESETS } from '../data/budget';
 import { isStatementStale } from '../data/staleness';
 import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
@@ -46,42 +47,22 @@ function toRowData(item: TransactionListItem): TransactionRowData {
 
 const MONTH_NAME = new Date().toLocaleDateString('en-IN', { month: 'long' });
 
-// Sample numbers for the pre-import preview. Fixed figures, real month
-// keys, so the empty Home looks like the populated one will.
-const SAMPLE_INCOME = 82000;
-const SAMPLE_EXPENSE = 63600;
-const SAMPLE_MONTHS = [
-  [74000, 61200],
-  [74000, 68900],
-  [79000, 58400],
-  [79000, 71100],
-  [82000, 66300],
-  [SAMPLE_INCOME, SAMPLE_EXPENSE],
-].map(([income, expense], i, all) => {
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() - (all.length - 1 - i));
-  return { month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, income, expense };
-});
+// Pre-import Home shows the app's default budget split (a real preset,
+// not sample data) and what the app does. No invented figures.
+const SPLIT = PRESETS['50/30/20'];
 // Same colour indexes Budget uses for needs / wants / savings.
-const SAMPLE_BUCKETS = [
-  { label: 'Needs', pct: 52, colorIndex: 0 },
-  { label: 'Wants', pct: 29, colorIndex: 5 },
-  { label: 'Savings', pct: 19, colorIndex: 1 },
+const BUCKETS = [
+  { label: 'Needs', pct: SPLIT.needs, colorIndex: 0 },
+  { label: 'Wants', pct: SPLIT.wants, colorIndex: 5 },
+  { label: 'Savings', pct: SPLIT.savings, colorIndex: 1 },
 ];
-const WHY: { icon: keyof typeof Feather.glyphMap; text: string }[] = [
-  { icon: 'file-text', text: 'Drop in a bank statement PDF. Every transaction is read and categorised for you.' },
-  { icon: 'lock', text: 'Everything stays on your phone. Statements are never uploaded.' },
-  { icon: 'sliders', text: 'Write a rule once and every future statement sorts itself.' },
+const FEATURES: { icon: keyof typeof Feather.glyphMap; title: string; text: string }[] = [
+  { icon: 'file-text', title: 'Import a statement PDF', text: 'Every transaction is read off the page. No manual entry.' },
+  { icon: 'tag', title: 'Categorised automatically', text: 'Write a rule once and every future statement sorts itself.' },
+  { icon: 'pie-chart', title: 'Needs, wants, savings', text: 'See how your spending splits and set a monthly budget per category.' },
+  { icon: 'check-circle', title: 'Checked against your balance', text: 'Each import is reconciled: opening balance plus credits minus debits must equal closing.' },
+  { icon: 'lock', title: 'Stays on your phone', text: 'Statements and transactions are never uploaded.' },
 ];
-
-function ExampleTag() {
-  return (
-    <View style={styles.exampleTag}>
-      <Text style={styles.exampleTagText}>Example</Text>
-    </View>
-  );
-}
 
 // The real dashboard — PR 3/PR 4 had this as a placeholder CTA. See
 // docs/REDESIGN_PLAN.md PR 7.
@@ -116,48 +97,19 @@ export function HomeScreen() {
         <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
           <View>
             <Text style={styles.greeting}>{greeting}</Text>
-            <Text style={styles.greetingSub}>Import a statement and this is what you'll see.</Text>
+            <Text style={styles.greetingSub}>Import a statement to see your money at a glance.</Text>
           </View>
 
           <View style={styles.card}>
-            <View style={styles.cardLabelRow}>
-              <Text style={styles.cardLabel}>NET THIS MONTH</Text>
-              <ExampleTag />
-            </View>
-            <Amount value={SAMPLE_INCOME - SAMPLE_EXPENSE} kind="income" size="lg" />
-            <View style={styles.splitRow}>
-              <View style={styles.splitItem}>
-                <Text style={styles.splitLabel}>Income</Text>
-                <Amount value={SAMPLE_INCOME} kind="income" size="sm" />
-              </View>
-              <View style={styles.splitItem}>
-                <Text style={styles.splitLabel}>Expenses</Text>
-                <Amount value={SAMPLE_EXPENSE} kind="expense" size="sm" />
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.card}>
-            <View style={styles.cardLabelRow}>
-              <Text style={styles.cardLabel}>INCOME VS. EXPENSES</Text>
-              <ExampleTag />
-            </View>
-            <BarChart data={SAMPLE_MONTHS} />
-          </View>
-
-          <View style={styles.card}>
-            <View style={styles.cardLabelRow}>
-              <Text style={styles.cardLabel}>WHERE IT GOES</Text>
-              <ExampleTag />
-            </View>
+            <Text style={styles.cardLabel}>HOW WE SPLIT YOUR SPENDING</Text>
             <View style={styles.donutRow}>
               <Donut
-                segments={SAMPLE_BUCKETS.map(({ pct, colorIndex }) => ({ pct, colorIndex }))}
-                centerLabel={`₹${SAMPLE_EXPENSE.toLocaleString('en-IN')}`}
-                centerSubLabel="spent"
+                segments={BUCKETS.map(({ pct, colorIndex }) => ({ pct, colorIndex }))}
+                centerLabel={`${SPLIT.needs}/${SPLIT.wants}/${SPLIT.savings}`}
+                centerSubLabel="default split"
               />
               <View style={styles.legend}>
-                {SAMPLE_BUCKETS.map((b) => (
+                {BUCKETS.map((b) => (
                   <View key={b.label} style={styles.legendRow}>
                     <View style={[styles.legendDot, { backgroundColor: pillPalette[b.colorIndex].text }]} />
                     <Text style={styles.legendText}>{b.label}</Text>
@@ -166,15 +118,27 @@ export function HomeScreen() {
                 ))}
               </View>
             </View>
+            <Text style={styles.cardNote}>
+              This is how we bifurcate your spending, so you can have a better look at your finances. Change the
+              split any time in Budget.
+            </Text>
           </View>
 
-          <View style={styles.why}>
-            {WHY.map((w) => (
-              <View key={w.icon} style={styles.whyRow}>
-                <Feather name={w.icon} size={16} color={colors.accent} />
-                <Text style={styles.whyText}>{w.text}</Text>
-              </View>
-            ))}
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>WHAT WEALTHFLOW DOES</Text>
+            <View style={styles.features}>
+              {FEATURES.map((f) => (
+                <View key={f.icon} style={styles.featureRow}>
+                  <View style={styles.featureIcon}>
+                    <Feather name={f.icon} size={16} color={colors.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.featureTitle}>{f.title}</Text>
+                    <Text style={styles.featureText}>{f.text}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
 
           <PressableScale style={styles.cta} onPress={() => navigation.navigate('Import')}>
@@ -347,26 +311,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginLeft: spacing.pageGutter,
   },
-  cardLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  exampleTag: {
-    backgroundColor: pillPalette[9].bg,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    marginBottom: spacing.sm,
-  },
-  exampleTagText: {
-    ...type.caption,
-    color: pillPalette[9].text,
-  },
   donutRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.lg,
+    marginTop: spacing.xs,
   },
   legend: {
     flex: 1,
@@ -391,18 +340,36 @@ const styles = StyleSheet.create({
     ...type.amountSm,
     color: colors.textSecondary,
   },
-  why: {
-    gap: spacing.sm,
+  cardNote: {
+    ...type.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
   },
-  whyRow: {
+  features: {
+    gap: spacing.md,
+    marginTop: spacing.xs,
+  },
+  featureRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.md,
   },
-  whyText: {
+  featureIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.pill,
+    backgroundColor: pillPalette[0].bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureTitle: {
+    ...type.bodyMedium,
+    color: colors.textPrimary,
+  },
+  featureText: {
     ...type.caption,
     color: colors.textSecondary,
-    flex: 1,
+    marginTop: 2,
   },
   cta: {
     flexDirection: 'row',
