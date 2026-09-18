@@ -9,7 +9,7 @@ import { getOrCreateCategoryByName } from './categories';
 import { countUncategorized } from './queries';
 import { AUTO_CATEGORISE_SETTING, recategorize } from './recategorize';
 import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
-import { makeTransactionId, newId } from './transactionId';
+import { makeDedupeKey, makeTransactionId, newId } from './transactionId';
 
 export type Account = {
   id: string;
@@ -75,15 +75,14 @@ export function renameAccount(id: string, input: { bank?: string; ownerLabel?: s
   }
 }
 
-// Parses + reconciles (as before) and now also persists: creates the
-// statement and its transactions (idempotent — re-importing the same PDF
-// is a no-op, see transactionId.ts), then recategorizes the new rows.
-// Returns the parsed statement/reconciliation for the caller's immediate
-// post-import UI, same as before this PR.
+// Parses + reconciles and persists: creates the statement and its
+// transactions, then recategorizes the new rows. Never refuses an import;
+// a transaction already stored (same dedupe_key, in ANY account) is skipped
+// and counted in `duplicates` — see makeDedupeKey.
 export function importStatement(
   pages: PageContent[],
   accountId: string
-): { statement: ParsedStatement; reconciliation: ReconciliationResult } {
+): { statement: ParsedStatement; reconciliation: ReconciliationResult; added: number; duplicates: number } {
   const statement = parseStatement(pages);
   const reconciliation = reconcile(statement);
 
@@ -91,6 +90,7 @@ export function importStatement(
   const periodStart = statement.transactions[0]?.date ?? null;
   const periodEnd = statement.transactions[statement.transactions.length - 1]?.date ?? null;
 
+  let added = 0;
   db.withTransactionSync(() => {
     db.runSync(
       `INSERT INTO statements (id, account_id, period_start, period_end, opening, closing, reconciled_ok, imported_at)
@@ -117,10 +117,10 @@ export function importStatement(
         refNo: tx.refNo,
         description: tx.description,
       });
-      db.runSync(
+      const result = db.runSync(
         `INSERT OR IGNORE INTO transactions
-           (id, statement_id, account_id, date, description, merchant, ref_no, withdrawal, deposit, balance, category_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, statement_id, account_id, date, description, merchant, ref_no, withdrawal, deposit, balance, category_id, dedupe_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           statementId,
@@ -133,15 +133,17 @@ export function importStatement(
           tx.deposit,
           tx.balance,
           UNCATEGORIZED_CATEGORY_ID,
+          makeDedupeKey(tx),
         ]
       );
+      added += result.changes;
     }
   });
 
   recategorize({ statementId });
   runTransferDetection();
 
-  return { statement, reconciliation };
+  return { statement, reconciliation, added, duplicates: statement.transactions.length - added };
 }
 
 // Scans every not-yet-marked transaction (across all accounts — a
