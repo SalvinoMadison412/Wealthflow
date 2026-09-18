@@ -1,9 +1,9 @@
 import { Feather } from '@expo/vector-icons';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale } from '../components/PressableScale';
@@ -15,7 +15,7 @@ import { NewRuleFormScreen } from '../screens/NewRuleFormScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RulesListScreen } from '../screens/RulesListScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
-import { cardShadow, colors, spacing } from '../theme/tokens';
+import { cardShadow, colors } from '../theme/tokens';
 
 export type RootStackParamList = {
   MainTabs: undefined;
@@ -47,7 +47,7 @@ const TAB_BAR_HEIGHT = 64;
 const FAB_SIZE = 52;
 
 // A quick-add shortcut to Import, not a nav destination — the tab bar
-// stays at 5 items (see the pinned decision above). Hovers above the
+// stays at 4 items (see the pinned decision above). Hovers above the
 // (transparent, borderless) tab bar, overlapping its top edge.
 function QuickAddFab({ bottom }: { bottom: number }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -63,41 +63,53 @@ function QuickAddFab({ bottom }: { bottom: number }) {
   );
 }
 
+// Custom renderer (rather than the default bottom-tabs layout) so the 4
+// tabs and the FAB sit in 5 EQUAL-width slots — Home, Transactions, an
+// empty slot the FAB floats over, Budget, Rules — giving every gap the
+// same width instead of 4 evenly-spaced tabs with the FAB dropped
+// asymmetrically into the middle seam.
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
+  const barHeight = TAB_BAR_HEIGHT + insets.bottom;
+  const routes = state.routes as { key: string; name: keyof MainTabsParamList }[];
+  const entries = routes.map((route, index) => ({ route, index }));
+
+  const renderItem = ({ route, index }: (typeof entries)[number]) => {
+    const isFocused = state.index === index;
+    const color = isFocused ? colors.accent : colors.textSecondary;
+    return (
+      <Pressable
+        key={route.key}
+        style={styles.tabItem}
+        accessibilityRole="button"
+        accessibilityState={isFocused ? { selected: true } : {}}
+        accessibilityLabel={route.name}
+        onPress={() => {
+          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+        }}
+      >
+        <Feather name={tabIcons[route.name]} color={color} size={22} />
+      </Pressable>
+    );
+  };
+
+  return (
+    <View style={[styles.tabBar, { height: barHeight, paddingBottom: insets.bottom }]}>
+      {entries.slice(0, 2).map(renderItem)}
+      <View style={styles.tabItem} />
+      {entries.slice(2).map(renderItem)}
+    </View>
+  );
+}
+
 function MainTabs() {
   const insets = useSafeAreaInsets();
   const barHeight = TAB_BAR_HEIGHT + insets.bottom;
 
   return (
     <View style={{ flex: 1 }}>
-      <Tabs.Navigator
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarShowLabel: false,
-          tabBarActiveTintColor: colors.accent,
-          tabBarInactiveTintColor: colors.textSecondary,
-          tabBarAccessibilityLabel: route.name,
-          // Seamless: no card surface, no border, no shadow — sits directly
-          // on the page background like the header does.
-          tabBarStyle: {
-            backgroundColor: colors.background,
-            borderTopWidth: 0,
-            elevation: 0,
-            shadowOpacity: 0,
-            height: barHeight,
-            paddingBottom: insets.bottom,
-          },
-          // Without a visible label, bottom-tabs' default item layout still
-          // reserves label space below the icon, pushing it toward the top
-          // of the item instead of centering it. Force true centering.
-          tabBarItemStyle: {
-            justifyContent: 'center',
-            alignItems: 'center',
-          },
-          tabBarIcon: ({ color }) => (
-            <Feather name={tabIcons[route.name as keyof MainTabsParamList]} color={color} size={22} />
-          ),
-        })}
-      >
+      <Tabs.Navigator screenOptions={{ headerShown: false }} tabBar={(props) => <CustomTabBar {...props} />}>
         <Tabs.Screen name="Home" component={HomeScreen} />
         <Tabs.Screen name="Transactions" component={TransactionsScreen} />
         <Tabs.Screen name="Budget" component={BudgetScreen} />
@@ -109,6 +121,17 @@ function MainTabs() {
 }
 
 const styles = StyleSheet.create({
+  // Seamless: no card surface, no border, no shadow — sits directly on
+  // the page background like the header does.
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.background,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   fab: {
     position: 'absolute',
     left: '50%',
