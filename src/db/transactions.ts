@@ -289,6 +289,10 @@ export function retroCount(merchantPattern: string | null, amount: AmountConditi
   return rows.filter((r) => compiled.matches(r.merchant, Math.abs(r.withdrawal ?? r.deposit ?? 0))).length;
 }
 
+export function deleteSetting(key: string): void {
+  db.runSync('DELETE FROM settings WHERE key = ?', [key]);
+}
+
 export function setSetting(key: string, value: string): void {
   db.runSync(
     'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
