@@ -1,165 +1,138 @@
 import { Feather } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
-import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { CompositeNavigationProp, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useCallback } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Amount } from '../components/Amount';
 import { AppHeader } from '../components/AppHeader';
+import { BarChart } from '../components/BarChart';
 import { PressableScale } from '../components/PressableScale';
-import { useTransactions } from '../data/TransactionsContext';
-import { usePdfExtractor } from '../pdf/PdfExtractorProvider';
-import { PdfPasswordRequiredError } from '../pdf/types';
-import { colors, radii, spacing, type } from '../theme/tokens';
+import { ScopeSwitch } from '../components/ScopeSwitch';
+import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
+import {
+  getAccountIdsForScope,
+  getCurrentMonthSummary,
+  getMonthlyTotals,
+  getOwnerLabels,
+  getSetting,
+  hasAnyTransactions,
+  listRecentTransactions,
+  TransactionListItem,
+} from '../db/queries';
+import { setSetting } from '../db/transactions';
+import { useQuery } from '../db/useQuery';
+import { MainTabsParamList, RootStackParamList } from '../navigation/RootNavigator';
+import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
 
-// Reads a local file:// URI as base64 via RN's built-in fetch/Blob/FileReader
-// rather than expo-file-system: Expo Go sandboxes file access per-project,
-// and expo-document-picker's cache output falls outside that sandbox for
-// both the legacy and new expo-file-system APIs (a dev-client-only quirk,
-// not present in a standalone EAS build, but this route avoids it either way).
-function uriToBase64(uri: string): Promise<string> {
-  return fetch(uri)
-    .then((response) => response.blob())
-    .then(
-      (blob) =>
-        new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onerror = () => reject(reader.error ?? new Error('Failed to read file.'));
-          reader.onload = () => resolve((reader.result as string).split(',')[1]);
-          reader.readAsDataURL(blob);
-        })
-    );
+type Nav = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabsParamList, 'Home'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+
+function toRowData(item: TransactionListItem): TransactionRowData {
+  return {
+    id: item.id,
+    merchant: item.merchant,
+    categoryName: item.categoryName,
+    colorIndex: item.colorIndex,
+    amount: item.deposit ?? item.withdrawal ?? 0,
+    kind: item.isTransfer ? 'neutral' : item.deposit != null ? 'income' : 'expense',
+    isTransfer: item.isTransfer,
+  };
 }
 
-type Status =
-  | { kind: 'idle' }
-  | { kind: 'loading' }
-  | { kind: 'needsPassword'; base64: string }
-  | { kind: 'result' }
-  | { kind: 'error'; message: string };
+const MONTH_NAME = new Date().toLocaleDateString('en-IN', { month: 'long' });
 
+// The real dashboard — PR 3/PR 4 had this as a placeholder CTA. See
+// docs/REDESIGN_PLAN.md PR 7.
 export function HomeScreen() {
-  const { extractPdfText } = usePdfExtractor();
-  const { loadFromPages, statement, reconciliation } = useTransactions();
-  const [status, setStatus] = useState<Status>({ kind: 'idle' });
-  const [password, setPassword] = useState('');
+  const navigation = useNavigation<Nav>();
 
-  async function runExtraction(base64: string, opts?: { password?: string }) {
-    setStatus({ kind: 'loading' });
-    try {
-      const result = await extractPdfText(base64, opts);
-      loadFromPages(result.pages);
-      setStatus({ kind: 'result' });
-    } catch (err) {
-      if (err instanceof PdfPasswordRequiredError) {
-        setStatus({ kind: 'needsPassword', base64 });
-      } else {
-        setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
-      }
-    }
+  const hasData = useQuery(() => hasAnyTransactions(), []);
+  const ownerLabels = useQuery(() => getOwnerLabels(), []);
+  const scope = useQuery(() => getSetting('scope') ?? 'me', []);
+  const scopeAccountIds = useQuery(() => getAccountIdsForScope(scope), [scope]);
+  const summary = useQuery(() => getCurrentMonthSummary(scopeAccountIds), [scopeAccountIds]);
+  const monthly = useQuery(() => getMonthlyTotals(6, scopeAccountIds), [scopeAccountIds]);
+  const recent = useQuery(() => listRecentTransactions(5, scopeAccountIds), [scopeAccountIds]);
+
+  const handlePressRow = useCallback(
+    (id: string) => navigation.navigate('CategorizeSheet', { transactionId: id }),
+    [navigation]
+  );
+
+  if (!hasData) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top']}>
+        <AppHeader />
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No statements imported yet</Text>
+          <Text style={styles.emptySubtitle}>Import a statement to see your money at a glance.</Text>
+          <PressableScale style={styles.emptyButton} onPress={() => navigation.navigate('Import')}>
+            <Feather name="upload" size={16} color={colors.accentText} />
+            <Text style={styles.emptyButtonText}>Import statement</Text>
+          </PressableScale>
+        </View>
+      </SafeAreaView>
+    );
   }
 
-  async function pickPdf() {
-    const picked = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
-    if (picked.canceled) return;
-
-    const base64 = await uriToBase64(picked.assets[0].uri);
-    await runExtraction(base64);
-  }
+  const net = summary.income - summary.expense;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.titleBlock}>
-          <Text style={styles.headline}>The Mirror</Text>
-          <Text style={styles.subtitle}>
-            Reflect on your financial reality. Drop your statement to begin the analysis.
-          </Text>
-        </View>
-
-        <View style={styles.dropzoneWrap}>
+      <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
+        <View style={styles.greetingRow}>
+          <Text style={styles.greeting}>{MONTH_NAME}</Text>
           <PressableScale
-            style={styles.dropzone}
-            onPress={pickPdf}
-            disabled={status.kind === 'loading'}
+            style={styles.importButton}
+            onPress={() => navigation.navigate('Import')}
+            accessibilityLabel="Import a statement"
           >
-            {status.kind === 'loading' ? (
-              <ActivityIndicator size="large" color={colors.accent} />
-            ) : (
-              <>
-                <View style={styles.dropzoneIconWrap}>
-                  <Feather name="upload" size={22} color={colors.primary} />
-                </View>
-                <Text style={styles.dropzoneTitle}>Drop your statement</Text>
-                <View style={styles.orRow}>
-                  <View style={styles.orLine} />
-                  <Text style={styles.orText}>OR</Text>
-                  <View style={styles.orLine} />
-                </View>
-                <Text style={styles.dropzoneAction}>Tap to upload PDF/CSV</Text>
-              </>
-            )}
+            <Feather name="plus" size={20} color={colors.accentText} />
           </PressableScale>
         </View>
 
-        {status.kind === 'needsPassword' && (
-          <View style={styles.passwordBox}>
-            <Text style={styles.dropzoneTitle}>This PDF is password-protected</Text>
-            <TextInput
-              style={styles.passwordInput}
-              placeholder="Enter password"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-            <PressableScale
-              style={styles.passwordButton}
-              onPress={() => runExtraction(status.base64, { password })}
-            >
-              <Text style={styles.passwordButtonText}>Unlock</Text>
-            </PressableScale>
-          </View>
-        )}
+        <ScopeSwitch scope={scope} onChange={(s) => setSetting('scope', s)} ownerLabels={ownerLabels} />
 
-        {status.kind === 'error' && <Text style={styles.errorText}>{status.message}</Text>}
-
-        {status.kind === 'result' && statement && reconciliation && (
-          <View style={styles.resultBox}>
-            <Text style={styles.dropzoneTitle}>
-              Extracted <Text style={styles.numeral}>{statement.transactions.length}</Text> transaction
-              {statement.transactions.length === 1 ? '' : 's'}
-            </Text>
-
-            <View style={styles.balanceRow}>
-              <View>
-                <Text style={styles.balanceLabel}>OPENING</Text>
-                <Text style={styles.balanceNumeral}>₹{statement.openingBalance.toFixed(2)}</Text>
-              </View>
-              <View>
-                <Text style={styles.balanceLabel}>CLOSING</Text>
-                <Text style={styles.balanceNumeral}>₹{statement.closingBalance.toFixed(2)}</Text>
-              </View>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>NET THIS MONTH</Text>
+          <Amount value={net} kind={net >= 0 ? 'income' : 'expense'} size="lg" />
+          <View style={styles.splitRow}>
+            <View style={styles.splitItem}>
+              <Text style={styles.splitLabel}>Income</Text>
+              <Amount value={summary.income} kind="income" size="sm" />
             </View>
-
-            <View style={[styles.reconciliationBanner, !reconciliation.ok && styles.reconciliationBannerFailed]}>
-              <Feather
-                name={reconciliation.ok ? 'check-circle' : 'alert-triangle'}
-                size={16}
-                color={reconciliation.ok ? colors.white : colors.error}
-              />
-              <Text
-                style={[
-                  styles.reconciliationText,
-                  !reconciliation.ok && styles.reconciliationTextFailed,
-                ]}
-              >
-                {reconciliation.ok
-                  ? 'Reconciled — opening + credits − debits matches the closing balance.'
-                  : `Reconciliation off by ₹${Math.abs(reconciliation.delta).toFixed(2)}.`}
-              </Text>
+            <View style={styles.splitItem}>
+              <Text style={styles.splitLabel}>Expenses</Text>
+              <Amount value={summary.expense} kind="expense" size="sm" />
             </View>
           </View>
-        )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>INCOME VS. EXPENSES</Text>
+          <BarChart data={monthly} />
+        </View>
+
+        <View style={styles.recentHeader}>
+          <Text style={styles.sectionTitle}>Recent</Text>
+          <PressableScale onPress={() => navigation.navigate('Transactions')} hitSlop={8}>
+            <Text style={styles.seeAll}>See all</Text>
+          </PressableScale>
+        </View>
+        <View style={styles.recentCard}>
+          {recent.map((item, i) => (
+            <React.Fragment key={item.id}>
+              <TransactionRow data={toRowData(item)} onPress={handlePressRow} />
+              {i < recent.length - 1 && <View style={styles.separator} />}
+            </React.Fragment>
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -171,142 +144,100 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: spacing.marginPage,
+    padding: spacing.pageGutter,
+    gap: spacing.lg,
   },
-  titleBlock: {
+  greetingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.stackLg,
   },
-  headline: {
-    ...type.headlineLg,
-    color: colors.onSurface,
-    marginBottom: spacing.stackSm,
+  greeting: {
+    ...type.h1,
+    color: colors.textPrimary,
   },
-  subtitle: {
-    ...type.bodyMd,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
-  },
-  dropzoneWrap: {
-    marginBottom: spacing.stackLg,
-  },
-  dropzone: {
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
-    borderRadius: radii.xl,
-    backgroundColor: colors.surfaceContainerLow,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.stackSm,
-    padding: spacing.gutter,
-  },
-  numeral: {
-    ...type.numeral,
-    color: colors.onSurface,
-  },
-  dropzoneIconWrap: {
+  importButton: {
     width: 48,
     height: 48,
-    borderRadius: radii.lg,
-    backgroundColor: colors.white,
+    borderRadius: radii.pill,
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.stackSm,
   },
-  dropzoneTitle: {
-    ...type.headlineMd,
-    fontSize: 20,
-    color: colors.onSurface,
-    textAlign: 'center',
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radii.sheet,
+    padding: spacing.lg,
   },
-  orRow: {
+  cardLabel: {
+    ...type.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  splitRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.stackSm,
-    marginTop: spacing.stackSm,
-    width: '60%',
+    gap: spacing.xxl,
+    marginTop: spacing.md,
   },
-  orLine: {
-    flex: 1,
+  splitItem: {
+    gap: 2,
+  },
+  splitLabel: {
+    ...type.caption,
+    color: colors.textSecondary,
+  },
+  recentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sectionTitle: {
+    ...type.h3,
+    color: colors.textPrimary,
+  },
+  seeAll: {
+    ...type.label,
+    color: colors.accent,
+  },
+  recentCard: {
+    backgroundColor: colors.card,
+    borderRadius: radii.sheet,
+    overflow: 'hidden',
+  },
+  separator: {
     height: 1,
-    backgroundColor: colors.outlineVariant,
+    backgroundColor: colors.border,
+    marginLeft: spacing.pageGutter,
   },
-  orText: {
-    ...type.labelSm,
-    color: colors.outline,
-  },
-  dropzoneAction: {
-    ...type.bodyMd,
-    color: colors.primary,
-    textDecorationLine: 'underline',
-  },
-  passwordBox: {
-    marginTop: spacing.stackMd,
-    gap: spacing.stackSm,
-  },
-  passwordInput: {
-    ...type.bodyMd,
-    borderBottomWidth: 1,
-    borderColor: colors.onSurface,
-    paddingVertical: 12,
-  },
-  passwordButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radii.md,
-    padding: 14,
-    alignItems: 'center',
-  },
-  passwordButtonText: {
-    ...type.labelMd,
-    letterSpacing: 0,
-    color: colors.white,
-  },
-  errorText: {
-    marginTop: spacing.stackMd,
-    color: colors.error,
-    textAlign: 'center',
-  },
-  resultBox: {
-    marginTop: spacing.stackMd,
-    gap: spacing.stackMd,
-  },
-  balanceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  balanceLabel: {
-    ...type.labelSm,
-    color: colors.outline,
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  balanceNumeral: {
-    ...type.numeral,
-    fontSize: 20,
-    color: colors.onSurface,
-    textAlign: 'center',
-  },
-  reconciliationBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.stackSm,
-    backgroundColor: colors.black,
-    borderRadius: radii.md,
-    padding: spacing.gutter,
-  },
-  reconciliationBannerFailed: {
-    backgroundColor: colors.surfaceContainerLow,
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  reconciliationText: {
-    ...type.bodyMd,
-    fontSize: 13,
-    color: colors.white,
+  emptyState: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.pageGutter,
+    gap: spacing.sm,
   },
-  reconciliationTextFailed: {
-    color: colors.error,
+  emptyTitle: {
+    ...type.h2,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    ...type.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.accent,
+    borderRadius: radii.pill,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.md,
+  },
+  emptyButtonText: {
+    ...type.label,
+    color: colors.accentText,
   },
 });

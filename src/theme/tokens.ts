@@ -31,6 +31,11 @@ export const colors = {
   border,
   accent,
   accentText: '#FFFFFF',
+  // Accent/secondary text on a dark surface (e.g. the Smart Calculator
+  // card) — the plain accent/textSecondary values don't have enough
+  // contrast against textPrimary as a background.
+  accentOnDark: '#8B93E8',
+  onDarkSecondary: '#A6ABDE',
   incomeFill: '#1FAA6D',
   incomeText: '#15803D',
   expenseFill: '#E5484D',
@@ -42,10 +47,11 @@ export const colors = {
   black: '#000000',
 
   // --- Legacy compatibility -------------------------------------------
-  // The moody-era screens (Insights, Home, Rules, NewRuleForm, Profile)
-  // reference the names below. Each is deleted as its screen is rewritten:
-  // Insights in PR 3, Home in PR 7, Rules/NewRuleForm in PR 8, Profile in
-  // PR 10. Do not add new usages — use the canonical keys above instead.
+  // The moody-era screens still reference the names below (Insights was
+  // deleted outright in PR 3, not rewritten). Each remaining reference is
+  // removed as its screen is rewritten: Home in PR 7, Rules/NewRuleForm in
+  // PR 8, Profile in PR 10. Do not add new usages — use the canonical keys
+  // above instead.
   surface: '#FFFFFF',
   surfaceContainerLowest: '#FFFFFF',
   surfaceContainerLow: track,
@@ -94,6 +100,7 @@ export const spacing = {
   xxl,
   xxxl,
   pageGutter: 16,
+  contentMaxWidth: 600,
 
   // --- Legacy compatibility (see colors, above) ---
   marginPage: xxxl,
@@ -168,4 +175,12 @@ export const cardShadow = {
   shadowOpacity: 0.06,
   shadowRadius: 12,
   elevation: 2,
+} as const;
+
+// Caps scrollable content width on tablets; a no-op on phones (width <
+// 600 already). Spread into a screen's contentContainerStyle.
+export const contentWrap = {
+  width: '100%',
+  maxWidth: spacing.contentMaxWidth,
+  alignSelf: 'center',
 } as const;

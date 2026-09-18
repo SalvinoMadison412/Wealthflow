@@ -1,12 +1,17 @@
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CategoryPill } from '../components/CategoryPill';
+import { FilterChip } from '../components/FilterChip';
 import { PressableScale } from '../components/PressableScale';
 import { AmountCondition, useRules } from '../data/RulesContext';
-import { colors, radii, spacing, type } from '../theme/tokens';
+import { getOrCreateCategoryByName } from '../db/transactions';
+import { listCategoriesForFilter } from '../db/queries';
+import { useQuery } from '../db/useQuery';
+import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
 
 type AmountOperator = AmountCondition['operator'];
 
@@ -21,21 +26,22 @@ function isValidNumber(text: string): boolean {
   return text.trim().length > 0 && !Number.isNaN(Number(text));
 }
 
-// Merchant and amount are two independent, optional conditions (at least one
-// required) rather than an either/or toggle — a rule can be "Blinkit" alone,
-// "over ₹500" alone, or both together (AND). v3_new_rule_form/screen.png only
-// rendered a toggle + "Save Rule" button legibly; the rest of this layout
-// follows DESIGN.md's minimalist input style rather than a pixel match.
+// Merchant and amount are two independent, optional conditions (at least
+// one required) rather than an either/or toggle — a rule can be
+// "Blinkit" alone, "over ₹500" alone, or both together (AND).
 export function NewRuleFormScreen() {
   const navigation = useNavigation();
   const { addRule } = useRules();
+  const categories = useQuery(() => listCategoriesForFilter(), []);
 
   const [merchant, setMerchant] = useState('');
   const [operator, setOperator] = useState<AmountOperator | null>(null);
   const [value, setValue] = useState('');
   const [min, setMin] = useState('');
   const [max, setMax] = useState('');
-  const [category, setCategory] = useState('');
+  const [categoryName, setCategoryName] = useState<string | null>(null);
+  const [showNewCategoryField, setShowNewCategoryField] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   const amountValid =
     operator === null
@@ -44,15 +50,23 @@ export function NewRuleFormScreen() {
         ? isValidNumber(min) && isValidNumber(max)
         : isValidNumber(value);
 
-  const canSave =
-    category.trim().length > 0 && (merchant.trim().length > 0 || operator !== null) && amountValid;
+  const canSave = categoryName !== null && (merchant.trim().length > 0 || operator !== null) && amountValid;
 
   function selectOperator(key: AmountOperator) {
     setOperator((current) => (current === key ? null : key));
   }
 
+  function addNewCategory() {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    getOrCreateCategoryByName(name);
+    setCategoryName(name);
+    setNewCategoryName('');
+    setShowNewCategoryField(false);
+  }
+
   function save() {
-    if (!canSave) return;
+    if (!canSave || !categoryName) return;
     const amount: AmountCondition | undefined =
       operator === null
         ? undefined
@@ -61,7 +75,7 @@ export function NewRuleFormScreen() {
           : { operator, value: Number(value) };
 
     addRule({
-      category: category.trim(),
+      category: categoryName,
       merchant: merchant.trim() || undefined,
       amount,
     });
@@ -74,12 +88,12 @@ export function NewRuleFormScreen() {
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.title}>New Rule</Text>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <Feather name="x" size={22} color={colors.onSurface} />
+        <Pressable onPress={() => navigation.goBack()} hitSlop={13} accessibilityLabel="Close">
+          <Feather name="x" size={22} color={colors.textPrimary} />
         </Pressable>
       </View>
 
-      <View style={styles.form}>
+      <ScrollView contentContainerStyle={[styles.form, contentWrap]} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>MERCHANT CONTAINS</Text>
           <TextInput
@@ -87,25 +101,15 @@ export function NewRuleFormScreen() {
             value={merchant}
             onChangeText={setMerchant}
             placeholder="e.g., Swiggy (optional)"
-            placeholderTextColor={colors.outline}
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
 
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>AMOUNT (OPTIONAL)</Text>
-          <View style={styles.operatorRow}>
+          <View style={styles.chipRow}>
             {OPERATORS.map((o) => (
-              <PressableScale
-                key={o.key}
-                style={[styles.operatorChip, operator === o.key && styles.operatorChipActive]}
-                onPress={() => selectOperator(o.key)}
-              >
-                <Text
-                  style={[styles.operatorChipText, operator === o.key && styles.operatorChipTextActive]}
-                >
-                  {o.label}
-                </Text>
-              </PressableScale>
+              <FilterChip key={o.key} label={o.label} selected={operator === o.key} onPress={() => selectOperator(o.key)} />
             ))}
           </View>
 
@@ -121,7 +125,7 @@ export function NewRuleFormScreen() {
                     onChangeText={setMin}
                     keyboardType="decimal-pad"
                     placeholder="0.00"
-                    placeholderTextColor={colors.outline}
+                    placeholderTextColor={colors.textSecondary}
                   />
                 </View>
               </View>
@@ -135,7 +139,7 @@ export function NewRuleFormScreen() {
                     onChangeText={setMax}
                     keyboardType="decimal-pad"
                     placeholder="0.00"
-                    placeholderTextColor={colors.outline}
+                    placeholderTextColor={colors.textSecondary}
                   />
                 </View>
               </View>
@@ -152,7 +156,7 @@ export function NewRuleFormScreen() {
                     onChangeText={setValue}
                     keyboardType="decimal-pad"
                     placeholder="0.00"
-                    placeholderTextColor={colors.outline}
+                    placeholderTextColor={colors.textSecondary}
                   />
                 </View>
               </View>
@@ -162,15 +166,39 @@ export function NewRuleFormScreen() {
 
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>CATEGORY</Text>
-          <TextInput
-            style={styles.input}
-            value={category}
-            onChangeText={setCategory}
-            placeholder="e.g., Food"
-            placeholderTextColor={colors.outline}
-          />
+          <View style={styles.grid}>
+            {categories.map((c) => (
+              <Pressable key={c.id} onPress={() => setCategoryName(c.name)} hitSlop={12}>
+                <View style={categoryName === c.name ? styles.pillSelected : undefined}>
+                  <CategoryPill name={c.name} colorIndex={c.colorIndex} />
+                </View>
+              </Pressable>
+            ))}
+            {!showNewCategoryField && (
+              <Pressable onPress={() => setShowNewCategoryField(true)} style={styles.newCategoryChip} hitSlop={12}>
+                <Feather name="plus" size={12} color={colors.accent} />
+                <Text style={styles.newCategoryChipText}>New category…</Text>
+              </Pressable>
+            )}
+          </View>
+          {showNewCategoryField && (
+            <View style={styles.newCategoryRow}>
+              <TextInput
+                style={styles.newCategoryInput}
+                placeholder="Category name"
+                placeholderTextColor={colors.textSecondary}
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+                autoFocus
+                onSubmitEditing={addNewCategory}
+              />
+              <PressableScale style={styles.newCategoryAdd} onPress={addNewCategory}>
+                <Text style={styles.newCategoryAddText}>Add</Text>
+              </PressableScale>
+            </View>
+          )}
         </View>
-      </View>
+      </ScrollView>
 
       <PressableScale
         style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
@@ -186,71 +214,50 @@ export function NewRuleFormScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.white,
-    padding: spacing.marginPage,
+    backgroundColor: colors.background,
+    padding: spacing.pageGutter,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.stackLg,
+    marginBottom: spacing.xxl,
   },
   title: {
-    ...type.headlineMd,
-    color: colors.onSurface,
+    ...type.h2,
+    color: colors.textPrimary,
   },
   form: {
-    flex: 1,
-    gap: spacing.stackLg,
+    gap: spacing.xxl,
+    paddingBottom: spacing.xxl,
   },
   field: {
-    gap: spacing.stackSm,
+    gap: spacing.sm,
   },
   fieldLabel: {
-    ...type.labelSm,
-    color: colors.outline,
+    ...type.caption,
+    color: colors.textSecondary,
   },
   input: {
-    ...type.bodyLg,
-    color: colors.onSurface,
+    ...type.body,
+    color: colors.textPrimary,
     borderBottomWidth: 1,
-    borderColor: colors.onSurface,
-    paddingVertical: spacing.stackSm,
+    borderColor: colors.border,
+    paddingVertical: spacing.sm,
   },
-  operatorRow: {
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.stackSm,
-    marginBottom: spacing.stackSm,
-  },
-  operatorChip: {
-    flexGrow: 1,
-    flexBasis: '45%',
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
-    borderRadius: radii.md,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  operatorChipActive: {
-    backgroundColor: colors.onSurface,
-    borderColor: colors.onSurface,
-  },
-  operatorChipText: {
-    ...type.labelMd,
-    letterSpacing: 0,
-    color: colors.onSurfaceVariant,
-  },
-  operatorChipTextActive: {
-    color: colors.white,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   betweenRow: {
     flexDirection: 'row',
-    gap: spacing.gutter,
+    gap: spacing.lg,
   },
   betweenField: {
     flex: 1,
-    gap: spacing.stackSm,
+    gap: spacing.sm,
   },
   amountRow: {
     flexDirection: 'row',
@@ -258,19 +265,69 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   currency: {
-    ...type.numeral,
+    ...type.amountMd,
     fontSize: 18,
-    color: colors.onSurface,
+    color: colors.textPrimary,
   },
   amountInput: {
-    ...type.numeral,
+    ...type.amountMd,
     fontSize: 18,
     flex: 1,
     borderBottomWidth: 0,
   },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  pillSelected: {
+    borderRadius: radii.pill,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  newCategoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 24,
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderStyle: 'dashed',
+  },
+  newCategoryChipText: {
+    ...type.label,
+    fontSize: 12,
+    color: colors.accent,
+  },
+  newCategoryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    alignItems: 'center',
+  },
+  newCategoryInput: {
+    ...type.body,
+    flex: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.sm,
+    color: colors.textPrimary,
+  },
+  newCategoryAdd: {
+    backgroundColor: colors.accent,
+    borderRadius: radii.button,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  newCategoryAddText: {
+    ...type.label,
+    color: colors.accentText,
+  },
   saveButton: {
-    backgroundColor: colors.black,
-    borderRadius: radii.md,
+    backgroundColor: colors.accent,
+    borderRadius: radii.button,
     paddingVertical: 16,
     alignItems: 'center',
   },
@@ -278,9 +335,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveButtonText: {
-    ...type.labelMd,
-    letterSpacing: 0,
+    ...type.label,
     fontSize: 16,
-    color: colors.white,
+    color: colors.accentText,
   },
 });

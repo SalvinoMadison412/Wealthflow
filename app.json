@@ -32,7 +32,8 @@
           "imageWidth": 200,
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-sqlite"
     ]
   }
 }
