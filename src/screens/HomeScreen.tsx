@@ -61,7 +61,6 @@ const FEATURES: { icon: keyof typeof Feather.glyphMap; title: string; text: stri
   { icon: 'tag', title: 'Categorised automatically', text: 'Write a rule once and every future statement sorts itself.' },
   { icon: 'pie-chart', title: 'Needs, wants, savings', text: 'See how your spending splits and set a monthly budget per category.' },
   { icon: 'check-circle', title: 'Checked against your balance', text: 'Each import is reconciled: opening balance plus credits minus debits must equal closing.' },
-  { icon: 'lock', title: 'Stays on your phone', text: 'Statements and transactions are never uploaded.' },
 ];
 
 // The real dashboard — PR 3/PR 4 had this as a placeholder CTA. See
@@ -98,6 +97,21 @@ export function HomeScreen() {
           <View>
             <Text style={styles.greeting}>{greeting}</Text>
             <Text style={styles.greetingSub}>Import a statement to see your money at a glance.</Text>
+          </View>
+
+          <View style={styles.safeCard}>
+            <View style={styles.safeIcon}>
+              <Feather name="lock" size={18} color={colors.incomeText} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.safeTitle}>Your data is safe with us.</Text>
+              <Text style={styles.safeText}>
+                The only thing we keep is your profile: your name and sign-in details. Your bank statements and
+                transaction history never leave this phone, and no AI ever reads them: every transaction is sorted
+                by fixed rules, on your device. Nothing is shown until you import a statement, and even then only
+                you can see it.
+              </Text>
+            </View>
           </View>
 
           <View style={styles.card}>
@@ -310,6 +324,31 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginLeft: spacing.pageGutter,
+  },
+  safeCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    backgroundColor: pillPalette[1].bg,
+    borderRadius: radii.sheet,
+    padding: spacing.lg,
+  },
+  safeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.pill,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  safeTitle: {
+    ...type.h2,
+    color: colors.textPrimary,
+  },
+  safeText: {
+    ...type.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   donutRow: {
     flexDirection: 'row',
