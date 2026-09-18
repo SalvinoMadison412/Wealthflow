@@ -10,8 +10,8 @@ import { Donut } from '../components/Donut';
 import { PressableScale } from '../components/PressableScale';
 import { ProgressBar } from '../components/ProgressBar';
 import { Bucket, bucketTotals, isValidPreset, planned, Preset, PRESETS } from '../data/budget';
-import { CategoryBudgetRow, getCategoryBudgetRows, getIncomeForMonth, getSetting } from '../db/queries';
-import { setCategoryBucket, setCategoryBudget, setSetting } from '../db/transactions';
+import { CategoryBudgetRow, countUncategorized, getCategoryBudgetRows, getIncomeForMonth, getSetting } from '../db/queries';
+import { applyPresetRules, setCategoryBucket, setCategoryBudget, setSetting } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { bucketColors, contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
@@ -56,9 +56,20 @@ export function BudgetScreen() {
   const realIncome = useQuery(() => getIncomeForMonth(month), [month]);
   const incomeSetting = useQuery(() => getSetting('monthly_income'), []);
   const rows = useQuery(() => getCategoryBudgetRows(month), [month]);
+  const uncategorizedCount = useQuery(() => countUncategorized(), []);
+  const [autoMessage, setAutoMessage] = useState<string | null>(null);
 
   const income = realIncome > 0 ? realIncome : Number(incomeSetting ?? 0);
   const preset = presetKey === 'custom' ? customPreset : PRESETS[presetKey];
+
+  function autoCategorize() {
+    const { rulesAdded, categorised } = applyPresetRules();
+    setAutoMessage(
+      rulesAdded === 0 && categorised === 0
+        ? 'Nothing new matched. Add a rule for the rest.'
+        : `Categorised ${categorised} transaction${categorised === 1 ? '' : 's'} · ${rulesAdded} rule${rulesAdded === 1 ? '' : 's'} added (see Rules)`
+    );
+  }
 
   function saveIncome() {
     const parsed = Number(incomeInput);
@@ -163,6 +174,25 @@ export function BudgetScreen() {
             ))}
           </View>
         </View>
+
+        {(uncategorizedCount > 0 || autoMessage) && (
+          <View style={styles.autoCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.autoTitle}>
+                {uncategorizedCount > 0 ? `${uncategorizedCount} uncategorised` : 'All categorised'}
+              </Text>
+              <Text style={styles.autoText}>
+                {autoMessage ?? 'Swiggy, Rapido, Blinkit, DMart and more, sorted in one tap.'}
+              </Text>
+            </View>
+            {uncategorizedCount > 0 && (
+              <PressableScale style={styles.autoButton} onPress={autoCategorize}>
+                <Feather name="zap" size={14} color={colors.accentText} />
+                <Text style={styles.autoButtonText}>Auto-categorise</Text>
+              </PressableScale>
+            )}
+          </View>
+        )}
 
         <Text style={styles.sectionTitle}>Categories</Text>
         <View style={styles.categoryList}>
@@ -394,6 +424,26 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     ...type.caption,
     color: colors.textSecondary,
   },
+  autoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: pillPalette[1].bg,
+    borderRadius: radii.sheet,
+    padding: spacing.md,
+  },
+  autoTitle: { ...type.label, color: colors.textPrimary },
+  autoText: { ...type.caption, color: colors.textSecondary },
+  autoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.accent,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  autoButtonText: { ...type.label, color: colors.accentText },
   sectionTitle: {
     ...type.h3,
     color: colors.textPrimary,

@@ -11,14 +11,13 @@ import { FilterChip } from '../components/FilterChip';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
 import {
-  countUncategorized,
   hasAnyTransactions,
   listCategoriesForFilter,
   listMonthsWithData,
   listTransactions,
   TransactionListItem,
 } from '../db/queries';
-import { applyPresetRules, listAccounts } from '../db/transactions';
+import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
@@ -91,7 +90,6 @@ export function TransactionsScreen() {
   const [accountId, setAccountId] = useState<string | null>(null);
   // undefined = newest month with data (follows new imports); 'all' = every month.
   const [monthChoice, setMonthChoice] = useState<string | 'all' | undefined>(undefined);
-  const [autoMessage, setAutoMessage] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [uncategorizedOnly, setUncategorizedOnly] = useState(false);
   const [direction, setDirection] = useState<'received' | 'sent' | null>(null);
@@ -105,7 +103,6 @@ export function TransactionsScreen() {
   const hasData = useQuery(() => hasAnyTransactions(), []);
   const accounts = useQuery(() => listAccounts(), []);
   const months = useQuery(() => listMonthsWithData(), []);
-  const uncategorizedCount = useQuery(() => countUncategorized(), []);
   const month = monthChoice === 'all' ? null : (monthChoice ?? months[0] ?? null);
   const monthIndex = month ? months.indexOf(month) : -1;
   const categories = useQuery(() => listCategoriesForFilter(), []);
@@ -151,15 +148,6 @@ export function TransactionsScreen() {
     setMaxText('');
     setAmountOpen(false);
   }, []);
-
-  const autoCategorize = () => {
-    const { rulesAdded, categorised } = applyPresetRules();
-    setAutoMessage(
-      rulesAdded === 0 && categorised === 0
-        ? 'Nothing new matched. Add a rule for the rest.'
-        : `Categorised ${categorised} transaction${categorised === 1 ? '' : 's'} · ${rulesAdded} rule${rulesAdded === 1 ? '' : 's'} added (see Rules)`
-    );
-  };
 
   if (!hasData) {
     return (
@@ -295,25 +283,6 @@ export function TransactionsScreen() {
         ))}
       </ScrollView>
 
-      {(uncategorizedCount > 0 || autoMessage) && (
-        <View style={styles.autoCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.autoTitle}>
-              {uncategorizedCount > 0 ? `${uncategorizedCount} uncategorised` : 'All categorised'}
-            </Text>
-            <Text style={styles.autoText}>
-              {autoMessage ?? 'Swiggy, Rapido, Blinkit, DMart and more, sorted in one tap.'}
-            </Text>
-          </View>
-          {uncategorizedCount > 0 && (
-            <PressableScale style={styles.autoButton} onPress={autoCategorize}>
-              <Feather name="zap" size={14} color={colors.accentText} />
-              <Text style={styles.autoButtonText}>Auto-categorise</Text>
-            </PressableScale>
-          )}
-        </View>
-      )}
-
       {sections.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No transactions match these filters</Text>
@@ -376,28 +345,6 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   },
   monthLabel: { ...type.h2, color: colors.textPrimary, minWidth: 160, textAlign: 'center' },
   chevronDisabled: { opacity: 0.3 },
-  autoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: pillPalette[1].bg,
-    borderRadius: radii.sheet,
-    marginHorizontal: spacing.pageGutter,
-    marginBottom: spacing.md,
-    padding: spacing.md,
-  },
-  autoTitle: { ...type.label, color: colors.textPrimary },
-  autoText: { ...type.caption, color: colors.textSecondary },
-  autoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.accent,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  autoButtonText: { ...type.label, color: colors.accentText },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',

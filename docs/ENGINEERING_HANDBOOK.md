@@ -341,8 +341,8 @@ and transactions (`INSERT OR IGNORE`) in one SQLite transaction →
   wins; no match → Uncategorized. A manual override always beats rules.
 - New rules are inserted at the top (`position = min − 1`) so a rule the
   user just made for a transaction wins.
-- **Auto-categorise** (Transactions tab, shown while anything is
-  Uncategorized): `applyPresetRules()` adds the built-in Indian-brand regex
+- **Auto-categorise** (Budget tab, above the Categories list, shown while
+  anything is Uncategorized): `applyPresetRules()` adds the built-in Indian-brand regex
   rules from `src/data/autoCategorize.ts` (Groceries, Food & Dining,
   Transport, Shopping, Bills & Utilities, Subscriptions, Health,
   Investments) at the **lowest** priority, so the user's own rules and manual
