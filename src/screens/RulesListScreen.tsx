@@ -160,7 +160,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.pageGutter,
-    paddingBottom: spacing.floatingNavClearance,
   },
   titleBlock: {
     marginBottom: spacing.xxl,

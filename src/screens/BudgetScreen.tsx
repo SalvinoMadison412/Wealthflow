@@ -274,7 +274,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.pageGutter,
-    paddingBottom: spacing.floatingNavClearance,
     gap: spacing.lg,
   },
   monthRow: {

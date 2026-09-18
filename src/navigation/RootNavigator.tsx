@@ -15,7 +15,7 @@ import { NewRuleFormScreen } from '../screens/NewRuleFormScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RulesListScreen } from '../screens/RulesListScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
-import { cardShadow, colors, radii, spacing } from '../theme/tokens';
+import { cardShadow, colors, spacing } from '../theme/tokens';
 
 export type RootStackParamList = {
   MainTabs: undefined;
@@ -48,8 +48,8 @@ const TAB_BAR_HEIGHT = 64;
 const FAB_SIZE = 52;
 
 // A quick-add shortcut to Import, not a nav destination — the tab bar
-// stays at 5 items (see the pinned decision above). Floats above the
-// tab bar, overlapping its top edge.
+// stays at 5 items (see the pinned decision above). Hovers above the
+// (transparent, borderless) tab bar, overlapping its top edge.
 function QuickAddFab({ bottom }: { bottom: number }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   return (
@@ -66,7 +66,7 @@ function QuickAddFab({ bottom }: { bottom: number }) {
 
 function MainTabs() {
   const insets = useSafeAreaInsets();
-  const barBottom = insets.bottom + spacing.md;
+  const barHeight = TAB_BAR_HEIGHT + insets.bottom;
 
   return (
     <View style={{ flex: 1 }}>
@@ -77,38 +77,25 @@ function MainTabs() {
           tabBarActiveTintColor: colors.accent,
           tabBarInactiveTintColor: colors.textSecondary,
           tabBarAccessibilityLabel: route.name,
-          // Floating pill: inset from the edges and elevated on a shadow
-          // rather than a full-width bar anchored to the screen edge.
+          // Seamless: no card surface, no border, no shadow — sits directly
+          // on the page background like the header does.
           tabBarStyle: {
-            position: 'absolute',
-            left: spacing.pageGutter,
-            right: spacing.pageGutter,
-            bottom: barBottom,
-            height: TAB_BAR_HEIGHT,
-            borderRadius: radii.pill,
-            backgroundColor: colors.card,
+            backgroundColor: colors.background,
             borderTopWidth: 0,
-            ...cardShadow,
-            shadowOpacity: 0.16,
-            shadowRadius: 20,
-            shadowOffset: { width: 0, height: 8 },
-            elevation: 8,
+            elevation: 0,
+            shadowOpacity: 0,
+            height: barHeight,
+            paddingBottom: insets.bottom,
           },
           // Without a visible label, bottom-tabs' default item layout still
           // reserves label space below the icon, pushing it toward the top
-          // of the bar instead of centering it. Force true centering.
+          // of the item instead of centering it. Force true centering.
           tabBarItemStyle: {
-            height: TAB_BAR_HEIGHT,
             justifyContent: 'center',
             alignItems: 'center',
           },
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.tabIconWrap}>
-              <Feather name={tabIcons[route.name as keyof MainTabsParamList]} color={color} size={20} />
-              {/* Dot always mounted (transparent when inactive) so the icon's
-                  own position never shifts between focused/unfocused. */}
-              <View style={[styles.tabDot, { backgroundColor: focused ? colors.accent : 'transparent' }]} />
-            </View>
+          tabBarIcon: ({ color }) => (
+            <Feather name={tabIcons[route.name as keyof MainTabsParamList]} color={color} size={22} />
           ),
         })}
       >
@@ -118,23 +105,12 @@ function MainTabs() {
         <Tabs.Screen name="Rules" component={RulesListScreen} />
         <Tabs.Screen name="Profile" component={ProfileScreen} />
       </Tabs.Navigator>
-      <QuickAddFab bottom={barBottom + TAB_BAR_HEIGHT - FAB_SIZE / 2} />
+      <QuickAddFab bottom={barHeight - FAB_SIZE / 2} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  tabIconWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    height: 28,
-  },
-  tabDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
   fab: {
     position: 'absolute',
     left: '50%',

@@ -200,7 +200,7 @@ export function TransactionsScreen() {
         </View>
       ) : (
         <SectionList
-          contentContainerStyle={[contentWrap, styles.listContent]}
+          contentContainerStyle={contentWrap}
           sections={sections}
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled
@@ -224,9 +224,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  listContent: {
-    paddingBottom: spacing.floatingNavClearance,
   },
   title: {
     ...type.h1,
