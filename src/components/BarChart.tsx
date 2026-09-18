@@ -25,12 +25,13 @@ function monthLabel(month: string): string {
 // month. Income is green; the expense bar's red gets louder the closer it
 // gets to income (data/spending.ts expenseTone) and a month that spent
 // about everything it earned is flagged. Values show on tap. The line
-// under the legend describes the last (newest) month.
+// under the legend describes the newest month with data (trailing months
+// can be empty — see data/spending.ts chartEndMonth).
 export function BarChart({ data }: { data: MonthlyBar[] }) {
   const styles = useStyles(makeStyles);
   const { colors } = useTheme();
   const [selected, setSelected] = useState<number | null>(null);
-  const latest = data[data.length - 1];
+  const latest = [...data].reverse().find((d) => d.income > 0 || d.expense > 0);
   const latestTone = latest ? expenseTone(latest.income, latest.expense) : null;
   const max = Math.max(1, ...data.flatMap((d) => [d.income, d.expense]));
 

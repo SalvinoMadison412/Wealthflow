@@ -15,6 +15,7 @@ import {
   getCategoryBudgetRows,
   listMonthsWithData,
 } from '../db/queries';
+import { topWithOthers } from '../data/spending';
 import { enableAutoCategorise, setCategoryBudget } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
@@ -63,6 +64,13 @@ export function BudgetScreen() {
   const spending = rows.filter((r) => r.spent > 0).sort((a, b) => b.spent - a.spent);
   const totalSpent = spending.reduce((sum, r) => sum + r.spent, 0);
   const displayRows = [...spending, ...rows.filter((r) => r.spent === 0 && r.monthlyBudget != null)];
+  // Top 4 keep their own color and a label; the rest share one grey
+  // "Others" slice. The list below still shows every category.
+  const { top, othersSpent } = topWithOthers(spending, 4);
+  const legend = [
+    ...top.map((r) => ({ key: r.id, name: r.name, spent: r.spent, color: pillPalette[r.colorIndex].text })),
+    ...(othersSpent > 0 ? [{ key: 'others', name: 'Others', spent: othersSpent, color: colors.textSecondary }] : []),
+  ];
   const monthName = new Date(`${month}-01T00:00:00`).toLocaleDateString('en-IN', { month: 'long' });
 
   return (
@@ -84,13 +92,26 @@ export function BudgetScreen() {
             <Donut
               segments={
                 monthHasData && totalSpent > 0
-                  ? spending.map((r) => ({ pct: (r.spent / totalSpent) * 100, color: pillPalette[r.colorIndex].text }))
+                  ? legend.map((l) => ({ pct: (l.spent / totalSpent) * 100, color: l.color }))
                   : []
               }
               centerLabel={monthHasData ? formatRupees(totalSpent) : 'No statement'}
               centerSubLabel={monthHasData ? `spent in ${monthName}` : monthLabel(month)}
             />
           </View>
+          {monthHasData && totalSpent > 0 && (
+            <View style={styles.legend}>
+              {legend.map((l) => (
+                <View key={l.key} style={styles.legendRow}>
+                  <View style={[styles.legendDot, { backgroundColor: l.color }]} />
+                  <Text style={styles.legendName} numberOfLines={1}>{l.name}</Text>
+                  <Text style={styles.legendValue}>
+                    {formatRupees(l.spent)} · {Math.round((l.spent / totalSpent) * 100)}%
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {(uncategorizedCount > 0 || autoMessage) && (
@@ -155,9 +176,10 @@ function CategoryBudgetCard({ row, totalSpent }: { row: CategoryBudgetRow; total
             placeholderTextColor={colors.textSecondary}
           />
         ) : (
-          <Pressable onPress={() => setEditing(true)} hitSlop={8}>
+          <Pressable onPress={() => setEditing(true)} hitSlop={8} style={styles.budgetButton}>
+            <Feather name="edit-2" size={12} color={colors.accent} />
             <Text style={styles.budgetText}>
-              {row.monthlyBudget != null ? formatRupees(row.monthlyBudget) : 'Set budget'}
+              {row.monthlyBudget != null ? formatRupees(row.monthlyBudget) : 'Budget'}
             </Text>
           </Pressable>
         )}
@@ -165,6 +187,7 @@ function CategoryBudgetCard({ row, totalSpent }: { row: CategoryBudgetRow; total
       <Text style={styles.categorySpent}>
         {formatRupees(row.spent)} spent
         {row.monthlyBudget != null ? ` of ${formatRupees(row.monthlyBudget)}` : ''}
+        {` · ${row.txCount} transaction${row.txCount === 1 ? '' : 's'}`}
         {totalSpent > 0 && row.spent > 0 ? ` · ${Math.round((row.spent / totalSpent) * 100)}%` : ''}
       </Text>
       {row.monthlyBudget != null && <ProgressBar spent={row.spent} budget={row.monthlyBudget} />}
@@ -201,6 +224,29 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   },
   donutWrap: {
     marginBottom: spacing.lg,
+  },
+  legend: {
+    alignSelf: 'stretch',
+    gap: spacing.sm,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: radii.pill,
+  },
+  legendName: {
+    ...type.body,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  legendValue: {
+    ...type.caption,
+    color: colors.textSecondary,
   },
   autoCard: {
     flexDirection: 'row',
@@ -244,6 +290,7 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   categoryTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.sm,
   },
   budgetInput: {
@@ -254,11 +301,19 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: colors.border,
   },
+  budgetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
   budgetText: {
-    ...type.bodyMedium,
+    ...type.caption,
     color: colors.accent,
-    flex: 1,
-    textAlign: 'right',
   },
   categorySpent: {
     ...type.caption,

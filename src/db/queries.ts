@@ -388,6 +388,7 @@ export type CategoryBudgetRow = {
   colorIndex: number;
   monthlyBudget: number | null;
   spent: number;
+  txCount: number;
 };
 
 // Every category (except Transfer — it's not a spend category) with its
@@ -402,15 +403,19 @@ export function getCategoryBudgetRows(month: string, accountIds?: string[] | nul
     color_index: number;
     monthly_budget: number | null;
     spent: number;
+    tx_count: number;
   }>(
     `SELECT c.id, c.name, c.color_index, c.monthly_budget,
             COALESCE((SELECT SUM(t.withdrawal) FROM transactions t
                       WHERE t.category_id = c.id AND t.is_transfer = 0
-                        AND strftime('%Y-%m', t.date) = ? ${scope.clause}), 0) as spent
+                        AND strftime('%Y-%m', t.date) = ? ${scope.clause}), 0) as spent,
+            (SELECT COUNT(*) FROM transactions t
+              WHERE t.category_id = c.id AND t.is_transfer = 0 AND t.withdrawal > 0
+                AND strftime('%Y-%m', t.date) = ? ${scope.clause}) as tx_count
      FROM categories c
      WHERE c.id != ?
      ORDER BY c.position ASC`,
-    [month, ...scope.params, TRANSFER_CATEGORY_ID]
+    [month, ...scope.params, month, ...scope.params, TRANSFER_CATEGORY_ID]
   );
   return rows.map((r) => ({
     id: r.id,
@@ -418,6 +423,7 @@ export function getCategoryBudgetRows(month: string, accountIds?: string[] | nul
     colorIndex: r.color_index,
     monthlyBudget: r.monthly_budget,
     spent: r.spent,
+    txCount: r.tx_count,
   }));
 }
 

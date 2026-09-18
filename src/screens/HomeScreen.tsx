@@ -23,6 +23,7 @@ import {
   listRecentTransactions,
   TransactionListItem,
 } from '../db/queries';
+import { chartEndMonth } from '../data/spending';
 import { isStatementStale } from '../data/staleness';
 import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
@@ -97,7 +98,7 @@ export function HomeScreen() {
   const latestMonth = useQuery(() => listMonthsWithData()[0] ?? null, []);
   const dataMonth = latestMonth ?? MONTH_KEY;
   const summary = useQuery(() => getMonthSummary(dataMonth), [dataMonth]);
-  const monthly = useQuery(() => getMonthlyTotals(6, dataMonth), [dataMonth]);
+  const monthly = useQuery(() => getMonthlyTotals(6, chartEndMonth(listMonthsWithData(), 6, MONTH_KEY)), []);
   const recent = useQuery(() => listRecentTransactions(5), []);
 
   const handlePressRow = useCallback(
