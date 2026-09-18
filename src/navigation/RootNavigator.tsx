@@ -1,10 +1,12 @@
 import { Feather } from '@expo/vector-icons';
-import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
-import { Text } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { PressableScale } from '../components/PressableScale';
 import { BudgetScreen } from '../screens/BudgetScreen';
 import { CategorizeSheet } from '../screens/CategorizeSheet';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -13,13 +15,14 @@ import { NewRuleFormScreen } from '../screens/NewRuleFormScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RulesListScreen } from '../screens/RulesListScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
-import { colors, type } from '../theme/tokens';
+import { cardShadow, colors } from '../theme/tokens';
 
 export type RootStackParamList = {
   MainTabs: undefined;
   Import: undefined;
   NewRuleForm: undefined;
   CategorizeSheet: { transactionId: string };
+  Profile: undefined;
 };
 
 export type MainTabsParamList = {
@@ -27,62 +30,126 @@ export type MainTabsParamList = {
   Transactions: undefined;
   Budget: undefined;
   Rules: undefined;
-  Profile: undefined;
 };
 
-// Household (PR 11) is a scope control inside these screens, never a 6th
-// tab — see docs/REDESIGN_PLAN.md PR 3.
+// Profile moved off the tab bar and behind the header's menu icon so the
+// 4 remaining tabs sit evenly around the quick-add FAB (see MainTabs).
 const tabIcons: Record<keyof MainTabsParamList, keyof typeof Feather.glyphMap> = {
   Home: 'home',
   Transactions: 'list',
   Budget: 'pie-chart',
   Rules: 'sliders',
-  Profile: 'user',
 };
 
 const Tabs = createBottomTabNavigator<MainTabsParamList>();
 
-function MainTabs() {
+const TAB_BAR_HEIGHT = 64;
+const FAB_SIZE = 52;
+
+// A quick-add shortcut to Import, not a nav destination — the tab bar
+// stays at 4 items (see the pinned decision above). Hovers above the
+// (transparent, borderless) tab bar, overlapping its top edge.
+function QuickAddFab({ bottom }: { bottom: number }) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   return (
-    <Tabs.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-        },
-        // bottom-tabs' tabBarLabelStyle has no maxFontSizeMultiplier hook,
-        // so the label is rendered directly: capped at 1.3x scale, and
-        // allowed to shrink (never wrap or clip) so "Transactions" — the
-        // longest of the five labels — fits its column at any font size.
-        tabBarLabel: ({ color, children }) => (
-          <Text
-            style={[type.caption, { color, textAlign: 'center' }]}
-            allowFontScaling
-            maxFontSizeMultiplier={1.3}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-          >
-            {children}
-          </Text>
-        ),
-        tabBarIcon: ({ color, size }) => (
-          <Feather name={tabIcons[route.name as keyof MainTabsParamList]} color={color} size={size} />
-        ),
-      })}
+    <PressableScale
+      style={[styles.fab, { bottom }]}
+      onPress={() => navigation.navigate('Import')}
+      accessibilityLabel="Import a statement"
+      accessibilityRole="button"
     >
-      <Tabs.Screen name="Home" component={HomeScreen} />
-      <Tabs.Screen name="Transactions" component={TransactionsScreen} />
-      <Tabs.Screen name="Budget" component={BudgetScreen} />
-      <Tabs.Screen name="Rules" component={RulesListScreen} />
-      <Tabs.Screen name="Profile" component={ProfileScreen} />
-    </Tabs.Navigator>
+      <Feather name="plus" size={22} color={colors.accentText} />
+    </PressableScale>
   );
 }
+
+// Custom renderer (rather than the default bottom-tabs layout) so the 4
+// tabs and the FAB sit in 5 EQUAL-width slots — Home, Transactions, an
+// empty slot the FAB floats over, Budget, Rules — giving every gap the
+// same width instead of 4 evenly-spaced tabs with the FAB dropped
+// asymmetrically into the middle seam.
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
+  const barHeight = TAB_BAR_HEIGHT + insets.bottom;
+  const routes = state.routes as { key: string; name: keyof MainTabsParamList }[];
+  const entries = routes.map((route, index) => ({ route, index }));
+
+  const renderItem = ({ route, index }: (typeof entries)[number]) => {
+    const isFocused = state.index === index;
+    const color = isFocused ? colors.accent : colors.textSecondary;
+    return (
+      <Pressable
+        key={route.key}
+        style={styles.tabItem}
+        accessibilityRole="button"
+        accessibilityState={isFocused ? { selected: true } : {}}
+        accessibilityLabel={route.name}
+        onPress={() => {
+          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+        }}
+      >
+        <Feather name={tabIcons[route.name]} color={color} size={22} />
+      </Pressable>
+    );
+  };
+
+  return (
+    <View style={[styles.tabBar, { height: barHeight, paddingBottom: insets.bottom }]}>
+      {entries.slice(0, 2).map(renderItem)}
+      <View style={styles.tabItem} />
+      {entries.slice(2).map(renderItem)}
+    </View>
+  );
+}
+
+function MainTabs() {
+  const insets = useSafeAreaInsets();
+  const barHeight = TAB_BAR_HEIGHT + insets.bottom;
+
+  return (
+    <View style={{ flex: 1 }}>
+      <Tabs.Navigator screenOptions={{ headerShown: false }} tabBar={(props) => <CustomTabBar {...props} />}>
+        <Tabs.Screen name="Home" component={HomeScreen} />
+        <Tabs.Screen name="Transactions" component={TransactionsScreen} />
+        <Tabs.Screen name="Budget" component={BudgetScreen} />
+        <Tabs.Screen name="Rules" component={RulesListScreen} />
+      </Tabs.Navigator>
+      <QuickAddFab bottom={barHeight - FAB_SIZE / 2} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  // Seamless: no card surface, no border, no shadow — sits directly on
+  // the page background like the header does.
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.background,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -FAB_SIZE / 2,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...cardShadow,
+    shadowColor: colors.accent,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+});
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
@@ -91,6 +158,7 @@ export function RootNavigator() {
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="MainTabs" component={MainTabs} />
+        <RootStack.Screen name="Profile" component={ProfileScreen} />
         <RootStack.Screen name="Import" component={ImportScreen} options={{ presentation: 'modal' }} />
         <RootStack.Screen
           name="NewRuleForm"

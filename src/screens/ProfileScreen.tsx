@@ -1,15 +1,15 @@
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppHeader } from '../components/AppHeader';
 import { PressableScale } from '../components/PressableScale';
 import { SettingsRow, SettingsSection } from '../components/SettingsRow';
 import { futureValue, monthsToGoal } from '../data/calculator';
 import { Account, deleteAccount, deleteCategory, listAccounts, renameAccount, renameCategory, setCategoryColor, setSetting, wipeAllData } from '../db/transactions';
-import { FilterCategory, getOwnerLabels, getSetting, listCategoriesForFilter } from '../db/queries';
+import { FilterCategory, getSetting, listCategoriesForFilter } from '../db/queries';
 import { useQuery } from '../db/useQuery';
 import { colors, contentWrap, pillPalette, radii, spacing, type } from '../theme/tokens';
 import { UNCATEGORIZED_CATEGORY_ID, TRANSFER_CATEGORY_ID } from '../db/schema';
@@ -19,17 +19,21 @@ function formatRupees(n: number): string {
 }
 
 export function ProfileScreen() {
+  const navigation = useNavigation();
   const accounts = useQuery(() => listAccounts(), []);
   const categories = useQuery(() => listCategoriesForFilter(), []);
   const monthlyIncomeSetting = useQuery(() => getSetting('monthly_income'), []);
-  const ownerLabels = useQuery(() => getOwnerLabels(), []);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <AppHeader />
-      <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
+      <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={13} accessibilityLabel="Back">
+          <Feather name="arrow-left" size={22} color={colors.textPrimary} />
+        </Pressable>
         <Text style={styles.title}>Profile</Text>
-
+        <View style={{ width: 22 }} />
+      </View>
+      <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <SmartCalculatorCard />
 
         <SettingsSection title="Accounts">
@@ -42,17 +46,6 @@ export function ProfileScreen() {
 
         <SettingsSection title="Preferences">
           <MonthlyIncomeRow current={monthlyIncomeSetting} />
-        </SettingsSection>
-
-        <SettingsSection title="Household">
-          <Text style={styles.householdNote}>
-            Everyone's statements on this phone. Nothing is shared or uploaded.
-          </Text>
-          {ownerLabels.length === 0 ? (
-            <SettingsRow icon="users" label="No one yet" showChevron={false} />
-          ) : (
-            ownerLabels.map((label) => <SettingsRow key={label} icon="user" label={label} showChevron={false} />)
-          )}
         </SettingsSection>
 
         <SettingsSection title="Categories">
@@ -356,22 +349,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  header: {
+    ...contentWrap,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.pageGutter,
+    paddingVertical: spacing.md,
+  },
   content: {
     padding: spacing.pageGutter,
     gap: spacing.xl,
   },
   title: {
-    ...type.h1,
+    ...type.h2,
     color: colors.textPrimary,
   },
   label: {
     ...type.body,
     color: colors.textPrimary,
-  },
-  householdNote: {
-    ...type.caption,
-    color: colors.textSecondary,
-    paddingVertical: spacing.md,
   },
   privacyNote: {
     ...type.caption,
