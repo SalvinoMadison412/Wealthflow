@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -16,13 +16,20 @@ import { colors } from '../theme/tokens';
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const HEIGHT = 120;
 
+interface LogoSplashProps {
+  /** Exit is held until true, so the app underneath is ready to reveal. */
+  ready: boolean;
+  onDone: () => void;
+}
+
 // Full-screen overlay shown once at launch: the mark draws itself on
 // (W stroke, then the arrowhead), holds, then the whole sheet fades and
 // eases up to reveal the app already rendered underneath.
-export function LogoSplash({ onDone }: { onDone: () => void }) {
+export function LogoSplash({ ready, onDone }: LogoSplashProps) {
   const wDraw = useRef(new Animated.Value(LOGO_W_LENGTH)).current;
   const arrowDraw = useRef(new Animated.Value(LOGO_ARROW_LENGTH)).current;
   const sheet = useRef(new Animated.Value(0)).current;
+  const [drawn, setDrawn] = useState(false);
 
   useEffect(() => {
     Animated.sequence([
@@ -40,14 +47,18 @@ export function LogoSplash({ onDone }: { onDone: () => void }) {
         useNativeDriver: false,
       }),
       Animated.delay(350),
-      Animated.timing(sheet, {
-        toValue: 1,
-        duration: 400,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: false,
-      }),
-    ]).start(({ finished }) => finished && onDone());
-  }, [wDraw, arrowDraw, sheet, onDone]);
+    ]).start(({ finished }) => finished && setDrawn(true));
+  }, [wDraw, arrowDraw]);
+
+  useEffect(() => {
+    if (!drawn || !ready) return;
+    Animated.timing(sheet, {
+      toValue: 1,
+      duration: 400,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: false,
+    }).start(({ finished }) => finished && onDone());
+  }, [drawn, ready, sheet, onDone]);
 
   return (
     <Animated.View

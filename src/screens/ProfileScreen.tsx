@@ -1,12 +1,15 @@
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Constants from 'expo-constants';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAuth } from '../auth/AuthContext';
 import { PressableScale } from '../components/PressableScale';
 import { SettingsRow, SettingsSection } from '../components/SettingsRow';
+import { RootStackParamList } from '../navigation/RootNavigator';
 import { futureValue, monthsToGoal } from '../data/calculator';
 import { Account, deleteAccount, deleteCategory, listAccounts, renameAccount, renameCategory, setCategoryColor, setSetting, wipeAllData } from '../db/transactions';
 import { FilterCategory, getSetting, listCategoriesForFilter } from '../db/queries';
@@ -19,7 +22,8 @@ function formatRupees(n: number): string {
 }
 
 export function ProfileScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { profile, signOut } = useAuth();
   const accounts = useQuery(() => listAccounts(), []);
   const categories = useQuery(() => listCategoriesForFilter(), []);
   const monthlyIncomeSetting = useQuery(() => getSetting('monthly_income'), []);
@@ -34,6 +38,16 @@ export function ProfileScreen() {
         <View style={{ width: 22 }} />
       </View>
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
+        <SettingsSection title="Account">
+          <SettingsRow
+            icon="user"
+            label={profile?.fullName ?? 'Set up your profile'}
+            value={profile?.email ?? profile?.phone ?? undefined}
+            onPress={() => navigation.navigate('EditProfile')}
+          />
+          <SettingsRow icon="log-out" label="Sign out" destructive showChevron={false} onPress={signOut} />
+        </SettingsSection>
+
         <SmartCalculatorCard />
 
         <SettingsSection title="Accounts">

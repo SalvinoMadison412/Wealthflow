@@ -6,8 +6,12 @@ interface PressableScaleProps extends PressableProps {
   children: React.ReactNode;
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 // Shared native-driver press feedback (scale down slightly on press-in) used
-// wherever a card/button in the design needs a tactile response.
+// wherever a card/button in the design needs a tactile response. One node:
+// the caller's style lays out the children directly (a `flexDirection:
+// 'row'` button really is a row) and the scale applies to the whole box.
 export function PressableScale({ style, children, ...pressableProps }: PressableScaleProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -20,9 +24,9 @@ export function PressableScale({ style, children, ...pressableProps }: Pressable
     }).start();
 
   return (
-    <Pressable
+    <AnimatedPressable
       {...pressableProps}
-      style={style}
+      style={[style, { transform: [{ scale }] }]}
       onPressIn={(e) => {
         animateTo(0.97);
         pressableProps.onPressIn?.(e);
@@ -32,7 +36,7 @@ export function PressableScale({ style, children, ...pressableProps }: Pressable
         pressableProps.onPressOut?.(e);
       }}
     >
-      <Animated.View style={{ transform: [{ scale }] }}>{children}</Animated.View>
-    </Pressable>
+      {children}
+    </AnimatedPressable>
   );
 }

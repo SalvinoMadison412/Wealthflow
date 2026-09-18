@@ -1,0 +1,144 @@
+import { Session } from '@supabase/supabase-js';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+
+import { INCOME_RANGES, Profile } from './profile';
+import { supabase } from './supabase';
+import { getSetting } from '../db/queries';
+import { deleteSetting, setSetting } from '../db/transactions';
+
+const PROFILE_SETTING = 'profile';
+
+type AuthState = {
+  /** True until the stored session (and, if any, its profile) is known. */
+  loading: boolean;
+  session: Session | null;
+  profile: Profile | null;
+  saveProfile: (profile: Profile) => Promise<string | null>;
+  signOut: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthState | null>(null);
+
+type ProfileRow = {
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  age_range: string | null;
+  income_range: string | null;
+  goal: string | null;
+  occupation: string | null;
+};
+
+const fromRow = (r: ProfileRow): Profile => ({
+  fullName: r.full_name,
+  email: r.email,
+  phone: r.phone,
+  ageRange: r.age_range,
+  incomeRange: r.income_range,
+  goal: r.goal,
+  occupation: r.occupation,
+});
+
+const toRow = (p: Profile): ProfileRow => ({
+  full_name: p.fullName,
+  email: p.email,
+  phone: p.phone,
+  age_range: p.ageRange,
+  income_range: p.incomeRange,
+  goal: p.goal,
+  occupation: p.occupation,
+});
+
+function readLocalProfile(): Profile | null {
+  const raw = getSetting(PROFILE_SETTING);
+  return raw ? (JSON.parse(raw) as Profile) : null;
+}
+
+// Local mirror so the greeting works offline; seeds the Budget income
+// fallback from the income range only when the user hasn't set one.
+function mirrorLocally(profile: Profile) {
+  setSetting(PROFILE_SETTING, JSON.stringify(profile));
+  const midpoint = INCOME_RANGES.find((r) => r.value === profile.incomeRange)?.midpoint;
+  if (midpoint && !getSetting('monthly_income')) setSetting('monthly_income', String(midpoint));
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  // undefined = not fetched yet for this session; null = no row.
+  const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setSessionChecked(true);
+    });
+    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  const userId = session?.user.id ?? null;
+  useEffect(() => {
+    if (!userId) {
+      setProfile(null);
+      return;
+    }
+    let cancelled = false;
+    setProfile(undefined);
+    supabase
+      .from('profiles')
+      .select('full_name, email, phone, age_range, income_range, goal, occupation')
+      .eq('id', userId)
+      .maybeSingle<ProfileRow>()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        // Offline or transient error: fall back to the local mirror rather
+        // than bouncing a returning user through onboarding again.
+        if (error) {
+          setProfile(readLocalProfile());
+          return;
+        }
+        const next = data ? fromRow(data) : null;
+        if (next) mirrorLocally(next);
+        setProfile(next);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const saveProfile = useCallback(
+    async (next: Profile): Promise<string | null> => {
+      if (!userId) return 'Not signed in';
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ id: userId, ...toRow(next), updated_at: new Date().toISOString() });
+      if (error) return error.message;
+      mirrorLocally(next);
+      setProfile(next);
+      return null;
+    },
+    [userId]
+  );
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    deleteSetting(PROFILE_SETTING);
+  }, []);
+
+  const loading = !sessionChecked || (session != null && profile === undefined);
+
+  return (
+    <AuthContext.Provider
+      value={{ loading, session, profile: profile ?? null, saveProfile, signOut }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthState {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  return ctx;
+}

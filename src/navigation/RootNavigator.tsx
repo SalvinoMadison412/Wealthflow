@@ -6,18 +6,26 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAuth } from '../auth/AuthContext';
 import { PressableScale } from '../components/PressableScale';
 import { BudgetScreen } from '../screens/BudgetScreen';
 import { CategorizeSheet } from '../screens/CategorizeSheet';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ImportScreen } from '../screens/ImportScreen';
+import { LoginScreen } from '../screens/LoginScreen';
 import { NewRuleFormScreen } from '../screens/NewRuleFormScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { OtpScreen } from '../screens/OtpScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RulesListScreen } from '../screens/RulesListScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
 import { cardShadow, colors } from '../theme/tokens';
 
 export type RootStackParamList = {
+  Login: undefined;
+  Otp: { phone: string };
+  Onboarding: undefined;
+  EditProfile: undefined;
   MainTabs: undefined;
   Import: undefined;
   NewRuleForm: undefined;
@@ -153,28 +161,48 @@ const styles = StyleSheet.create({
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
+// Three stacks keyed off auth state: signed out → Login/Otp; signed in
+// without a profile row → Onboarding; otherwise the app. React Navigation
+// swaps between them automatically as `session`/`profile` change. The
+// edit-profile route reuses the Onboarding screen under a different name
+// on purpose: if it were also called "Onboarding", finishing first-run
+// onboarding would leave the user parked on that route in the new stack
+// instead of landing on Home.
 export function RootNavigator() {
+  const { session, profile } = useAuth();
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        <RootStack.Screen name="MainTabs" component={MainTabs} />
-        <RootStack.Screen name="Profile" component={ProfileScreen} />
-        <RootStack.Screen name="Import" component={ImportScreen} options={{ presentation: 'modal' }} />
-        <RootStack.Screen
-          name="NewRuleForm"
-          component={NewRuleFormScreen}
-          options={{ presentation: 'modal' }}
-        />
-        <RootStack.Screen
-          name="CategorizeSheet"
-          component={CategorizeSheet}
-          options={{
-            presentation: 'formSheet',
-            sheetAllowedDetents: [0.55, 1],
-            sheetGrabberVisible: true,
-            sheetCornerRadius: 20,
-          }}
-        />
+        {!session ? (
+          <>
+            <RootStack.Screen name="Login" component={LoginScreen} />
+            <RootStack.Screen name="Otp" component={OtpScreen} />
+          </>
+        ) : !profile ? (
+          <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
+        ) : (
+          <>
+            <RootStack.Screen name="MainTabs" component={MainTabs} />
+            <RootStack.Screen name="Profile" component={ProfileScreen} />
+            <RootStack.Screen name="EditProfile" component={OnboardingScreen} />
+            <RootStack.Screen name="Import" component={ImportScreen} options={{ presentation: 'modal' }} />
+            <RootStack.Screen
+              name="NewRuleForm"
+              component={NewRuleFormScreen}
+              options={{ presentation: 'modal' }}
+            />
+            <RootStack.Screen
+              name="CategorizeSheet"
+              component={CategorizeSheet}
+              options={{
+                presentation: 'formSheet',
+                sheetAllowedDetents: [0.55, 1],
+                sheetGrabberVisible: true,
+                sheetCornerRadius: 20,
+              }}
+            />
+          </>
+        )}
       </RootStack.Navigator>
     </NavigationContainer>
   );
