@@ -93,9 +93,10 @@ export function TransactionsScreen() {
 
   const sections = useMemo(() => toSections(items), [items]);
 
-  const handlePressRow = useCallback((_id: string) => {
-    // Categorize sheet lands in PR 6 — tapping a row is a no-op until then.
-  }, []);
+  const handlePressRow = useCallback(
+    (id: string) => navigation.navigate('CategorizeSheet', { transactionId: id }),
+    [navigation]
+  );
 
   const hasActiveFilters = accountId !== null || month !== null || categoryId !== null || uncategorizedOnly;
   const clearFilters = useCallback(() => {

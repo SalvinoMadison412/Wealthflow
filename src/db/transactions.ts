@@ -3,6 +3,7 @@ import { parseStatement } from '../statement/registry';
 import { reconcile } from '../statement/reconciliation';
 import { ParsedStatement, ReconciliationResult } from '../statement/types';
 import { db } from './db';
+import { compileRules } from './matching';
 import { recategorize } from './recategorize';
 import { UNCATEGORIZED_CATEGORY_ID } from './schema';
 import { makeTransactionId, newId } from './transactionId';
@@ -139,7 +140,7 @@ export function importStatement(
   return { statement, reconciliation };
 }
 
-function getOrCreateCategoryByName(name: string): string {
+export function getOrCreateCategoryByName(name: string): string {
   const existing = db.getFirstSync<{ id: string }>('SELECT id FROM categories WHERE name = ?', [name]);
   if (existing) return existing.id;
 
@@ -189,4 +190,36 @@ export function insertRule(rule: { merchant?: string; amount?: AmountCondition; 
 export function deleteRule(id: string): void {
   db.runSync('DELETE FROM rules WHERE id = ?', [id]);
   recategorize('all');
+}
+
+// "Just this one" — an override always wins over every rule (see
+// recategorize.ts), so setting category_id here directly is equivalent to
+// (and cheaper than) writing the override and re-running the full
+// recategorize pass for a single row.
+export function setCategoryOverride(transactionId: string, categoryId: string): void {
+  db.runSync('UPDATE transactions SET category_override_id = ?, category_id = ?, matched_rule_id = NULL WHERE id = ?', [
+    categoryId,
+    categoryId,
+    transactionId,
+  ]);
+}
+
+export function clearCategoryOverride(transactionId: string): void {
+  db.runSync('UPDATE transactions SET category_override_id = NULL WHERE id = ?', [transactionId]);
+}
+
+// How many other transactions a not-yet-saved rule would also catch —
+// the categorize sheet's "Also recategorizes N past transactions" line.
+// No REGEXP support in expo-sqlite's SQLite build, so this reuses the
+// same compiled-matcher logic recategorize() runs, just over a read-only
+// preview instead of a write.
+export function retroCount(merchantPattern: string | null, amount: AmountCondition | null): number {
+  if (!merchantPattern && !amount) return 0;
+  const rows = db.getAllSync<{ merchant: string; withdrawal: number | null; deposit: number | null }>(
+    'SELECT merchant, withdrawal, deposit FROM transactions WHERE category_override_id IS NULL'
+  );
+  const [compiled] = compileRules([
+    { id: 'preview', merchant_pattern: merchantPattern, amount_json: amount ? JSON.stringify(amount) : null, category_id: 'preview' },
+  ]);
+  return rows.filter((r) => compiled.matches(r.merchant, Math.abs(r.withdrawal ?? r.deposit ?? 0))).length;
 }

@@ -6,6 +6,7 @@ import React from 'react';
 import { Text } from 'react-native';
 
 import { BudgetScreen } from '../screens/BudgetScreen';
+import { CategorizeSheet } from '../screens/CategorizeSheet';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ImportScreen } from '../screens/ImportScreen';
 import { NewRuleFormScreen } from '../screens/NewRuleFormScreen';
@@ -18,6 +19,7 @@ export type RootStackParamList = {
   MainTabs: undefined;
   Import: undefined;
   NewRuleForm: undefined;
+  CategorizeSheet: { transactionId: string };
 };
 
 export type MainTabsParamList = {
@@ -94,6 +96,16 @@ export function RootNavigator() {
           name="NewRuleForm"
           component={NewRuleFormScreen}
           options={{ presentation: 'modal' }}
+        />
+        <RootStack.Screen
+          name="CategorizeSheet"
+          component={CategorizeSheet}
+          options={{
+            presentation: 'formSheet',
+            sheetAllowedDetents: [0.55, 1],
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 20,
+          }}
         />
       </RootStack.Navigator>
     </NavigationContainer>
