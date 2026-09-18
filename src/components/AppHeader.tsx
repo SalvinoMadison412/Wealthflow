@@ -17,7 +17,7 @@ export function AppHeader() {
       <Pressable onPress={() => navigation.navigate('Profile')} hitSlop={13} accessibilityLabel="Profile and settings">
         <Feather name="menu" size={22} color={colors.textPrimary} />
       </Pressable>
-      <Logo size={18} color={colors.textPrimary} />
+      <Logo size={22} />
       <Feather name="bell" size={20} color={colors.textSecondary} />
     </View>
   );
