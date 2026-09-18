@@ -49,8 +49,9 @@ Everything in the architecture follows from those promises:
 5. **Transactions**: full list with month and category filters; tap a row
    to categorise it ("just this one") or create a rule from it.
 6. **Rules**: priority-ordered list; enable/disable, move up/down, delete.
-7. **Budget**: needs/savings split (80/20, 70/30 or custom),
-   per-category monthly budgets (a category with no budget set shows its spend but no progress bar), progress against real income.
+7. **Budget**: spending by category for a month (donut + category list
+   sorted by spend with each one's share), optional per-category monthly
+   budgets (no bar until a budget is set). There is no Needs/Savings split.
 8. **Menu** (top-left icon): Profile, Statements, Appearance
    (light / dark / system), Take the tour, and Family (locked, with a
    note on what it will do).
@@ -179,13 +180,13 @@ sync (§6) with the session.
 | `LoginScreen` | – | Supabase auth calls |
 | `OtpScreen` | route param `phone` | `verifyOtp`, resend with 30 s cooldown |
 | `OnboardingScreen` | session user metadata, existing profile | `saveProfile` (also used for edit) |
-| `HomeScreen` | `hasAnyTransactions`, `listAccounts` (staleness), `getCurrentMonthSummary`, `getMonthlyTotals(6)`, `listRecentTransactions(5)`, `listMonthsWithData` (for `BalanceSummary`), profile | – |
+| `HomeScreen` (Net card, chart and balance card anchor on the newest month with data, not today) | `hasAnyTransactions`, `listAccounts` (staleness), `listMonthsWithData`, `getMonthSummary(month)`, `getMonthlyTotals(6, month)`, `BalanceSummary`, `listRecentTransactions(5)`, profile | – |
 | `ImportScreen` | `listAccounts` | `createAccount`, `renameAccount`, `importStatement` |
 | `TransactionsScreen` | `listMonthsWithData`, `listCategoriesForFilter`, `listTransactions(filters)` (account, month, category, uncategorised, received/sent, amount range, recurring); month is a Budget-style ‹ March 2026 › stepper over months with data (label taps toggle All months) | – |
 | `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one") or `insertRule` (with `suggestPattern` prefill) |
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
-| `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `BalanceSummary` (selected month), `countTransactionsInMonth`, `countUncategorized`, `getIncomeForMonth`, `getCategoryBudgetRows`, `getSetting('monthly_income')`, `PRESETS` | `setCategoryBucket`, `setCategoryBudget`, budget preset setting |
+| `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `countTransactionsInMonth`, `countUncategorized`, `getCategoryBudgetRows` | `setCategoryBudget`, `enableAutoCategorise` |
 | `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, rename/delete account, rename/recolour/delete category, `setSetting('monthly_income')`, `wipeAllData` |
 | `MenuSheet` | profile, `getSetting('appearance')` | `setSetting('appearance')`, `deleteSetting('tour_done')`; `replace()`s itself with Profile or Statements |
 | `StatementsScreen` | `listStatements` | `deleteStatement` |
@@ -235,8 +236,15 @@ design), dark accent `#34D399` with dark ink text (`accentText`) on it.
 `inverse` is a surface that stays dark in both themes (Smart Calculator
 card, snackbar); do not use `textPrimary` as a fill, it goes near-white in
 dark. The quick-add button is the accent disc with a 5 px ring in the page
-colour, a soft accent shadow in light and no glow in dark. The Home and Budget donuts draw needs / savings
-in bright solid colours (`bucketColors` in `tokens.ts`, same in light and dark).
+colour, a soft accent shadow in light and no glow in dark. The Budget donut colours each category
+with its pill colour (`pillPalette[colorIndex].text`), flat ends and a
+small gap between slices.
+The Home income/expense chart (`BarChart`) draws income green and expenses
+red, with the red's opacity from `expenseTone(income, expense)`
+(`src/data/spending.ts`): pale at or under 50% of income, full red at 90%
+or more, which also flags the month (alert icon, red label, and a red-flag
+line under the chart for the newest month). Spending with no income is
+flagged too. The thresholds are the tuning knob.
 
 Never import `colors` from `tokens.ts` in a screen; the only consumers of
 the fixed light palette are the splash overlay and the native launch
@@ -316,7 +324,7 @@ cannot alter a CHECK without a table rebuild, so the app just never writes it). 
 | `accounts` | A bank account the user imports into | `owner_label` defaults to "Me" (household phase 0) |
 | `statements` | One row per import | `period_start/end` from first/last transaction date, `reconciled_ok`, `imported_at` |
 | `transactions` | Every parsed row | id = `accountId|date|withdrawal|deposit|balance|refNo|description` (see `transactionId.ts`), so re-importing the same PDF is a no-op. `category_id` is the effective category, `category_override_id` a manual pin, `matched_rule_id` which rule set it, `is_transfer` |
-| `categories` | User categories + two seeded reserved ones | `bucket` needs/savings, `monthly_budget`, `color_index`, `position` |
+| `categories` | User categories + two seeded reserved ones | `bucket` (unused, always 'needs'), `monthly_budget`, `color_index`, `position` |
 | `rules` | Categorisation rules | `merchant_pattern` (regex or plain contains), `amount_json`, `category_id`, `enabled`, `position` (lower = higher priority) |
 | `settings` | Key/value | `profile` (JSON mirror), `monthly_income`, `rules_synced_at`, `appearance`, `tour_done`, `auto_categorise`, budget preset |
 
@@ -378,9 +386,10 @@ and transactions (`INSERT OR IGNORE`) in one SQLite transaction →
   different account within two days are paired as a transfer (closest
   dates first, each leg used once). Both rows get the reserved Transfer
   category and are excluded from income/expense totals.
-- `budget.ts`: two buckets (needs, savings), presets 80/20 and 70/30, `bucketTotals`, and the
-  under/warning/over progress state used by `ProgressBar`. Income for a
-  month is real deposits, falling back to `settings.monthly_income`.
+- `budget.ts`: the under/warning/over progress state used by
+  `ProgressBar` for per-category budgets. The Needs/Savings split and its
+  presets were removed; `categories.bucket` stays in SQLite and Supabase
+  (always 'needs') only to avoid a table rebuild.
 - `recurring.ts`: the Transactions "Recurring" filter. A merchant is
   recurring when it appears in 2+ distinct calendar months and every
   amount is within 10% of its median (rent, subscriptions, EMIs, salary).

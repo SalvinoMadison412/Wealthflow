@@ -60,6 +60,3 @@ test('short tokens do not over-match', () => {
   expect(categoryOf('Steam')).toBeNull();
 });
 
-test('savings is used only for investments', () => {
-  expect(PRESET_RULES.filter((r) => r.bucket === 'savings').map((r) => r.category)).toEqual(['Investments']);
-});

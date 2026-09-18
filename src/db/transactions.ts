@@ -2,7 +2,6 @@ import { PageContent } from '../pdf/types';
 import { parseStatement } from '../statement/registry';
 import { reconcile } from '../statement/reconciliation';
 import { ParsedStatement, ReconciliationResult } from '../statement/types';
-import { Bucket } from '../data/budget';
 import { detectTransferPairs, TransferCandidate } from '../data/transfers';
 import { db } from './db';
 import { AmountCondition, compileRules, matchText } from './matching';
@@ -290,13 +289,6 @@ export function setSetting(key: string, value: string): void {
     'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
     [key, value]
   );
-}
-
-// Bucket default for a newly created category is 'needs' (set at
-// creation in getOrCreateCategoryByName); this is only for re-assigning
-// an existing one from the Budget screen's tap-to-toggle chip.
-export function setCategoryBucket(categoryId: string, bucket: Bucket): void {
-  db.runSync('UPDATE categories SET bucket = ? WHERE id = ?', [bucket, categoryId]);
 }
 
 export function setCategoryBudget(categoryId: string, monthlyBudget: number | null): void {

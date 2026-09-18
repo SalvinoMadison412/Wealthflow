@@ -66,7 +66,7 @@ export function recategorize(scope: RecategorizeScope = 'all'): void {
       if (preset) {
         let id = presetCategoryIds.get(preset.category);
         if (!id) {
-          id = getOrCreateCategoryByName(preset.category, preset.bucket);
+          id = getOrCreateCategoryByName(preset.category);
           presetCategoryIds.set(preset.category, id);
         }
         categoryId = id;
