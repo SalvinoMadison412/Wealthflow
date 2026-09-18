@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
-import { Animated, Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
+import { Animated, Pressable, PressableProps, StyleProp, View, ViewStyle } from 'react-native';
 
 interface PressableScaleProps extends PressableProps {
+  ref?: React.Ref<View>;
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }

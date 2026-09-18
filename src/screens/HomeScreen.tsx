@@ -26,6 +26,7 @@ import { isStatementStale } from '../data/staleness';
 import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { MainTabsParamList, RootStackParamList } from '../navigation/RootNavigator';
+import { useTourTarget } from '../tour/targets';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
@@ -73,6 +74,7 @@ export function HomeScreen() {
   const { profile } = useAuth();
   const name = firstName(profile);
   const greeting = name ? `Hi ${name}` : 'Hi there';
+  const greetingTarget = useTourTarget('greeting');
 
   const hasData = useQuery(() => hasAnyTransactions(), []);
   const accounts = useQuery(() => listAccounts(), []);
@@ -97,7 +99,7 @@ export function HomeScreen() {
       <SafeAreaView style={styles.screen} edges={['top']}>
         <AppHeader />
         <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
-          <View>
+          <View {...greetingTarget}>
             <Text style={styles.greeting}>{greeting}</Text>
             <Text style={styles.greetingSub}>Import a statement to see your money at a glance.</Text>
           </View>
@@ -173,7 +175,7 @@ export function HomeScreen() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
-        <View>
+        <View {...greetingTarget}>
           <Text style={styles.greeting}>{greeting}</Text>
           <Text style={styles.greetingSub}>{MONTH_NAME}</Text>
         </View>

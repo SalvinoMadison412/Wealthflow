@@ -21,6 +21,7 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { RulesListScreen } from '../screens/RulesListScreen';
 import { StatementsScreen } from '../screens/StatementsScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
+import { useTourTarget } from '../tour/targets';
 import { cardShadow } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
@@ -66,8 +67,10 @@ function QuickAddFab({ bottom }: { bottom: number }) {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const target = useTourTarget('fab');
   return (
     <PressableScale
+      {...target}
       style={[styles.fab, { bottom }]}
       onPress={() => navigation.navigate('Import')}
       accessibilityLabel="Import a statement"
@@ -90,6 +93,8 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const barHeight = TAB_BAR_HEIGHT + insets.bottom;
   const routes = state.routes as { key: string; name: keyof MainTabsParamList }[];
   const entries = routes.map((route, index) => ({ route, index }));
+  const transactionsTarget = useTourTarget('transactionsTab');
+  const rulesTarget = useTourTarget('rulesTab');
 
   const renderItem = ({ route, index }: (typeof entries)[number]) => {
     const isFocused = state.index === index;
@@ -97,6 +102,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     return (
       <Pressable
         key={route.key}
+        {...(route.name === 'Transactions' ? transactionsTarget : route.name === 'Rules' ? rulesTarget : {})}
         style={styles.tabItem}
         accessibilityRole="button"
         accessibilityState={isFocused ? { selected: true } : {}}

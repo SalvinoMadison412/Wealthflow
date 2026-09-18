@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Logo } from './Logo';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { useTourTarget } from '../tour/targets';
 import { contentWrap, spacing } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
@@ -16,9 +17,10 @@ export function AppHeader() {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const menuTarget = useTourTarget('menu');
   return (
     <View style={styles.header}>
-      <Pressable onPress={() => navigation.navigate('Menu')} hitSlop={13} accessibilityLabel="Menu">
+      <Pressable {...menuTarget} onPress={() => navigation.navigate('Menu')} hitSlop={13} accessibilityLabel="Menu">
         <Feather name="menu" size={22} color={colors.textPrimary} />
       </Pressable>
       <Logo size={22} />
