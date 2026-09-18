@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 
 import { type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
@@ -10,7 +10,7 @@ const STROKE = 18;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-type DonutSegment = { pct: number; from: string; to: string };
+type DonutSegment = { pct: number; color: string };
 
 interface DonutProps {
   segments: DonutSegment[]; // needs, wants, savings order — at most 3
@@ -19,8 +19,7 @@ interface DonutProps {
 }
 
 // react-native-svg Circles, static (no animation) — a track circle plus
-// one per segment, each stroked with a gradient that runs along its own arc
-// (start point to end point, in the circle's rotated frame). Center text is a plain RN Text
+// one per segment, at most 4 shapes total. Center text is a plain RN Text
 // overlay, not SVG Text (simpler font handling, same as the rest of the
 // app).
 export function Donut({ segments, centerLabel, centerSubLabel }: DonutProps) {
@@ -32,27 +31,6 @@ export function Donut({ segments, centerLabel, centerSubLabel }: DonutProps) {
   return (
     <View style={styles.wrap}>
       <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
-        <Defs>
-          {segments.map((s, i) => {
-            const a0 = (starts[i] / CIRCUMFERENCE) * 2 * Math.PI;
-            const a1 = ((starts[i] + arc(s)) / CIRCUMFERENCE) * 2 * Math.PI;
-            const c = SIZE / 2;
-            return (
-              <LinearGradient
-                key={i}
-                id={`arc${i}`}
-                gradientUnits="userSpaceOnUse"
-                x1={c + RADIUS * Math.cos(a0)}
-                y1={c + RADIUS * Math.sin(a0)}
-                x2={c + RADIUS * Math.cos(a1)}
-                y2={c + RADIUS * Math.sin(a1)}
-              >
-                <Stop offset="0" stopColor={s.from} />
-                <Stop offset="1" stopColor={s.to} />
-              </LinearGradient>
-            );
-          })}
-        </Defs>
         <Circle
           cx={SIZE / 2}
           cy={SIZE / 2}
@@ -69,7 +47,7 @@ export function Donut({ segments, centerLabel, centerSubLabel }: DonutProps) {
               cx={SIZE / 2}
               cy={SIZE / 2}
               r={RADIUS}
-              stroke={`url(#arc${i})`}
+              stroke={s.color}
               strokeWidth={STROKE}
               strokeDasharray={`${length} ${CIRCUMFERENCE}`}
               strokeDashoffset={-starts[i]}

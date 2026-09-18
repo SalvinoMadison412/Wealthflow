@@ -27,7 +27,7 @@ import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { MainTabsParamList, RootStackParamList } from '../navigation/RootNavigator';
 import { useTourTarget } from '../tour/targets';
-import { bucketGradients, contentWrap, radii, spacing, type } from '../theme/tokens';
+import { bucketColors, contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 type Nav = CompositeNavigationProp<
@@ -53,9 +53,9 @@ const MONTH_NAME = new Date().toLocaleDateString('en-IN', { month: 'long' });
 // not sample data) and what the app does. No invented figures.
 const SPLIT = PRESETS['50/30/20'];
 const BUCKETS = [
-  { label: 'Needs', pct: SPLIT.needs, gradient: bucketGradients.needs },
-  { label: 'Wants', pct: SPLIT.wants, gradient: bucketGradients.wants },
-  { label: 'Savings', pct: SPLIT.savings, gradient: bucketGradients.savings },
+  { label: 'Needs', pct: SPLIT.needs, color: bucketColors.needs },
+  { label: 'Wants', pct: SPLIT.wants, color: bucketColors.wants },
+  { label: 'Savings', pct: SPLIT.savings, color: bucketColors.savings },
 ];
 const FEATURES: { icon: keyof typeof Feather.glyphMap; title: string; text: string }[] = [
   { icon: 'file-text', title: 'Import a statement PDF', text: 'Every transaction is read off the page. No manual entry.' },
@@ -122,14 +122,14 @@ export function HomeScreen() {
             <Text style={styles.cardLabel}>HOW WE SPLIT YOUR SPENDING</Text>
             <View style={styles.donutRow}>
               <Donut
-                segments={BUCKETS.map(({ pct, gradient }) => ({ pct, from: gradient[0], to: gradient[1] }))}
+                segments={BUCKETS.map(({ pct, color }) => ({ pct, color }))}
                 centerLabel={`${SPLIT.needs}/${SPLIT.wants}/${SPLIT.savings}`}
                 centerSubLabel="default split"
               />
               <View style={styles.legend}>
                 {BUCKETS.map((b) => (
                   <View key={b.label} style={styles.legendRow}>
-                    <View style={[styles.legendDot, { backgroundColor: b.gradient[0] }]} />
+                    <View style={[styles.legendDot, { backgroundColor: b.color }]} />
                     <Text style={styles.legendText}>{b.label}</Text>
                     <Text style={styles.legendPct}>{b.pct}%</Text>
                   </View>

@@ -234,8 +234,7 @@ design), dark accent `#34D399` with dark ink text (`accentText`) on it.
 card, snackbar); do not use `textPrimary` as a fill, it goes near-white in
 dark. The quick-add button is the accent disc with a 5 px ring in the page
 colour, a soft accent shadow in light and no glow in dark. The Home and Budget donuts draw needs / wants / savings
-as bright gradient arcs (`bucketGradients` in `tokens.ts`, same in light and
-dark); each arc's gradient runs from its own start to its end point.
+in bright solid colours (`bucketColors` in `tokens.ts`, same in light and dark).
 
 Never import `colors` from `tokens.ts` in a screen; the only consumers of
 the fixed light palette are the splash overlay and the native launch

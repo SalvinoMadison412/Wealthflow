@@ -94,12 +94,12 @@ const PILL_HUES: { light: { bg: string; text: string }; dark: string }[] = [
 
 // Dark pills reuse the hue as text and a 22%-alpha wash of it as the
 // background, which reads on dark cards without a second hand-tuned set.
-// Needs / wants / savings chart colours: bright two-stop gradients, readable
-// on both the light and dark card, so not part of the per-scheme palettes.
-export const bucketGradients = {
-  needs: ['#2F6BFF', '#22D3EE'],
-  wants: ['#A855F7', '#F472B6'],
-  savings: ['#10D9A0', '#B5F23D'],
+// Needs / wants / savings chart colours: bright, readable on both the light
+// and dark card, so not part of the per-scheme palettes.
+export const bucketColors = {
+  needs: '#2F80FF',
+  wants: '#B45CF5',
+  savings: '#12D6A0',
 } as const;
 
 export function pillPaletteFor(_colors: Colors, scheme: 'light' | 'dark'): PillPalette {
