@@ -1,6 +1,7 @@
+import { Bucket } from '../data/budget';
 import { describeRule } from '../data/rulePattern';
 import { db } from './db';
-import { UNCATEGORIZED_CATEGORY_ID } from './schema';
+import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
 
 export type TransactionFilters = {
   accountId?: string;
@@ -279,4 +280,63 @@ export function listRulesForDisplay(): RuleListItem[] {
     categoryName: r.category_name,
     colorIndex: r.color_index,
   }));
+}
+
+// This month's total deposits, excluding transfers — the Budget screen's
+// income base (falls back to settings.monthly_income when zero; see
+// db/transactions.ts's getMonthlyIncomeSetting).
+export function getIncomeForMonth(month: string): number {
+  const row = db.getFirstSync<{ income: number }>(
+    `SELECT COALESCE(SUM(deposit), 0) as income
+     FROM transactions
+     WHERE is_transfer = 0 AND strftime('%Y-%m', date) = ?`,
+    [month]
+  );
+  return row?.income ?? 0;
+}
+
+export type CategoryBudgetRow = {
+  id: string;
+  name: string;
+  colorIndex: number;
+  bucket: Bucket;
+  monthlyBudget: number | null;
+  spent: number;
+};
+
+// Every category (except Transfer — it's not a spend category) with its
+// spend for the given month. The screen filters to "spend > 0 or budget
+// set" itself — categories is a small table, unlike transactions, so
+// that client-side filter on an already-tiny joined result is fine.
+export function getCategoryBudgetRows(month: string): CategoryBudgetRow[] {
+  const rows = db.getAllSync<{
+    id: string;
+    name: string;
+    color_index: number;
+    bucket: string;
+    monthly_budget: number | null;
+    spent: number;
+  }>(
+    `SELECT c.id, c.name, c.color_index, c.bucket, c.monthly_budget,
+            COALESCE((SELECT SUM(t.withdrawal) FROM transactions t
+                      WHERE t.category_id = c.id AND t.is_transfer = 0
+                        AND strftime('%Y-%m', t.date) = ?), 0) as spent
+     FROM categories c
+     WHERE c.id != ?
+     ORDER BY c.position ASC`,
+    [month, TRANSFER_CATEGORY_ID]
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    colorIndex: r.color_index,
+    bucket: r.bucket as Bucket,
+    monthlyBudget: r.monthly_budget,
+    spent: r.spent,
+  }));
+}
+
+export function getSetting(key: string): string | null {
+  const row = db.getFirstSync<{ value: string }>('SELECT value FROM settings WHERE key = ?', [key]);
+  return row?.value ?? null;
 }

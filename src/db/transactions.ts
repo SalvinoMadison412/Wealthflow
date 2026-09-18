@@ -249,3 +249,21 @@ export function retroCount(merchantPattern: string | null, amount: AmountConditi
   ]);
   return rows.filter((r) => compiled.matches(r.merchant, Math.abs(r.withdrawal ?? r.deposit ?? 0))).length;
 }
+
+export function setSetting(key: string, value: string): void {
+  db.runSync(
+    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    [key, value]
+  );
+}
+
+// Bucket default for a newly created category is 'wants' (set at
+// creation in getOrCreateCategoryByName); this is only for re-assigning
+// an existing one from the Budget screen's tap-to-cycle chip.
+export function setCategoryBucket(categoryId: string, bucket: 'needs' | 'wants' | 'savings'): void {
+  db.runSync('UPDATE categories SET bucket = ? WHERE id = ?', [bucket, categoryId]);
+}
+
+export function setCategoryBudget(categoryId: string, monthlyBudget: number | null): void {
+  db.runSync('UPDATE categories SET monthly_budget = ? WHERE id = ?', [monthlyBudget, categoryId]);
+}
