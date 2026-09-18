@@ -2,7 +2,8 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { progressPercent, progressState } from '../data/budget';
-import { colors, radii } from '../theme/tokens';
+import { radii } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 interface ProgressBarProps {
   spent: number;
@@ -13,6 +14,8 @@ interface ProgressBarProps {
 // under 80%, warning 80-100%, expense over 100% — progressState owns the
 // thresholds, this just renders them.
 export function ProgressBar({ spent, budget }: ProgressBarProps) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const state = progressState(spent, budget);
   const pct = progressPercent(spent, budget);
   const fillColor =
@@ -29,7 +32,7 @@ export function ProgressBar({ spent, budget }: ProgressBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   track: {
     height: 6,
     borderRadius: radii.pill,

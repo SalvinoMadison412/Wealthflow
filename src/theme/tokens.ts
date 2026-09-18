@@ -16,52 +16,89 @@ export const fontAssets = {
   'Manrope-ExtraBold': require('../../assets/fonts/Manrope-ExtraBold.ttf'),
 } as const;
 
-// Canonical palette. Use these for anything new.
-const textPrimary = '#14161A';
-const textSecondary = '#6B7280';
-const border = '#E7E8EC';
-const accent = '#4C5FD5';
-const track = '#EEF0F4';
-
-export const colors = {
+// Canonical palettes. Screens never import these directly — they read
+// `colors` / `pillPalette` from useTheme() so the appearance setting
+// (light / dark / system) applies everywhere.
+export const lightColors = {
   background: '#FAFAF8',
   card: '#FFFFFF',
-  textPrimary,
-  textSecondary,
-  border,
-  accent,
+  textPrimary: '#14161A',
+  textSecondary: '#6B7280',
+  border: '#E7E8EC',
+  accent: '#0A8058', // emerald; 5:1 against white so button labels pass AA
   accentText: '#FFFFFF',
   // Accent/secondary text on a dark surface (e.g. the Smart Calculator
   // card) — the plain accent/textSecondary values don't have enough
   // contrast against textPrimary as a background.
-  accentOnDark: '#8B93E8',
-  onDarkSecondary: '#A6ABDE',
+  accentOnDark: '#6EE7B7',
+  onDarkSecondary: '#A7C4B8',
   incomeFill: '#1FAA6D',
   incomeText: '#15803D',
   expenseFill: '#E5484D',
   expenseText: '#C0393E',
   warningFill: '#F5A623',
   warningText: '#92600B',
-  track,
+  track: '#EEF0F4',
+  // Fixed dark surface for cards that stay dark in both themes (Smart
+  // Calculator, snackbar). Not textPrimary: that goes near-white in dark.
+  inverse: '#14161A',
   white: '#FFFFFF',
   black: '#000000',
-} as const;
+};
+
+export type Colors = typeof lightColors;
+
+export const darkColors: Colors = {
+  background: '#0F1115',
+  card: '#181B21',
+  textPrimary: '#F2F3F5',
+  textSecondary: '#9AA0AA',
+  border: '#2A2E36',
+  accent: '#34D399',
+  accentText: '#0E1015', // dark ink on mint: 9.9:1
+  accentOnDark: '#6EE7B7',
+  onDarkSecondary: '#A7C4B8',
+  incomeFill: '#1FAA6D',
+  incomeText: '#4ADE80',
+  expenseFill: '#E5484D',
+  expenseText: '#F87171',
+  warningFill: '#F5A623',
+  warningText: '#FBBF24',
+  track: '#232730',
+  inverse: '#232833',
+  white: '#FFFFFF',
+  black: '#000000',
+};
+
+// The splash and the native launch screen stay light regardless of the
+// appearance setting; this is the only place that reads a fixed palette.
+export const colors = lightColors;
 
 // Deterministic category-pill palette. Index by `category.position % 10`.
 // Index 9 (slate) is reserved for "Uncategorized"; index 7 (sky) is
 // reserved for "Transfer" — never assign either to a user category.
-export const pillPalette: { bg: string; text: string }[] = [
-  { bg: '#E8EBFA', text: '#3A4BB3' }, // 0 indigo
-  { bg: '#E1F5EB', text: '#15803D' }, // 1 green
-  { bg: '#FCE4E5', text: '#B3363B' }, // 2 coral
-  { bg: '#FDF0D5', text: '#92600B' }, // 3 amber
-  { bg: '#DDF4F2', text: '#0F766E' }, // 4 teal
-  { bg: '#EFE6FA', text: '#6D28D9' }, // 5 purple
-  { bg: '#FCE7F3', text: '#BE185D' }, // 6 pink
-  { bg: '#E0F2FE', text: '#0369A1' }, // 7 sky — Transfer
-  { bg: '#ECF5D8', text: '#4D7C0F' }, // 8 olive
-  { bg: '#EDEFF3', text: '#475569' }, // 9 slate — Uncategorized
+export type PillPalette = { bg: string; text: string }[];
+
+const PILL_HUES: { light: { bg: string; text: string }; dark: string }[] = [
+  { light: { bg: '#E8EBFA', text: '#3A4BB3' }, dark: '#8B9BF4' }, // 0 indigo
+  { light: { bg: '#E1F5EB', text: '#15803D' }, dark: '#4ADE80' }, // 1 green
+  { light: { bg: '#FCE4E5', text: '#B3363B' }, dark: '#F87171' }, // 2 coral
+  { light: { bg: '#FDF0D5', text: '#92600B' }, dark: '#FBBF24' }, // 3 amber
+  { light: { bg: '#DDF4F2', text: '#0F766E' }, dark: '#2DD4BF' }, // 4 teal
+  { light: { bg: '#EFE6FA', text: '#6D28D9' }, dark: '#C084FC' }, // 5 purple
+  { light: { bg: '#FCE7F3', text: '#BE185D' }, dark: '#F472B6' }, // 6 pink
+  { light: { bg: '#E0F2FE', text: '#0369A1' }, dark: '#38BDF8' }, // 7 sky — Transfer
+  { light: { bg: '#ECF5D8', text: '#4D7C0F' }, dark: '#A3E635' }, // 8 olive
+  { light: { bg: '#EDEFF3', text: '#475569' }, dark: '#94A3B8' }, // 9 slate — Uncategorized
 ];
+
+// Dark pills reuse the hue as text and a 22%-alpha wash of it as the
+// background, which reads on dark cards without a second hand-tuned set.
+export function pillPaletteFor(_colors: Colors, scheme: 'light' | 'dark'): PillPalette {
+  return PILL_HUES.map((h) => (scheme === 'light' ? h.light : { bg: `${h.dark}38`, text: h.dark }));
+}
+
+export const pillPalette: PillPalette = pillPaletteFor(lightColors, 'light');
 
 const sm = 8;
 const lg = 16;

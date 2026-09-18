@@ -18,7 +18,8 @@ import {
 } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 type Route = RouteProp<RootStackParamList, 'CategorizeSheet'>;
 
@@ -26,6 +27,8 @@ type Route = RouteProp<RootStackParamList, 'CategorizeSheet'>;
 // dismisses the whole screen by default via native-stack, including
 // whatever local state (the inline rule prompt) is showing.
 export function CategorizeSheet() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation();
   const { params } = useRoute<Route>();
   const transaction = useQuery(() => getTransactionDetail(params.transactionId), [params.transactionId]);
@@ -184,7 +187,7 @@ export function CategorizeSheet() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.card,

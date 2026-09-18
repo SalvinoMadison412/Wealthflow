@@ -20,7 +20,8 @@ import {
 import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
-import { colors, contentWrap, spacing, type } from '../theme/tokens';
+import { contentWrap, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -70,6 +71,8 @@ function toRowData(item: TransactionListItem): TransactionRowData {
 }
 
 export function TransactionsScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation<Nav>();
   const [accountId, setAccountId] = useState<string | null>(null);
   const [month, setMonth] = useState<string | null>(null);
@@ -208,7 +211,7 @@ export function TransactionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,

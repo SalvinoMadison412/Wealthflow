@@ -12,10 +12,11 @@ import { Bucket, bucketTotals, isValidPreset, planned, Preset, PRESETS } from '.
 import { CategoryBudgetRow, getCategoryBudgetRows, getIncomeForMonth, getSetting } from '../db/queries';
 import { setCategoryBucket, setCategoryBudget, setSetting } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
-import { colors, contentWrap, pillPalette, radii, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 const BUCKETS: Bucket[] = ['needs', 'wants', 'savings'];
-const BUCKET_COLOR_INDEX: Record<Bucket, number> = { needs: 0, wants: 5, savings: 1 };
+const BUCKET_COLOR_INDEX: Record<Bucket, number> = { needs: 1, wants: 5, savings: 3 };
 const BUCKET_LABEL: Record<Bucket, string> = { needs: 'Needs', wants: 'Wants', savings: 'Savings' };
 const PRESET_KEYS: ('50/30/20' | '60/20/20' | 'custom')[] = ['50/30/20', '60/20/20', 'custom'];
 
@@ -45,6 +46,8 @@ function nextBucket(bucket: Bucket): Bucket {
 }
 
 export function BudgetScreen() {
+  const { colors, pillPalette } = useTheme();
+  const styles = useStyles(makeStyles);
   const [month, setMonth] = useState(currentMonthKey);
   const [presetKey, setPresetKey] = useState<'50/30/20' | '60/20/20' | 'custom'>('60/20/20');
   const [customPreset, setCustomPreset] = useState<Preset>({ needs: 50, wants: 30, savings: 20 });
@@ -173,6 +176,8 @@ export function BudgetScreen() {
 }
 
 function CustomPresetEditor({ preset, onChange }: { preset: Preset; onChange: (p: Preset) => void }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const total = preset.needs + preset.wants + preset.savings;
   const valid = isValidPreset(preset);
 
@@ -205,6 +210,8 @@ function CustomPresetEditor({ preset, onChange }: { preset: Preset; onChange: (p
 }
 
 function CategoryBudgetCard({ row }: { row: CategoryBudgetRow }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(row.monthlyBudget != null ? String(row.monthlyBudget) : '');
 
@@ -254,7 +261,7 @@ function CategoryBudgetCard({ row }: { row: CategoryBudgetRow }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,

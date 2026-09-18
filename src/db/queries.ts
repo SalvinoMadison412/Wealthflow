@@ -359,6 +359,46 @@ export function getCategoryBudgetRows(month: string, accountIds?: string[] | nul
   }));
 }
 
+export type StatementListItem = {
+  id: string;
+  bank: string;
+  ownerLabel: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  importedAt: string;
+  reconciledOk: boolean;
+  transactionCount: number;
+};
+
+// Every import, newest first — the Statements history screen.
+export function listStatements(): StatementListItem[] {
+  const rows = db.getAllSync<{
+    id: string;
+    bank: string;
+    owner_label: string;
+    period_start: string | null;
+    period_end: string | null;
+    imported_at: string;
+    reconciled_ok: number;
+    tx_count: number;
+  }>(
+    `SELECT s.id, a.bank, a.owner_label, s.period_start, s.period_end, s.imported_at, s.reconciled_ok,
+       (SELECT COUNT(*) FROM transactions t WHERE t.statement_id = s.id) as tx_count
+     FROM statements s JOIN accounts a ON a.id = s.account_id
+     ORDER BY s.imported_at DESC`
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    bank: r.bank,
+    ownerLabel: r.owner_label,
+    periodStart: r.period_start,
+    periodEnd: r.period_end,
+    importedAt: r.imported_at,
+    reconciledOk: r.reconciled_ok === 1,
+    transactionCount: r.tx_count,
+  }));
+}
+
 export function getSetting(key: string): string | null {
   const row = db.getFirstSync<{ value: string }>('SELECT value FROM settings WHERE key = ?', [key]);
   return row?.value ?? null;

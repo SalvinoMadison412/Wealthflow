@@ -329,6 +329,17 @@ export function deleteCategory(id: string): void {
   requestIdleCallback(() => recategorize('all'));
 }
 
+// One import and its transactions. The account, rules and categories stay:
+// re-importing the same PDF later recreates the rows with the same ids
+// and the same categorisation. A transfer whose other leg was in this
+// statement keeps its is_transfer flag — harmless, and gone on re-import.
+export function deleteStatement(id: string): void {
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM transactions WHERE statement_id = ?', [id]);
+    db.runSync('DELETE FROM statements WHERE id = ?', [id]);
+  });
+}
+
 // Cascades manually (foreign_keys = ON, no ON DELETE CASCADE in the
 // schema) — an account's statements and transactions have no meaning
 // without it, so they go too, unlike a category's transactions which

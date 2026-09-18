@@ -8,10 +8,13 @@ import { useAuth } from '../auth/AuthContext';
 import { AGE_RANGES, GOALS, INCOME_RANGES, OCCUPATIONS, Option } from '../auth/profile';
 import { FilterChip } from '../components/FilterChip';
 import { PressableScale } from '../components/PressableScale';
-import { colors, contentWrap, radii, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 // First-run profile form; also reached from Profile › Account to edit.
 export function OnboardingScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation();
   const { session, profile, saveProfile } = useAuth();
   const editing = profile != null;
@@ -119,6 +122,7 @@ export function OnboardingScreen() {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -138,6 +142,7 @@ function ChipGroup({
   value: string | null;
   onChange: (v: string | null) => void;
 }) {
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -155,7 +160,7 @@ function ChipGroup({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,

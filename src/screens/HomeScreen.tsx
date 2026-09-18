@@ -26,7 +26,9 @@ import { isStatementStale } from '../data/staleness';
 import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { MainTabsParamList, RootStackParamList } from '../navigation/RootNavigator';
-import { colors, contentWrap, pillPalette, radii, spacing, type } from '../theme/tokens';
+import { useTourTarget } from '../tour/targets';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabsParamList, 'Home'>,
@@ -52,9 +54,9 @@ const MONTH_NAME = new Date().toLocaleDateString('en-IN', { month: 'long' });
 const SPLIT = PRESETS['50/30/20'];
 // Same colour indexes Budget uses for needs / wants / savings.
 const BUCKETS = [
-  { label: 'Needs', pct: SPLIT.needs, colorIndex: 0 },
+  { label: 'Needs', pct: SPLIT.needs, colorIndex: 1 },
   { label: 'Wants', pct: SPLIT.wants, colorIndex: 5 },
-  { label: 'Savings', pct: SPLIT.savings, colorIndex: 1 },
+  { label: 'Savings', pct: SPLIT.savings, colorIndex: 3 },
 ];
 const FEATURES: { icon: keyof typeof Feather.glyphMap; title: string; text: string }[] = [
   { icon: 'file-text', title: 'Import a statement PDF', text: 'Every transaction is read off the page. No manual entry.' },
@@ -66,10 +68,13 @@ const FEATURES: { icon: keyof typeof Feather.glyphMap; title: string; text: stri
 // The real dashboard — PR 3/PR 4 had this as a placeholder CTA. See
 // docs/REDESIGN_PLAN.md PR 7.
 export function HomeScreen() {
+  const { colors, pillPalette } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation<Nav>();
   const { profile } = useAuth();
   const name = firstName(profile);
   const greeting = name ? `Hi ${name}` : 'Hi there';
+  const greetingTarget = useTourTarget('greeting');
 
   const hasData = useQuery(() => hasAnyTransactions(), []);
   const accounts = useQuery(() => listAccounts(), []);
@@ -94,14 +99,14 @@ export function HomeScreen() {
       <SafeAreaView style={styles.screen} edges={['top']}>
         <AppHeader />
         <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
-          <View>
+          <View {...greetingTarget}>
             <Text style={styles.greeting}>{greeting}</Text>
             <Text style={styles.greetingSub}>Import a statement to see your money at a glance.</Text>
           </View>
 
           <View style={styles.safeCard}>
             <View style={styles.safeIcon}>
-              <Feather name="lock" size={18} color={colors.incomeText} />
+              <Feather name="lock" size={18} color={pillPalette[7].text} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.safeTitle}>Your data is safe with us.</Text>
@@ -170,7 +175,7 @@ export function HomeScreen() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
-        <View>
+        <View {...greetingTarget}>
           <Text style={styles.greeting}>{greeting}</Text>
           <Text style={styles.greetingSub}>{MONTH_NAME}</Text>
         </View>
@@ -231,7 +236,7 @@ export function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -254,7 +259,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: pillPalette[0].bg,
+    backgroundColor: pillPalette[1].bg,
     borderRadius: radii.card,
     padding: spacing.lg,
   },
@@ -329,7 +334,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.md,
-    backgroundColor: pillPalette[1].bg,
+    backgroundColor: pillPalette[7].bg,
     borderRadius: radii.sheet,
     padding: spacing.lg,
   },
@@ -397,7 +402,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radii.pill,
-    backgroundColor: pillPalette[0].bg,
+    backgroundColor: pillPalette[1].bg,
     alignItems: 'center',
     justifyContent: 'center',
   },

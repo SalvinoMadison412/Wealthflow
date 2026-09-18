@@ -13,7 +13,8 @@ import { PageContent } from '../pdf/types';
 import { PdfPasswordRequiredError } from '../pdf/types';
 import { parseStatement } from '../statement/registry';
 import { ParsedStatement, ReconciliationResult } from '../statement/types';
-import { colors, contentWrap, pillPalette, radii, spacing, type } from '../theme/tokens';
+import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 // Reads a local file:// URI as base64 via RN's built-in fetch/Blob/FileReader
 // rather than expo-file-system: Expo Go sandboxes file access per-project,
@@ -52,6 +53,8 @@ type Status =
   | { kind: 'error'; message: string };
 
 export function ImportScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation();
   const { extractPdfText } = usePdfExtractor();
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
@@ -210,6 +213,8 @@ function AccountChooser({
   onPick: (accountId: string) => void;
   onCreate: (bank: string, maskedNumber: string, ownerLabel: string) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [showNewForm, setShowNewForm] = useState(accounts.length === 0);
   const [newBank, setNewBank] = useState(bank ?? '');
   const [newNickname, setNewNickname] = useState('');
@@ -284,6 +289,7 @@ function AccountCard({
   onImport: () => void;
   disabled: boolean;
 }) {
+  const styles = useStyles(makeStyles);
   const [bank, setBank] = useState(account.bank);
   const [ownerLabel, setOwnerLabel] = useState(account.ownerLabel);
 
@@ -334,6 +340,8 @@ function ResultCard({
   reconciliation: ReconciliationResult;
   onDone: () => void;
 }) {
+  const { pillPalette } = useTheme();
+  const styles = useStyles(makeStyles);
   const badge = reconciliation.ok ? pillPalette[1] : pillPalette[3];
   return (
     <View style={styles.resultBox}>
@@ -373,7 +381,7 @@ function ResultCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,

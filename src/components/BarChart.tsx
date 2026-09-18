@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Amount } from './Amount';
-import { colors, radii, spacing, type } from '../theme/tokens';
+import { radii, spacing, type } from '../theme/tokens';
+import { Theme, useStyles } from '../theme/ThemeContext';
 
 const TRACK_HEIGHT = 96;
 
@@ -17,6 +18,7 @@ function monthLabel(month: string): string {
 // month. Values are hidden by default and shown for one month at a time
 // on tap, never printed permanently (would get noisy at 12 bars).
 export function BarChart({ data }: { data: MonthlyBar[] }) {
+  const styles = useStyles(makeStyles);
   const [selected, setSelected] = useState<number | null>(null);
   const max = Math.max(1, ...data.flatMap((d) => [d.income, d.expense]));
 
@@ -72,7 +74,7 @@ export function BarChart({ data }: { data: MonthlyBar[] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-end',

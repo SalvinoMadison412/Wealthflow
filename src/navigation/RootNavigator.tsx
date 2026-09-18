@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer, useNavigation } from '@react-navigation/native';
 import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
@@ -13,13 +13,17 @@ import { CategorizeSheet } from '../screens/CategorizeSheet';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ImportScreen } from '../screens/ImportScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { MenuSheet } from '../screens/MenuSheet';
 import { NewRuleFormScreen } from '../screens/NewRuleFormScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { OtpScreen } from '../screens/OtpScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RulesListScreen } from '../screens/RulesListScreen';
+import { StatementsScreen } from '../screens/StatementsScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
-import { cardShadow, colors } from '../theme/tokens';
+import { useTourTarget } from '../tour/targets';
+import { cardShadow } from '../theme/tokens';
+import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -31,6 +35,8 @@ export type RootStackParamList = {
   NewRuleForm: undefined;
   CategorizeSheet: { transactionId: string };
   Profile: undefined;
+  Menu: undefined;
+  Statements: undefined;
 };
 
 export type MainTabsParamList = {
@@ -52,15 +58,19 @@ const tabIcons: Record<keyof MainTabsParamList, keyof typeof Feather.glyphMap> =
 const Tabs = createBottomTabNavigator<MainTabsParamList>();
 
 const TAB_BAR_HEIGHT = 64;
-const FAB_SIZE = 52;
+const FAB_SIZE = 60; // 50 disc + 5 ring
 
 // A quick-add shortcut to Import, not a nav destination — the tab bar
 // stays at 4 items (see the pinned decision above). Hovers above the
 // (transparent, borderless) tab bar, overlapping its top edge.
 function QuickAddFab({ bottom }: { bottom: number }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const target = useTourTarget('fab');
   return (
     <PressableScale
+      {...target}
       style={[styles.fab, { bottom }]}
       onPress={() => navigation.navigate('Import')}
       accessibilityLabel="Import a statement"
@@ -77,10 +87,14 @@ function QuickAddFab({ bottom }: { bottom: number }) {
 // same width instead of 4 evenly-spaced tabs with the FAB dropped
 // asymmetrically into the middle seam.
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const barHeight = TAB_BAR_HEIGHT + insets.bottom;
   const routes = state.routes as { key: string; name: keyof MainTabsParamList }[];
   const entries = routes.map((route, index) => ({ route, index }));
+  const transactionsTarget = useTourTarget('transactionsTab');
+  const rulesTarget = useTourTarget('rulesTab');
 
   const renderItem = ({ route, index }: (typeof entries)[number]) => {
     const isFocused = state.index === index;
@@ -88,6 +102,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     return (
       <Pressable
         key={route.key}
+        {...(route.name === 'Transactions' ? transactionsTarget : route.name === 'Rules' ? rulesTarget : {})}
         style={styles.tabItem}
         accessibilityRole="button"
         accessibilityState={isFocused ? { selected: true } : {}}
@@ -128,7 +143,7 @@ function MainTabs() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = ({ colors, scheme }: Theme) => StyleSheet.create({
   // Seamless: no card surface, no border, no shadow — sits directly on
   // the page background like the header does.
   tabBar: {
@@ -148,14 +163,18 @@ const styles = StyleSheet.create({
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
     backgroundColor: colors.accent,
+    // The ring is the page colour, so the disc reads as cut out of the
+    // tab bar. Glow only in light; on dark it muddies the surface.
+    borderWidth: 5,
+    borderColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     ...cardShadow,
     shadowColor: colors.accent,
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
+    shadowOpacity: scheme === 'dark' ? 0 : 0.3,
+    shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
+    elevation: scheme === 'dark' ? 0 : 8,
   },
 });
 
@@ -170,8 +189,16 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 // instead of landing on Home.
 export function RootNavigator() {
   const { session, profile } = useAuth();
+  const { scheme, colors } = useTheme();
+  // Stack transitions and sheet backgrounds come from the navigator's
+  // theme, not our StyleSheets, so it has to follow the scheme too.
+  const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+  const navTheme = {
+    ...base,
+    colors: { ...base.colors, background: colors.background, card: colors.card, text: colors.textPrimary, border: colors.border, primary: colors.accent },
+  };
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!session ? (
           <>
@@ -185,6 +212,17 @@ export function RootNavigator() {
             <RootStack.Screen name="MainTabs" component={MainTabs} />
             <RootStack.Screen name="Profile" component={ProfileScreen} />
             <RootStack.Screen name="EditProfile" component={OnboardingScreen} />
+            <RootStack.Screen name="Statements" component={StatementsScreen} />
+            <RootStack.Screen
+              name="Menu"
+              component={MenuSheet}
+              options={{
+                presentation: 'formSheet',
+                sheetAllowedDetents: [0.62, 1],
+                sheetGrabberVisible: true,
+                sheetCornerRadius: 20,
+              }}
+            />
             <RootStack.Screen name="Import" component={ImportScreen} options={{ presentation: 'modal' }} />
             <RootStack.Screen
               name="NewRuleForm"

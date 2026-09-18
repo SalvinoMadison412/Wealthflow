@@ -1,7 +1,8 @@
 import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 
-import { colors } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+
 
 // The mark: a stroked "W" whose last stroke rises into an arrow. Traced
 // from assets/splash-icon.png (1024 grid), cropped to the mark's bounds.
@@ -27,11 +28,13 @@ interface LogoProps {
   color?: string;
 }
 
-export function Logo({ size = 24, color = colors.textPrimary }: LogoProps) {
+export function Logo({ size = 24, color }: LogoProps) {
+  const { colors } = useTheme();
+  const stroke = color ?? colors.textPrimary;
   return (
     <Svg width={size * LOGO_ASPECT} height={size} viewBox={LOGO_VIEWBOX} accessibilityLabel="WealthFlow">
-      <Path d={LOGO_W_PATH} stroke={color} {...logoStroke} />
-      <Path d={LOGO_ARROW_PATH} stroke={color} {...logoStroke} />
+      <Path d={LOGO_W_PATH} stroke={stroke} {...logoStroke} />
+      <Path d={LOGO_ARROW_PATH} stroke={stroke} {...logoStroke} />
     </Svg>
   );
 }
