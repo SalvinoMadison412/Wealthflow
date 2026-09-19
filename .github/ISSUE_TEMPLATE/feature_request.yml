@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest an improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Does it fit the privacy rules?
+      description: No AI in parsing or categorising, on-device processing, Supabase holds only non-sensitive data. See CLAUDE.md.

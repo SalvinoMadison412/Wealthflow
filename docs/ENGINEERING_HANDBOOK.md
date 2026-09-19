@@ -5,7 +5,7 @@ describes what the app does, what it is built with, how every part works,
 and how to run, test and ship it. Keep it current: when a PR changes
 behaviour described here, update the relevant section in the same PR.
 
-Last updated: 2026-09-19 (after the menu / dark theme / tour PR).
+Last updated: 2026-09-19 (CI, PR and issue templates, branch protection).
 
 ---
 
@@ -530,6 +530,14 @@ npx jest                        # tests
 - In dev, a "WebCrypto API is not supported" warning appears once per
   Google sign-in; expected.
 
+### Continuous integration
+
+`.github/workflows/ci.yml` runs `npm ci`, `npx tsc --noEmit` and `npx jest` on every
+pull request and push to `main`. The job is named `test`; that name is the required status check in
+`main`'s branch protection (PR required, no force push, no deletion), so renaming the job means
+updating the protection rule. Dependabot opens weekly grouped minor/patch PRs and skips major
+`expo*`, `react-native*` and `react` bumps (Expo SDK upgrades are done deliberately, together).
+
 ### Tests
 
 `npx jest` runs the pure-logic suites: statement row parsing and the
@@ -548,6 +556,8 @@ that.
 - One logical change per branch and PR against `main`; never commit to
   `main` directly. Stacked PRs are fine when a change depends on an
   unmerged one; say so in the description.
+- PRs use `.github/pull_request_template.md`; issues use the forms in `.github/ISSUE_TEMPLATE/`.
+  `.github/CODEOWNERS` marks schema, parsing and storage as owner-reviewed.
 - Read `CLAUDE.md` first: it is the list of decisions that are not up for
   re-litigation. `AGENTS.md` is a symlink to it.
 - Prefer the platform and existing helpers over new dependencies. Every
