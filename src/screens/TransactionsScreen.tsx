@@ -17,6 +17,7 @@ import {
   listMonthsWithData,
   listTransactions,
   TransactionListItem,
+  TransactionSort,
 } from '../db/queries';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
@@ -57,7 +58,19 @@ function toSections(items: TransactionListItem[]): Section[] {
   return sections;
 }
 
-function toRowData(item: TransactionListItem): TransactionRowData {
+const SORT_OPTIONS: [TransactionSort, string][] = [
+  ['newest', 'Newest'],
+  ['oldest', 'Oldest'],
+  ['amountHigh', 'Highest amount'],
+  ['amountLow', 'Lowest amount'],
+];
+
+function shortDateLabel(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function toRowData(item: TransactionListItem, showDate: boolean): TransactionRowData {
   const kind = item.isTransfer ? 'neutral' : item.deposit != null ? 'income' : 'expense';
   return {
     id: item.id,
@@ -67,6 +80,7 @@ function toRowData(item: TransactionListItem): TransactionRowData {
     amount: item.deposit ?? item.withdrawal ?? 0,
     kind,
     isTransfer: item.isTransfer,
+    date: showDate ? shortDateLabel(item.date) : undefined,
   };
 }
 
@@ -86,6 +100,7 @@ export function TransactionsScreen() {
   const [uncategorizedOnly, setUncategorizedOnly] = useState(false);
   const [direction, setDirection] = useState<'received' | 'sent' | null>(null);
   const [recurringOnly, setRecurringOnly] = useState(false);
+  const [sort, setSort] = useState<TransactionSort>('newest');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [minText, setMinText] = useState('');
   const [maxText, setMaxText] = useState('');
@@ -109,11 +124,17 @@ export function TransactionsScreen() {
         recurringOnly,
         minAmount,
         maxAmount,
+        sort,
       }),
-    [accountId, month, categoryId, uncategorizedOnly, direction, recurringOnly, minAmount, maxAmount]
+    [accountId, month, categoryId, uncategorizedOnly, direction, recurringOnly, minAmount, maxAmount, sort]
   );
 
-  const sections = useMemo(() => toSections(items), [items]);
+  // Sorting by amount breaks the day grouping, so rows go flat and carry their own date.
+  const byDate = sort === 'newest' || sort === 'oldest';
+  const sections = useMemo(
+    () => (byDate ? toSections(items) : [{ title: '', net: 0, data: items }]),
+    [items, byDate]
+  );
   // Totals follow whatever the filters leave in the list; transfers between
   // accounts are included, as on Home's balance card.
   const totals = useMemo(() => {
@@ -131,14 +152,16 @@ export function TransactionsScreen() {
     [navigation]
   );
 
-  // What the Filters sheet holds; the month lives outside it.
+  // What the Filters sheet holds (sort counts as one setting); the month lives outside it.
   const filterCount =
+    (sort !== 'newest' ? 1 : 0) +
     (categoryId !== null || uncategorizedOnly ? 1 : 0) +
     (direction !== null ? 1 : 0) +
     (recurringOnly ? 1 : 0) +
     (minAmount != null || maxAmount != null ? 1 : 0);
   const hasActiveFilters = monthChoice !== undefined || filterCount > 0;
   const resetFilters = useCallback(() => {
+    setSort('newest');
     setCategoryId(null);
     setUncategorizedOnly(false);
     setDirection(null);
@@ -254,15 +277,17 @@ export function TransactionsScreen() {
           sections={sections}
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled
-          renderSectionHeader={({ section }) => (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle} numberOfLines={1}>
-                {section.title}
-              </Text>
-              <Amount value={section.net} kind="neutral" size="sm" />
-            </View>
-          )}
-          renderItem={({ item }) => <TransactionRow data={toRowData(item)} onPress={handlePressRow} />}
+          renderSectionHeader={({ section }) =>
+            byDate ? (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle} numberOfLines={1}>
+                  {section.title}
+                </Text>
+                <Amount value={section.net} kind="neutral" size="sm" />
+              </View>
+            ) : null
+          }
+          renderItem={({ item }) => <TransactionRow data={toRowData(item, !byDate)} onPress={handlePressRow} />}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
@@ -284,6 +309,13 @@ export function TransactionsScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.sheetBody}>
+              <Text style={[styles.sectionLabel, styles.firstLabel]}>SORT BY</Text>
+              <View style={styles.chipWrap}>
+                {SORT_OPTIONS.map(([value, label]) => (
+                  <FilterChip key={value} label={label} selected={sort === value} onPress={() => setSort(value)} />
+                ))}
+              </View>
+
               <Text style={styles.sectionLabel}>TYPE</Text>
               <View style={styles.segment}>
                 {([[null, 'All'], ['received', 'Received'], ['sent', 'Sent']] as const).map(([value, label]) => (
@@ -471,6 +503,7 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   resetDisabled: { opacity: 0.4 },
   sheetBody: { paddingHorizontal: spacing.pageGutter, paddingBottom: spacing.md },
   sectionLabel: { ...type.label, color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm },
+  firstLabel: { marginTop: spacing.sm },
   segment: { flexDirection: 'row', backgroundColor: colors.track, borderRadius: radii.pill, padding: 3 },
   segmentItem: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radii.pill },
   segmentItemOn: { backgroundColor: colors.card },

@@ -28,6 +28,16 @@ type TransactionFilters = {
   // the Transactions screen's own single-account filter chip). Unused
   // while the app is single-user; kept for when scoping returns.
   scopeAccountIds?: string[] | null;
+  sort?: TransactionSort;
+};
+
+export type TransactionSort = 'newest' | 'oldest' | 'amountHigh' | 'amountLow';
+
+const SORT_SQL: Record<TransactionSort, string> = {
+  newest: 't.date DESC, t.id DESC',
+  oldest: 't.date ASC, t.id ASC',
+  amountHigh: 'COALESCE(t.deposit, t.withdrawal) DESC, t.date DESC, t.id DESC',
+  amountLow: 'COALESCE(t.deposit, t.withdrawal) ASC, t.date DESC, t.id DESC',
 };
 
 export type TransactionListItem = {
@@ -99,7 +109,7 @@ export function listTransactions(filters: TransactionFilters): TransactionListIt
      FROM transactions t
      JOIN categories c ON c.id = t.category_id
      ${where}
-     ORDER BY t.date DESC, t.id DESC`,
+     ORDER BY ${SORT_SQL[filters.sort ?? 'newest']}`,
     [...params, ...scope.params]
   );
 
