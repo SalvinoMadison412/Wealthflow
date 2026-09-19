@@ -14,6 +14,8 @@ export interface TransactionRowData {
   amount: number;
   kind: 'income' | 'expense' | 'neutral';
   isTransfer: boolean;
+  /** Shown beside the category when rows aren't grouped under date headers. */
+  date?: string;
 }
 
 interface TransactionRowProps {
@@ -42,7 +44,10 @@ function TransactionRowBase({ data, onPress }: TransactionRowProps) {
         <Text style={styles.merchant} numberOfLines={1}>
           {data.merchant}
         </Text>
-        <CategoryPill name={data.categoryName} colorIndex={data.colorIndex} />
+        <View style={styles.meta}>
+          <CategoryPill name={data.categoryName} colorIndex={data.colorIndex} />
+          {data.date != null && <Text style={styles.date}>{data.date}</Text>}
+        </View>
       </View>
       <Amount value={data.amount} kind={data.kind} size="sm" />
     </Pressable>
@@ -66,6 +71,8 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  date: { ...type.caption, color: colors.textSecondary },
   merchant: {
     ...type.bodyMedium,
     color: colors.textPrimary,
