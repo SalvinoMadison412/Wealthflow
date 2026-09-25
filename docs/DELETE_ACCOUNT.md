@@ -1,7 +1,7 @@
 # Delete your WealthFlow account
 
-> **DRAFT.** Host this at a public URL and enter it as the "Delete account URL"
-> in Play Console > Data safety. Fill in the `<placeholder>` first.
+WealthFlow, by Salvino Madison. This page is the "Delete account URL" in the Play
+listing; the same steps are in the privacy policy.
 
 ## In the app (fastest)
 
@@ -21,6 +21,6 @@ statements or transactions, because they never left your phone.
 
 ## If you can't open the app
 
-Email `<contact email>` from the address on your account with the subject
+Email salvinokevin7@gmail.com from the address on your account with the subject
 "Delete my WealthFlow account". We will delete the server data within 30 days and
 reply to confirm. Uninstalling the app removes the data on that phone.
