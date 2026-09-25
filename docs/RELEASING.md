@@ -16,6 +16,8 @@ code, no `android/` folder committed.
 2. **Expo account**, then from the repo: `npx eas-cli login` and
    `npx eas-cli init`. This is a WealthFlow-only EAS project; it writes
    `extra.eas.projectId` and `owner` into `app.json`, so commit that in its own PR.
+   Done: `@kevin.madison/wealthflow`. The Android keystore lives on Expo's servers
+   (remote credentials); never commit one.
 3. **Build environment variables.** `.env.local` is gitignored and is not
    uploaded to EAS, so a cloud build would ship without Supabase settings.
    Create both for each of `preview` and `production`:
