@@ -5,7 +5,7 @@ describes what the app does, what it is built with, how every part works,
 and how to run, test and ship it. Keep it current: when a PR changes
 behaviour described here, update the relevant section in the same PR.
 
-Last updated: 2026-09-19 (after the menu / dark theme / tour PR).
+Last updated: 2026-09-19 (repo docs: README, CONTRIBUTING, SECURITY).
 
 ---
 
@@ -548,6 +548,8 @@ that.
 - One logical change per branch and PR against `main`; never commit to
   `main` directly. Stacked PRs are fine when a change depends on an
   unmerged one; say so in the description.
+- `CONTRIBUTING.md` is the short version of this section for newcomers; keep them
+  consistent.
 - Read `CLAUDE.md` first: it is the list of decisions that are not up for
   re-litigation. `AGENTS.md` is a symlink to it.
 - Prefer the platform and existing helpers over new dependencies. Every
