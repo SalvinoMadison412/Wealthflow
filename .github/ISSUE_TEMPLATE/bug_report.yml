@@ -1,0 +1,35 @@
+name: Bug report
+description: Something in the app is broken
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not attach real bank statements or paste real transactions.** Redact names, account
+        numbers and amounts, or describe the layout instead. Security issues: see SECURITY.md.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Import a statement...\n2. ..."
+    validations:
+      required: true
+  - type: input
+    id: bank
+    attributes:
+      label: Bank / statement layout (if it is an import problem)
+      placeholder: Kotak Mahindra, other bank name, or n/a
+  - type: input
+    id: env
+    attributes:
+      label: Device and Android version
+  - type: input
+    id: version
+    attributes:
+      label: App version or commit
