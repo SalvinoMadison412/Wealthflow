@@ -5,7 +5,7 @@ describes what the app does, what it is built with, how every part works,
 and how to run, test and ship it. Keep it current: when a PR changes
 behaviour described here, update the relevant section in the same PR.
 
-Last updated: 2026-09-25 (Play internal-testing release setup).
+Last updated: 2026-09-25 (Delete account, Android-only config).
 
 ---
 
@@ -204,7 +204,7 @@ sync (§6) with the session.
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
 | `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `countTransactionsInMonth`, `countUncategorized`, `getCategoryBudgetRows` | `setCategoryBudget`, `enableAutoCategorise`, `decategorizeMonth` |
-| `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, rename/delete account, rename/recolour/delete category, `setSetting('monthly_income')`, `wipeAllData` |
+| `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, `deleteAccount` (auth context: `delete_my_account()` RPC, local sign-out, then `wipeAllData`; typed-DELETE confirm), rename/delete account, rename/recolour/delete category, `setSetting('monthly_income')`, `wipeAllData` |
 | `MenuSheet` | profile, `getSetting('appearance')` | `setSetting('appearance')`, `deleteSetting('tour_done')`; `replace()`s itself with Profile or Statements |
 | `StatementsScreen` | `listStatements` | `deleteStatement` |
 
@@ -481,6 +481,17 @@ holding personal data). Keep the files as the record of what was applied.
 `20260920000000_drop_wants_bucket.sql` (Needs/Savings only) must be run
 before the Wants removal ships; until then a pull maps any `wants` row to
 `needs` (`rulesSync.ts`).
+
+### 6.2b Deleting an account
+
+`supabase/migrations/20260925000000_delete_my_account.sql` adds
+`public.delete_my_account()` (`security definer`, executable by `authenticated`
+only). It deletes the caller's `auth.users` row, and `profiles`, `categories`
+and `rules` go with it via `on delete cascade`. The app (`deleteAccount` in
+`AuthContext`) calls it first, and only on success signs out locally and runs
+`wipeAllData`, so a failure leaves everything intact. Needed for Play's
+account-deletion policy; public instructions are in `docs/DELETE_ACCOUNT.md`.
+Apply the migration by hand like the others (§6.2).
 
 ### 6.3 Rules sync (`src/auth/rulesSync.ts`, `src/auth/syncDecision.ts`)
 

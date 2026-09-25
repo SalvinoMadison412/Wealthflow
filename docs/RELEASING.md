@@ -4,6 +4,7 @@ How to get WealthFlow onto Play's **internal testing** track: up to 100 named
 testers, no review wait, installs from the Play Store. This is the first
 milestone; closed and production tracks come later (see "Before production").
 
+The app is **Android only** for now (`platforms: ["android"]` in `app.json`).
 Everything here stays in Expo's managed workflow (EAS Build). No custom native
 code, no `android/` folder committed.
 
@@ -72,14 +73,14 @@ branch, PR and CI flow first.
 | Photos, files | Not collected | The PDF picker reads a file locally only |
 | Location, contacts, messages, device ids, ads, analytics, crash logs | Not collected | No such SDKs (`package.json`) |
 | Encrypted in transit | Yes | HTTPS to Supabase |
-| Deletion request | See blockers below | |
+| Data deletion | Users can request deletion: in-app Profile > Delete account, and the web page `docs/DELETE_ACCOUNT.md` (host it, enter its URL as the "Delete account URL") | |
 
 ## Before production (not needed for internal testing)
 
-- **Account deletion.** Play requires an in-app way to delete the account and its
-  data, plus a web URL for it. The app has none: the code's `deleteAccount`
-  removes a local bank account only. Needs a Supabase function or a documented
-  request process, and a Profile screen action.
+- **Account deletion is built** (Profile > Delete account, backed by the
+  `delete_my_account()` SQL function). Before production: apply
+  `supabase/migrations/20260925000000_delete_my_account.sql` to the project, and
+  host `docs/DELETE_ACCOUNT.md` and `docs/PRIVACY_POLICY.md` at public URLs.
 - Publish the Google OAuth consent screen (and complete Google verification if
   asked), or only listed test users can sign in.
 - Phone OTP needs an SMS provider, or stays hidden.

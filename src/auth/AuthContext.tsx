@@ -5,7 +5,7 @@ import { INCOME_RANGES, Profile } from './profile';
 import { startRulesSync } from './rulesSync';
 import { supabase } from './supabase';
 import { getSetting } from '../db/queries';
-import { deleteSetting, setSetting } from '../db/transactions';
+import { deleteSetting, setSetting, wipeAllData } from '../db/transactions';
 
 const PROFILE_SETTING = 'profile';
 
@@ -16,6 +16,8 @@ type AuthState = {
   profile: Profile | null;
   saveProfile: (profile: Profile) => Promise<string | null>;
   signOut: () => Promise<void>;
+  /** Deletes the account server-side, then everything on this device. Returns an error message, or null. */
+  deleteAccount: () => Promise<string | null>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -134,11 +136,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     deleteSetting(PROFILE_SETTING);
   }, []);
 
+  // Server first: if it fails nothing local is touched and the user can retry.
+  // Local sign-out before the wipe so rules sync is stopped and cannot push.
+  const deleteAccount = useCallback(async (): Promise<string | null> => {
+    const { error } = await supabase.rpc('delete_my_account');
+    if (error) return error.message;
+    await supabase.auth.signOut({ scope: 'local' });
+    wipeAllData();
+    return null;
+  }, []);
+
   const loading = !sessionChecked || (session != null && profile === undefined);
 
   return (
     <AuthContext.Provider
-      value={{ loading, session, profile: profile ?? null, saveProfile, signOut }}
+      value={{ loading, session, profile: profile ?? null, saveProfile, signOut, deleteAccount }}
     >
       {children}
     </AuthContext.Provider>

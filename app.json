@@ -5,6 +5,7 @@
     "scheme": "wealthflow",
     "version": "1.0.0",
     "orientation": "portrait",
+    "platforms": ["android"],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
