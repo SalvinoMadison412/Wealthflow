@@ -37,6 +37,12 @@
       ],
       "expo-sqlite",
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1cf54653-f966-46d4-98da-ee3f3733ef9f"
+      }
+    },
+    "owner": "kevin.madison"
   }
 }
