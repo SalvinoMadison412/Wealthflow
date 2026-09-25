@@ -25,8 +25,8 @@ code, no `android/` folder committed.
    ```
    Repeat with `--environment preview`. Both values are the public client
    settings already embedded in every install; never use a service-role key.
-4. **Host the privacy policy** at a public URL (draft: `docs/PRIVACY_POLICY.md`,
-   fill in the `<placeholders>` first). Play requires the URL.
+4. **Host the privacy policy** at a public URL. `docs/PRIVACY_POLICY.md` is the
+   source; re-publish the web copy whenever it changes. Play requires the URL.
 5. **Create the app** in Play Console: name WealthFlow, package
    `com.kevin.madison.wealthflow`, free, app category Finance.
 
