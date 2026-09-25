@@ -5,7 +5,7 @@ describes what the app does, what it is built with, how every part works,
 and how to run, test and ship it. Keep it current: when a PR changes
 behaviour described here, update the relevant section in the same PR.
 
-Last updated: 2026-09-19 (CI, PR and issue templates, branch protection).
+Last updated: 2026-09-19 (repo docs, CI, PR and issue templates, branch protection).
 
 ---
 
@@ -556,6 +556,8 @@ that.
 - One logical change per branch and PR against `main`; never commit to
   `main` directly. Stacked PRs are fine when a change depends on an
   unmerged one; say so in the description.
+- `CONTRIBUTING.md` is the short version of this section for newcomers; keep them
+  consistent.
 - PRs use `.github/pull_request_template.md`; issues use the forms in `.github/ISSUE_TEMPLATE/`.
   `.github/CODEOWNERS` marks schema, parsing and storage as owner-reviewed.
 - Read `CLAUDE.md` first: it is the list of decisions that are not up for
