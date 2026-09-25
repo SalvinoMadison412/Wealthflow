@@ -4,7 +4,7 @@ A privacy-first personal finance app. Import a bank statement PDF and WealthFlow
 transaction off the page, sorts it into categories using rules you write, and shows your
 spending, income, budgets and trends. **All of it happens on your phone.**
 
-Android first, iOS planned. React Native + Expo, TypeScript.
+Android only for now (iOS planned). React Native + Expo, TypeScript.
 
 ## Why it is different
 
@@ -25,6 +25,7 @@ These are architecture rules, not preferences. See [CLAUDE.md](CLAUDE.md).
 - Manage priority-ordered rules; rules sync to your account
 - See a budget donut and per-category monthly budgets; a Home dashboard with six-month trends
 - Light, dark or system theme, plus a first-launch spotlight tour
+- Delete your account and all your data from Profile
 
 ## How it works
 
@@ -110,6 +111,7 @@ emulator; put new decisions in pure functions so they can be tested.
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |
 | [docs/RELEASING.md](docs/RELEASING.md) | Shipping to Google Play internal testing |
 | [docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md) | Draft privacy policy for the store listing |
+| [docs/DELETE_ACCOUNT.md](docs/DELETE_ACCOUNT.md) | Draft account-deletion page (Play requires a public URL) |
 | [docs/REDESIGN_PLAN.md](docs/REDESIGN_PLAN.md) | History of the redesign, PR by PR |
 | [docs/FEATURE_AUDIT.md](docs/FEATURE_AUDIT.md) | Feature audit report |
 

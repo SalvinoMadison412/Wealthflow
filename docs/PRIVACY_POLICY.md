@@ -43,10 +43,12 @@ contains no advertising, analytics or crash-reporting SDKs.
 
 ## Keeping and deleting data
 
-We keep the server data above until you ask us to delete it. To delete your
-account and its server data, email `<contact email>` from the email on the
-account `<replace with the in-app option once it exists>`. In the app,
-Profile > wipe all data deletes your local data and your synced rules.
+We keep the server data above until you delete your account. In the app, go to
+Menu > Profile > **Delete account**: it immediately removes your account, profile
+and synced rules from our servers and everything stored on your device. If you
+can't open the app, email `<contact email>` from the address on your account and we
+will delete the server data within 30 days. Profile > Wipe all data removes your
+local data and synced rules but keeps your account.
 
 ## Security
 

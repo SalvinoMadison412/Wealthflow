@@ -49,6 +49,7 @@ export function ProfileScreen() {
             onPress={() => navigation.navigate('EditProfile')}
           />
           <SettingsRow icon="log-out" label="Sign out" destructive showChevron={false} onPress={signOut} />
+          <DeleteAccountRow />
         </SettingsSection>
 
         <SmartCalculatorCard />
@@ -320,6 +321,66 @@ function CategorySettingsRow({ category }: { category: FilterCategory }) {
       <Pressable onPress={() => setConfirmingDelete(true)} hitSlop={15} accessibilityLabel={`Delete ${category.name}`}>
         <Feather name="trash-2" size={18} color={colors.expenseText} />
       </Pressable>
+    </View>
+  );
+}
+
+function DeleteAccountRow() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+  const { deleteAccount } = useAuth();
+  const [confirming, setConfirming] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!confirming) {
+    return (
+      <SettingsRow icon="user-x" label="Delete account" destructive onPress={() => setConfirming(true)} showChevron={false} />
+    );
+  }
+
+  const cancel = () => {
+    setConfirming(false);
+    setConfirmText('');
+    setError(null);
+  };
+  const confirm = async () => {
+    setBusy(true);
+    setError(null);
+    const message = await deleteAccount();
+    // On success the auth gate leaves this screen, so only failure needs handling.
+    if (message) {
+      setError(message);
+      setBusy(false);
+    }
+  };
+  const ready = confirmText.trim() === 'DELETE' && !busy;
+
+  return (
+    <View style={styles.wipeCard}>
+      <Text style={styles.confirmText}>
+        This permanently deletes your account, profile and synced rules from our servers, and every statement,
+        transaction and setting on this device. It can't be undone. Type DELETE to confirm.
+      </Text>
+      <TextInput
+        style={styles.editInput}
+        value={confirmText}
+        onChangeText={setConfirmText}
+        autoCapitalize="characters"
+        placeholder="DELETE"
+        placeholderTextColor={colors.textSecondary}
+        editable={!busy}
+      />
+      {error && <Text style={styles.confirmText}>Couldn't delete the account: {error}. Nothing was changed.</Text>}
+      <View style={styles.confirmButtons}>
+        <Pressable onPress={cancel} disabled={busy} style={styles.confirmCancel}>
+          <Text style={styles.confirmCancelText}>Cancel</Text>
+        </Pressable>
+        <PressableScale onPress={confirm} disabled={!ready} style={[styles.confirmDelete, !ready && styles.buttonDisabled]}>
+          <Text style={styles.confirmDeleteText}>{busy ? 'Deleting…' : 'Delete account'}</Text>
+        </PressableScale>
+      </View>
     </View>
   );
 }
