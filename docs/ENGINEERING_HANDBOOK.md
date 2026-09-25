@@ -5,7 +5,7 @@ describes what the app does, what it is built with, how every part works,
 and how to run, test and ship it. Keep it current: when a PR changes
 behaviour described here, update the relevant section in the same PR.
 
-Last updated: 2026-09-25 (repo docs, CI and templates, Transactions filters and sort).
+Last updated: 2026-09-25 (Play internal-testing release setup).
 
 ---
 
@@ -542,6 +542,13 @@ pull request and push to `main`. The job is named `test`; that name is the requi
 `main`'s branch protection (PR required, no force push, no deletion), so renaming the job means
 updating the protection rule. Dependabot opens weekly grouped minor/patch PRs and skips major
 `expo*`, `react-native*` and `react` bumps (Expo SDK upgrades are done deliberately, together).
+
+### Releasing
+
+`eas.json` defines `preview` (installable APK) and `production` (AAB, remote
+versionCode auto-increment, submit to Play's internal track). Steps, EAS environment
+variables (`.env.local` is not uploaded to EAS), Data safety answers and the
+production blockers are in `docs/RELEASING.md`.
 
 ### Tests
 

@@ -108,6 +108,8 @@ emulator; put new decisions in pure functions so they can be tested.
 | [CLAUDE.md](CLAUDE.md) | Non-negotiable architecture decisions and conventions |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Branching, pull requests, review checklist |
 | [SECURITY.md](SECURITY.md) | Reporting a vulnerability |
+| [docs/RELEASING.md](docs/RELEASING.md) | Shipping to Google Play internal testing |
+| [docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md) | Draft privacy policy for the store listing |
 | [docs/REDESIGN_PLAN.md](docs/REDESIGN_PLAN.md) | History of the redesign, PR by PR |
 | [docs/FEATURE_AUDIT.md](docs/FEATURE_AUDIT.md) | Feature audit report |
 
