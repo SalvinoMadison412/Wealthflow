@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WealthFlow - Transactions header and filter sheet</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Tokens copied from src/theme/tokens.ts (light palette). All data below is invented. */
+  :root {
+    --bg:#FAFAF8; --card:#fff; --ink:#14161A; --ink2:#6B7280; --line:#E7E8EC;
+    --accent:#0A8058; --accent-ink:#fff; --in:#15803D; --out:#C0393E; --track:#EEF0F4;
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:Inter,system-ui,sans-serif; background:#E9EAEE; color:var(--ink); padding:32px 24px 64px; }
+  h1.page { font:800 26px Manrope; margin-bottom:6px; }
+  p.lede { color:var(--ink2); max-width:760px; line-height:1.5; margin-bottom:28px; }
+  h2.group { font:700 18px Manrope; margin:36px 0 4px; }
+  p.note { color:var(--ink2); font-size:14px; margin-bottom:16px; max-width:760px; line-height:1.5; }
+  .row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+  figure { display:flex; flex-direction:column; gap:10px; width:360px; }
+  figcaption { font-size:13px; color:var(--ink2); line-height:1.45; }
+  figcaption b { color:var(--ink); font-family:Manrope; font-size:15px; display:block; margin-bottom:2px; }
+  .rec { display:inline-block; background:var(--accent); color:#fff; font-size:11px; padding:2px 8px; border-radius:99px; margin-left:6px; vertical-align:middle; }
+
+  .phone { width:360px; height:720px; background:var(--bg); border-radius:30px; border:1px solid #cfd1d8;
+           box-shadow:0 6px 24px rgba(20,22,26,.12); position:relative; overflow:hidden; }
+  .status { height:28px; padding:8px 20px 0; font-size:12px; font-weight:600; display:flex; justify-content:space-between; }
+  .appbar { height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; }
+  .logo { font:800 22px Manrope; letter-spacing:-1px; }
+  .acct { font-size:12px; color:var(--ink2); padding:0 16px 2px; }
+  svg { display:block; }
+
+  .title { font:700 24px/32px Manrope; padding:8px 16px 6px; }
+  .titlebar { display:flex; align-items:center; justify-content:space-between; padding:8px 16px 6px; }
+  .titlebar .title { padding:0; }
+  .sub { font-size:13px; color:var(--ink2); padding:0 16px 8px; }
+  .sub b { font-weight:500; }
+  .in { color:var(--in); } .out { color:var(--out); }
+
+  .fbtn { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 14px; border-radius:99px;
+          background:var(--card); border:1px solid var(--line); font:500 13px Inter; color:var(--ink); }
+  .fbtn.on { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .fbtn .badge { background:#fff; color:var(--accent); border-radius:99px; min-width:18px; height:18px; font-size:11px;
+                 font-weight:600; display:flex; align-items:center; justify-content:center; padding:0 5px; }
+  .fbtn.icon { width:40px; padding:0; justify-content:center; position:relative; }
+  .fbtn.icon .badge { position:absolute; top:-5px; right:-5px; background:var(--accent); color:#fff; }
+
+  .month { display:flex; align-items:center; justify-content:center; gap:24px; padding:4px 0 12px; }
+  .month span { font:700 18px/26px Manrope; min-width:160px; text-align:center; }
+
+  .tiles { display:flex; gap:8px; padding:0 16px 10px; }
+  .tile { flex:1; background:var(--card); border-radius:14px; padding:10px 12px; }
+  .tile small { display:block; font-size:11px; color:var(--ink2); margin-bottom:2px; }
+  .tile b { font:700 14px Manrope; }
+
+  .active { display:flex; gap:8px; padding:0 16px 10px; align-items:center; overflow:hidden; }
+  .chip { display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 10px 0 12px; border-radius:99px; white-space:nowrap;
+          background:#E6F4EE; color:var(--accent); font:500 12.5px Inter; }
+  .clear { font:500 12.5px Inter; color:var(--ink2); margin-left:auto; white-space:nowrap; }
+
+  .day { display:flex; justify-content:space-between; padding:8px 16px; font:500 13px Inter; color:var(--ink2);
+         border-bottom:1px solid var(--line); background:var(--bg); }
+  .txn { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); }
+  .txn .m { font-size:15px; margin-bottom:5px; }
+  .pill { display:inline-block; font:500 11.5px Inter; padding:2px 9px; border-radius:99px; }
+  .txn .a { font:600 15px Inter; }
+
+  .tabbar { position:absolute; left:0; right:0; bottom:0; height:64px; background:var(--bg); border-top:1px solid var(--line);
+            display:flex; align-items:center; justify-content:space-around; padding:0 8px; }
+  .fab { width:52px; height:52px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center;
+         justify-content:center; margin-top:-26px; box-shadow:0 6px 14px rgba(10,128,88,.35); border:4px solid var(--bg); }
+
+  .scrim { position:absolute; inset:0; background:rgba(20,22,26,.42); }
+  .sheet { position:absolute; left:0; right:0; bottom:0; top:96px; background:var(--card); border-radius:24px 24px 0 0;
+           display:flex; flex-direction:column; }
+  .grab { width:40px; height:4px; background:#D5D7DD; border-radius:9px; margin:8px auto 0; }
+  .shead { display:flex; align-items:center; justify-content:space-between; padding:12px 16px 4px; }
+  .shead h3 { font:700 20px Manrope; }
+  .shead .reset { font:500 14px Inter; color:var(--accent); margin-right:14px; }
+  .sbody { padding:8px 16px; overflow:hidden; flex:1; }
+  .sec { padding:14px 0; border-bottom:1px solid var(--line); }
+  .sec:last-child { border-bottom:0; }
+  .sec h4 { font:600 12px Inter; letter-spacing:.06em; text-transform:uppercase; color:var(--ink2); margin-bottom:10px; }
+  .seg { display:flex; background:var(--track); border-radius:99px; padding:3px; }
+  .seg div { flex:1; text-align:center; font:500 13.5px Inter; padding:8px 0; border-radius:99px; color:var(--ink2); }
+  .seg .sel { background:var(--card); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.12); font-weight:600; }
+  .toggle { display:flex; align-items:center; justify-content:space-between; }
+  .toggle small { display:block; color:var(--ink2); font-size:12px; margin-top:2px; }
+  .sw { width:44px; height:26px; border-radius:99px; background:#CBD0D8; position:relative; flex:none; }
+  .sw::after { content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; }
+  .sw.on { background:var(--accent); } .sw.on::after { left:21px; }
+  .amt { display:flex; align-items:center; gap:10px; }
+  .field { flex:1; height:42px; border:1px solid var(--line); border-radius:99px; display:flex; align-items:center; padding:0 14px; color:var(--ink2); gap:6px; font-size:14px; }
+  .field.v { color:var(--ink); border-color:var(--accent); }
+  .wrap { display:flex; flex-wrap:wrap; gap:8px; }
+  .c { height:32px; padding:0 13px; border-radius:99px; border:1px solid var(--line); background:var(--card);
+       font:500 13px/30px Inter; }
+  .c.sel { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .sfoot { padding:12px 16px 20px; border-top:1px solid var(--line); }
+  .go { height:48px; border-radius:99px; background:var(--accent); color:#fff; display:flex; align-items:center;
+        justify-content:center; font:600 15px Inter; }
+</style>
+</head>
+<body>
+<h1 class="page">Transactions: heading and filter sheet</h1>
+<p class="lede"><b>Option C was chosen.</b> The real WealthFlow logo (from <code>src/components/Logo.tsx</code>) is unchanged. The month stepper stays exactly where it is. The Received / Sent / Recurring / Amount / category chips move into one <b>Filters</b> sheet. Sample data is invented; colours and type follow <code>src/theme/tokens.ts</code>.</p>
+
+<h2 class="group">1. Today, for reference</h2>
+<div class="row"><figure id="now"></figure></div>
+
+<h2 class="group">2. Heading options</h2>
+<p class="note">All three keep the month stepper untouched and add one Filters button. They differ in how much the heading area tells you. Pick one (or mix), and I'll build it.</p>
+<div class="row">
+  <figure id="a"></figure>
+  <figure id="b"></figure>
+  <figure id="c"></figure>
+</div>
+
+<h2 class="group">3. The Filters sheet (same for every option)</h2>
+<p class="note">Opens from the Filters button. Changes apply live to the list behind it; the bottom button just closes the sheet and shows the result count. <b>Reset</b> clears everything in the sheet but leaves the month alone.</p>
+<div class="row">
+  <figure id="sheet1"></figure>
+  <figure id="sheet2"></figure>
+  <figure id="applied"></figure>
+</div>
+
+<script>
+const I = {
+  menu:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#14161A" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  bell:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1112 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 004 0"/></svg>',
+  left:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#14161A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
+  right:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#14161A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  xl:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#14161A" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  sliders:(c='currentColor')=>`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>`,
+  home:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/></svg>',
+  list:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0A8058" stroke-width="2" stroke-linecap="round"><path d="M9 7h11M9 12h11M9 17h11M4.5 7h.01M4.5 12h.01M4.5 17h.01"/></svg>',
+  pie:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3v9h9a9 9 0 11-9-9z"/></svg>',
+  cfg:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="1.8" stroke-linecap="round"><path d="M5 5v14M12 5v14M19 5v14"/></svg>',
+  plus:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'
+};
+const fbtn = (n)=> n
+  ? `<span class="fbtn on">${I.sliders('#fff')}Filters<span class="badge">${n}</span></span>`
+  : `<span class="fbtn">${I.sliders('#14161A')}Filters</span>`;
+const month = `<div class="month">${I.left}<span>March 2026</span>${I.right}</div>`;
+const pill = (t,bg,c)=>`<span class="pill" style="background:${bg};color:${c}">${t}</span>`;
+const txn = (m,cat,bg,c,a,cls)=>`<div class="txn"><div><div class="m">${m}</div>${pill(cat,bg,c)}</div><div class="a ${cls}">${a}</div></div>`;
+const rowsAll = `<div class="day"><span>Tuesday, 31 March 2026</span><b style="color:var(--ink)">₹1,240.00</b></div>
+  ${txn('Interest','Income','#E5E7EB','#4B5563','+₹47.00','in')}
+  ${txn('Corner Cafe','Food & Dining','#FDE2E4','#B4232F','−₹320.00','out')}
+  ${txn('Fresh Mart','Groceries','#DDF3E4','#15803D','−₹1,180.00','out')}
+  ${txn('Metro Recharge','Transport & Fuel','#FDE8E8','#B4232F','−₹500.00','out')}
+  <div class="day"><span>Monday, 30 March 2026</span><b style="color:var(--ink)">₹62,400.00</b></div>
+  ${txn('Salary','Income','#E5E7EB','#4B5563','+₹63,000.00','in')}`;
+const rowsSent = `<div class="day"><span>Tuesday, 31 March 2026</span><b style="color:var(--ink)">−₹1,180.00</b></div>
+  ${txn('Fresh Mart','Groceries','#DDF3E4','#15803D','−₹1,180.00','out')}
+  <div class="day"><span>Friday, 27 March 2026</span><b style="color:var(--ink)">−₹2,140.00</b></div>
+  ${txn('Green Basket','Groceries','#DDF3E4','#15803D','−₹2,140.00','out')}
+  ${txn('Daily Dairy','Groceries','#DDF3E4','#15803D','−₹640.00','out')}`;
+const tabbar = `<div class="tabbar">${I.home}${I.list}<div class="fab">${I.plus}</div>${I.pie}${I.cfg}</div>`;
+const topBar = `<div class="status"><span>3:17</span><span>▂▄▆ 100%</span></div>
+  <div class="appbar">${I.menu}<svg width="27" height="22" viewBox="240 290 550 450" fill="none" stroke="#14161A" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"><path d="M280 455 L378 700 L470 510 L565 700 L650 480 L735 340"/><path d="M690 350 L745 322 L745 385"/></svg>${I.bell}</div>
+  <div class="acct">All accounts ▾</div>`;
+const phone = (inner)=>`<div class="phone">${topBar}${inner}${tabbar}</div>`;
+const cap = (t,d,rec)=>`<figcaption><b>${t}${rec?'<span class="rec">Recommended</span>':''}</b>${d}</figcaption>`;
+
+// 1. Today
+document.getElementById('now').innerHTML = phone(`
+  <div class="title">Transactions</div>${month}
+  <div class="active" style="gap:8px">${['Received','Sent','Recurring','Amount'].map(t=>`<span class="c">${t}</span>`).join('')}</div>
+  <div class="active" style="gap:8px"><span class="c">Uncategorized only</span><span class="c sel">All categories</span><span class="c">Uncateg…</span></div>
+  ${rowsAll}`) + cap('Today','Two rows of chips push the list down; the category row scrolls sideways so most categories are hidden.');
+
+// 2. Options
+document.getElementById('a').innerHTML = phone(`
+  <div class="titlebar"><div class="title">Transactions</div>${fbtn(0)}</div>${month}
+  ${rowsAll}`) + cap('A. Title + Filters','Smallest change. The old chip rows are replaced by one button on the title line. Everything else stays as is.');
+
+document.getElementById('b').innerHTML = phone(`
+  <div class="titlebar"><div class="title">Transactions</div>${fbtn(0)}</div>
+  <div class="sub">48 transactions · <span class="in">+₹1,08,944</span> in · <span class="out">−₹88,060</span> out</div>${month}
+  ${rowsAll}`, ) + cap('B. Title + one-line summary','Same button, plus a live line under the title that answers "how many, and how much" and updates with the filters. Low height cost.', true);
+
+document.getElementById('c').innerHTML = phone(`
+  <div class="titlebar"><div class="title">Transactions</div>${fbtn(0)}</div>${month}
+  <div class="tiles"><div class="tile"><small>Received</small><b class="in">+₹1,08,944</b></div><div class="tile"><small>Sent</small><b class="out">−₹88,060</b></div><div class="tile"><small>Net</small><b>+₹20,884</b></div></div>
+  ${rowsAll}`) + cap('C. Title + summary tiles','Three small tiles under the month. Most informative, matches the Home cards, but eats about 60px of list.');
+
+// 3. Sheet
+const cats = ['Transfer','Food','Groceries','Food & Dining','Shopping','Bills & Utilities','Subscriptions','Investments','Income','Credit card & loans','Rent & Home','Transport & Fuel','Health & Fitness','Personal care','Other businesses','People & UPI'];
+const sheet = ({type=0,rec=false,min='',max='',cat='All',unc=false,n=48})=>`
+  <div class="scrim"></div>
+  <div class="sheet"><div class="grab"></div>
+    <div class="shead"><h3>Filters</h3><span style="display:flex;align-items:center"><span class="reset">Reset</span>${I.xl}</span></div>
+    <div class="sbody">
+      <div class="sec"><h4>Type</h4><div class="seg">${['All','Received','Sent'].map((t,i)=>`<div class="${i===type?'sel':''}">${t}</div>`).join('')}</div></div>
+      <div class="sec"><div class="toggle"><div>Recurring only<small>Needs at least two months of statements</small></div><div class="sw ${rec?'on':''}"></div></div></div>
+      <div class="sec"><h4>Amount</h4><div class="amt"><div class="field ${min?'v':''}">₹ ${min||'Min'}</div><span style="color:var(--ink2);font-size:12px">to</span><div class="field ${max?'v':''}">₹ ${max||'Max'}</div></div></div>
+      <div class="sec"><h4>Category</h4><div class="wrap">
+        <span class="c ${cat==='All'&&!unc?'sel':''}">All</span><span class="c ${unc?'sel':''}">Uncategorized only</span>
+        ${cats.map(t=>`<span class="c ${t===cat?'sel':''}">${t}</span>`).join('')}</div></div>
+    </div>
+    <div class="sfoot"><div class="go">Show ${n} transactions</div></div>
+  </div>`;
+
+document.getElementById('sheet1').innerHTML =
+  `<div class="phone">${topBar}<div class="titlebar"><div class="title">Transactions</div>${fbtn(0)}</div>${month}${rowsAll}${tabbar}${sheet({})}</div>` +
+  cap('Sheet, nothing selected','Type is one control (All / Received / Sent), so the two can never both be on. Category chips wrap instead of scrolling sideways.');
+
+document.getElementById('sheet2').innerHTML =
+  `<div class="phone">${topBar}<div class="titlebar"><div class="title">Transactions</div>${fbtn(3)}</div>${month}${rowsSent}${tabbar}${sheet({type:2,min:'500',cat:'Groceries',n:3})}</div>` +
+  cap('Sheet, three filters set','Sent + ₹500 and above + Groceries. The list behind already updated; the footer shows the count.');
+
+document.getElementById('applied').innerHTML = phone(`
+  <div class="titlebar"><div class="title">Transactions</div>${fbtn(3)}</div>
+  <div class="sub">3 transactions · <span class="out">−₹3,960</span> out</div>${month}
+  <div class="active"><span class="chip">Sent ${I.x}</span><span class="chip">₹500+ ${I.x}</span><span class="chip">Groceries ${I.x}</span><span class="clear">Clear all</span></div>
+  ${rowsSent}`) + cap('After closing the sheet','Active filters show as removable chips under the month (shown with option B). One tap on ✕ drops a single filter without reopening the sheet. The button badge counts them. Month is not counted as a filter.');
+</script>
+</body>
+</html>

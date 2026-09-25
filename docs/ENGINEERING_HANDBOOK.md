@@ -5,7 +5,7 @@ describes what the app does, what it is built with, how every part works,
 and how to run, test and ship it. Keep it current: when a PR changes
 behaviour described here, update the relevant section in the same PR.
 
-Last updated: 2026-09-19 (repo docs, CI, PR and issue templates, branch protection).
+Last updated: 2026-09-19 (repo docs, CI and templates, Transactions Filters sheet).
 
 ---
 
@@ -51,7 +51,10 @@ Everything in the architecture follows from those promises:
    the reconciliation check. Several files show one summary: statements
    imported, transactions, new vs duplicates skipped, how many balanced,
    and any file that couldn't be read (skipped, not fatal).
-5. **Transactions**: full list with month and category filters; tap a row
+5. **Transactions**: full list under a month stepper, with Received / Sent / Net
+   totals for whatever is listed and a Filters button that opens a sheet (type,
+   recurring only, amount range, category; the month stays outside it, and a
+   badge counts the active filters); tap a row
    to categorise it ("just this one") or create a rule from it.
 6. **Rules**: priority-ordered list; enable/disable, move up/down, delete.
    **Account filter** (Home, Transactions, Budget): with two or more
@@ -194,7 +197,7 @@ sync (§6) with the session.
 | `OnboardingScreen` | session user metadata, existing profile | `saveProfile` (also used for edit) |
 | `HomeScreen` (Net card, chart and balance card anchor on the newest month with data, not today) | `hasAnyTransactions`, `listAccounts` (staleness), `listMonthsWithData`, `getMonthSummary(month)`, `getMonthlyTotals(6, month)`, `BalanceSummary`, `listRecentTransactions(5)`, profile (all scoped by `useAccountFilter()`, see `AccountFilter.tsx`) | – |
 | `ImportScreen` | `listAccounts` | `createAccount`, `renameAccount`, `importStatement` |
-| `TransactionsScreen` | `listMonthsWithData`, `listCategoriesForFilter`, `listTransactions(filters)` (account via the shared filter, month, category, uncategorised, received/sent, amount range, recurring); month is a Budget-style ‹ March 2026 › stepper over months with data (label taps toggle All months) | – |
+| `TransactionsScreen` | `listMonthsWithData`, `listCategoriesForFilter`, `listTransactions(filters)` (account via the shared filter, month, category, uncategorised, received/sent, amount range, recurring); month is a Budget-style ‹ March 2026 › stepper over months with data (label taps toggle All months). Received/Sent/Net tiles sum the listed rows (transfers included). The Filters button opens a `Modal` sheet whose controls edit the screen's own filter state, so the list updates live behind it; Reset clears the sheet's filters but not the month | – |
 | `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one") or `insertRule` (with `suggestPattern` prefill) |
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
