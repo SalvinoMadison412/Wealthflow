@@ -52,8 +52,8 @@ npx eas-cli build --platform android --profile production   # .aab, versionCode 
 1. **First upload is manual.** Play Console > Testing > Internal testing >
    Create release > upload the `.aab` from the EAS build page. Accept Play App
    Signing (EAS holds the upload key).
-2. Fill the mandatory forms: content rating, target audience (18+, the app's age
-   ranges start at 18), ads (none), **Data safety** (below), privacy policy URL.
+2. Fill the mandatory forms: content rating, target audience (all ages, which puts
+   the app under Google's Families policy; see "Before production"), ads (none), **Data safety** (below), privacy policy URL.
 3. Testers tab: create an email list (Google accounts), add it, copy the opt-in
    link and send it to testers.
 4. **Later releases** can be automated: create a Play service account key, keep
@@ -89,5 +89,9 @@ branch, PR and CI flow first.
 - Only Kotak Mahindra has a bank-specific parser; keep the first tracks small
   and collect other banks' statement layouts through testers (never real
   statements in the repo).
+- **All ages means Families policy.** Targeting under-13s requires meeting Google's
+  Families policy and children's privacy law (COPPA), and India's DPDP Act needs verifiable
+  parental consent for under-18s. The app collects profile data (name, email, phone, income
+  range) and has no parental-consent flow yet; get legal review and add one before production.
 - Store listing assets: 512x512 icon, 1024x500 feature graphic, at least two
   phone screenshots, short and full description.
