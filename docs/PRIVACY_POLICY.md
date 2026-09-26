@@ -3,7 +3,7 @@
 <!-- Published copy of this policy. It must stay true to the code: change it in
 the same PR as any change to what data leaves the phone, then re-publish it. -->
 
-Last updated: 26 September 2026
+Last updated: 27 September 2026
 
 WealthFlow ("the app", "we") is a personal finance app for Android, operated by
 Salvino Madison, an individual developer. Contact: salvinokevin7@gmail.com.
@@ -69,7 +69,9 @@ restricted so each user can reach only their own records.
 
 ## Children
 
-WealthFlow is for adults (18+). We do not knowingly collect data from children.
+WealthFlow can be used by people of any age. Children and teenagers should use it with the
+permission and help of a parent or guardian. A parent or guardian can delete a child's account
+and data at any time with Delete account in the app, or by emailing salvinokevin7@gmail.com.
 
 ## Changes
 
