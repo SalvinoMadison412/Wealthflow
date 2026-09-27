@@ -5,7 +5,7 @@ import { Colors, darkColors, lightColors, PillPalette, pillPaletteFor } from './
 import { getSetting } from '../db/queries';
 import { useQuery } from '../db/useQuery';
 
-export type Scheme = 'light' | 'dark';
+type Scheme = 'light' | 'dark';
 export type Theme = { scheme: Scheme; colors: Colors; pillPalette: PillPalette };
 
 const THEMES: Record<Scheme, Theme> = {

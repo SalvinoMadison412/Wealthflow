@@ -117,7 +117,7 @@ metro.config.js             Registers the vendored pdf.js files as assets
 scripts/copy-pdfjs.js       postinstall: copies pdf.js build into assets/pdfjs
 assets/                     Icons, splash, fonts, vendored pdf.js
 supabase/migrations/        SQL for the three account tables (applied by hand, see §7)
-docs/                       This handbook; REDESIGN_PLAN.md (historical PR-by-PR plan)
+docs/                       This handbook, releasing, privacy and account-deletion pages
 design/mockups/             HTML mockups the screens were built from
 src/
   auth/                     Supabase client, session/profile context, rules sync
@@ -609,5 +609,25 @@ that.
   work is Xcode setup, `ios.bundleIdentifier`, and the App Store splash /
   icon assets.
 - Optional client-encrypted sync of monthly aggregates for households is
-  designed in `docs/REDESIGN_PLAN.md` ("Household Phase 1") and not
-  started. It must stay ciphertext-only on the server.
+  designed but not started ("Household Phase 1" in `docs/REDESIGN_PLAN.md`,
+  deleted after `ae74bf1`; `git show ae74bf1:docs/REDESIGN_PLAN.md`). It must stay
+  ciphertext-only on the server.
+- Backlog, highest value first (the full write-up was `docs/FEATURE_AUDIT.md`,
+  same commit):
+  1. Sort-uncategorized triage screen: clear a statement's leftovers in a
+     few taps and show how many remain.
+  2. Statement ledger that keeps reconciliation status per statement,
+     pinpoints the row where the balance chain breaks, and lists lines the
+     parser skipped.
+  3. Column-aware row parsing, then an HDFC template (every further bank
+     becomes a small template).
+  4. Rules: edit an existing rule, direction/account conditions, match
+     counts and shadowed-rule warnings, match on description as well as
+     merchant; transaction search.
+  5. JSON export/import of rules and categories; CSV transaction export.
+  6. Then: open a PDF *with* WealthFlow (share intent), app lock
+     (biometric/PIN), credit-card statements as their own account kind.
+- Decided against: LLM rule suggestions and OCR (both put a model in the
+  parsing/categorization path), bank aggregator APIs (third party holds
+  raw data). An opt-in assistant over aggregates would need an explicit
+  decision and is not recommended.

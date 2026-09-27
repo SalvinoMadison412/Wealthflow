@@ -74,8 +74,6 @@ const FEATURES: { icon: keyof typeof Feather.glyphMap; title: string; text: stri
   { icon: 'check-circle', title: 'Checked against your balance', text: 'Each import is reconciled: opening balance plus credits minus debits must equal closing.' },
 ];
 
-// The real dashboard — PR 3/PR 4 had this as a placeholder CTA. See
-// docs/REDESIGN_PLAN.md PR 7.
 export function HomeScreen() {
   const { colors, pillPalette } = useTheme();
   const styles = useStyles(makeStyles);

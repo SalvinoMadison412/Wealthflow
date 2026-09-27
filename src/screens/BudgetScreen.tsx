@@ -23,6 +23,7 @@ import { DECATEGORIZED_MONTHS_SETTING } from '../db/recategorize';
 import { decategorizeMonth, enableAutoCategorise, setCategoryBudget } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { formatRupees } from '../components/Amount';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 function currentMonthKey(): string {
@@ -39,10 +40,6 @@ function shiftMonth(month: string, delta: number): string {
 function monthLabel(month: string): string {
   const [y, m] = month.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-}
-
-function formatRupees(n: number): string {
-  return `₹${Math.round(n).toLocaleString('en-IN')}`;
 }
 
 export function BudgetScreen() {

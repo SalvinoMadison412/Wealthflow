@@ -15,12 +15,9 @@ import { Account, deleteAccount, deleteCategory, listAccounts, renameAccount, re
 import { FilterCategory, getSetting, listCategoriesForFilter } from '../db/queries';
 import { useQuery } from '../db/useQuery';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
+import { formatRupees } from '../components/Amount';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 import { UNCATEGORIZED_CATEGORY_ID, TRANSFER_CATEGORY_ID } from '../db/schema';
-
-function formatRupees(n: number): string {
-  return `₹${Math.round(n).toLocaleString('en-IN')}`;
-}
 
 export function ProfileScreen() {
   const { colors } = useTheme();

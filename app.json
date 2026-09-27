@@ -21,9 +21,6 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.kevin.madison.wealthflow"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "plugins": [
       "expo-asset",
       "expo-font",

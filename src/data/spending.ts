@@ -6,7 +6,7 @@ const PALE = 0.5;
 const FLAG = 0.9;
 const MIN_OPACITY = 0.35;
 
-export type ExpenseTone = { ratio: number | null; opacity: number; flag: boolean };
+type ExpenseTone = { ratio: number | null; opacity: number; flag: boolean };
 
 // How loud the red expense bar should be for a month: pale when spending
 // is well under income, full red and flagged when it is about equal (or
