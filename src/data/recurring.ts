@@ -1,6 +1,6 @@
 // Pure — no expo-sqlite import, unit tested directly.
 
-export type RecurringInput = { merchant: string; month: string; amount: number };
+type RecurringInput = { merchant: string; month: string; amount: number };
 
 const TOLERANCE = 0.1;
 

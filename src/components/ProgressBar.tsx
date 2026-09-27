@@ -10,7 +10,7 @@ interface ProgressBarProps {
   budget: number;
 }
 
-// Static, no animation (see docs/REDESIGN_PLAN.md PR 9). Color: accent
+// Static, no animation. Color: accent
 // under 80%, warning 80-100%, expense over 100% — progressState owns the
 // thresholds, this just renders them.
 export function ProgressBar({ spent, budget }: ProgressBarProps) {

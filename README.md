@@ -112,8 +112,6 @@ emulator; put new decisions in pure functions so they can be tested.
 | [docs/RELEASING.md](docs/RELEASING.md) | Shipping to Google Play internal testing |
 | [docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md) | Privacy policy (source of the published page) |
 | [docs/DELETE_ACCOUNT.md](docs/DELETE_ACCOUNT.md) | Account-deletion page (Play requires a public URL) |
-| [docs/REDESIGN_PLAN.md](docs/REDESIGN_PLAN.md) | History of the redesign, PR by PR |
-| [docs/FEATURE_AUDIT.md](docs/FEATURE_AUDIT.md) | Feature audit report |
 
 ## Status
 
