@@ -5,7 +5,7 @@ describes what the app does, what it is built with, how every part works,
 and how to run, test and ship it. Keep it current: when a PR changes
 behaviour described here, update the relevant section in the same PR.
 
-Last updated: 2026-09-25 (Delete account, Android-only config).
+Last updated: 2026-09-27 (Google consent screen published).
 
 ---
 
@@ -457,8 +457,11 @@ editing `.env.local`.
 
 - Providers: Google (OAuth web client in Google Cloud project
   "WealthFlow", callback `https://ksnjdxjstxxaxcidkxhg.supabase.co/auth/v1/callback`;
-  the consent screen is in Testing mode, so only listed test users can
-  sign in until it is published), Phone (built, provider not configured).
+  project id `wealthflow-509015`; the consent screen is published (In
+  production), so any Google account can sign in. Scopes are the default
+  non-sensitive openid/email/profile and there is no logo, so no Google
+  verification is needed; adding a logo or sensitive scopes would require it),
+  Phone (built, provider not configured).
 - Redirect URL allow-list must contain `wealthflow://auth` (and the
   `exp://…/--/auth` URL when developing in Expo Go).
 
@@ -598,8 +601,6 @@ that.
 ## 9. Known gaps and where to go next
 
 - Phone OTP needs an SMS provider (Twilio or similar) enabled in Supabase.
-- Google consent screen is in Testing mode; publish it before external
-  users.
 - Only Kotak Mahindra has a bank-specific parser; other banks go through
   the generic parser and rely on the reconciliation check to flag
   problems. Add templates as statements from other banks arrive.
