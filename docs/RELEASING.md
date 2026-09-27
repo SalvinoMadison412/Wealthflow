@@ -41,7 +41,7 @@ npx eas-cli build --platform android --profile preview
 Produces an installable APK; install it on a phone, sign in with Google, import
 a statement. Sign-in uses Supabase's web OAuth flow and the `wealthflow://auth`
 redirect (already in Supabase's allow-list), so no SHA-1 is needed for it.
-The Google consent screen is in Testing mode: only listed test users can sign in.
+The Google consent screen is published, so any Google account can sign in.
 
 ## Ship to internal testing
 
@@ -83,8 +83,6 @@ branch, PR and CI flow first.
   `delete_my_account()` SQL function). Before production: apply
   `supabase/migrations/20260925000000_delete_my_account.sql` to the project, and
   host `docs/DELETE_ACCOUNT.md` and `docs/PRIVACY_POLICY.md` at public URLs.
-- Publish the Google OAuth consent screen (and complete Google verification if
-  asked), or only listed test users can sign in.
 - Phone OTP needs an SMS provider, or stays hidden.
 - Only Kotak Mahindra has a bank-specific parser; keep the first tracks small
   and collect other banks' statement layouts through testers (never real
