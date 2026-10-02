@@ -92,6 +92,9 @@ function replaceLocal(categories: ServerCategory[], rules: ServerRule[]) {
       'UPDATE transactions SET category_id = ?, matched_rule_id = NULL WHERE category_id NOT IN (?, ?)',
       [UNCATEGORIZED_CATEGORY_ID, ...RESERVED]
     );
+    // ponytail: this un-finalizes every manually pinned transaction (an override is what
+    // "finalized" means). Upgrade: PRAGMA defer_foreign_keys = ON and clear only overrides
+    // whose category no longer exists after the swap below.
     db.runSync('UPDATE transactions SET category_override_id = NULL WHERE category_override_id NOT IN (?, ?)', RESERVED);
     db.runSync('DELETE FROM rules');
     db.runSync('DELETE FROM categories WHERE id NOT IN (?, ?)', RESERVED);

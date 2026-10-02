@@ -19,8 +19,9 @@ function accountsClause(accountIds: string[] | null | undefined, alias = 't'): {
 type TransactionFilters = {
   accountId?: string;
   month?: string; // 'YYYY-MM'
-  categoryId?: string;
-  uncategorizedOnly?: boolean;
+  // Transactions inbox: not yet finalized (no manual pin, not a transfer);
+  // 'byRules' is the subset a rule or built-in pattern categorised.
+  view?: 'all' | 'byRules';
   direction?: 'received' | 'sent';
   minAmount?: number;
   maxAmount?: number;
@@ -31,6 +32,8 @@ type TransactionFilters = {
   scopeAccountIds?: string[] | null;
   sort?: TransactionSort;
 };
+
+const INBOX_SQL = 't.category_override_id IS NULL AND t.is_transfer = 0';
 
 export type TransactionSort = 'newest' | 'oldest' | 'amountHigh' | 'amountLow';
 
@@ -48,6 +51,7 @@ export type TransactionListItem = {
   withdrawal: number | null;
   deposit: number | null;
   isTransfer: boolean;
+  categoryId: string;
   categoryName: string;
   colorIndex: number;
 };
@@ -59,6 +63,7 @@ type TransactionRow = {
   withdrawal: number | null;
   deposit: number | null;
   is_transfer: number;
+  category_id: string;
   category_name: string;
   color_index: number;
 };
@@ -77,13 +82,8 @@ export function listTransactions(filters: TransactionFilters): TransactionListIt
     clauses.push("strftime('%Y-%m', t.date) = ?");
     params.push(filters.month);
   }
-  if (filters.uncategorizedOnly) {
-    clauses.push('t.category_id = ?');
-    params.push(UNCATEGORIZED_CATEGORY_ID);
-  } else if (filters.categoryId) {
-    clauses.push('t.category_id = ?');
-    params.push(filters.categoryId);
-  }
+  if (filters.view) clauses.push(INBOX_SQL);
+  if (filters.view === 'byRules') clauses.push('t.matched_rule_id IS NOT NULL');
 
   if (filters.direction === 'received') clauses.push('t.deposit IS NOT NULL');
   if (filters.direction === 'sent') clauses.push('t.withdrawal IS NOT NULL');
@@ -117,7 +117,7 @@ export function listTransactions(filters: TransactionFilters): TransactionListIt
   return rows.map(toTransactionListItem);
 }
 
-const TRANSACTION_ITEM_COLUMNS = `t.id, t.date, t.merchant, t.withdrawal, t.deposit, t.is_transfer,
+const TRANSACTION_ITEM_COLUMNS = `t.id, t.date, t.merchant, t.withdrawal, t.deposit, t.is_transfer, t.category_id,
             c.name as category_name, c.color_index`;
 
 function toTransactionListItem(r: TransactionRow): TransactionListItem {
@@ -128,6 +128,7 @@ function toTransactionListItem(r: TransactionRow): TransactionListItem {
     withdrawal: r.withdrawal,
     deposit: r.deposit,
     isTransfer: r.is_transfer === 1,
+    categoryId: r.category_id,
     categoryName: r.category_name,
     colorIndex: r.color_index,
   };
@@ -179,6 +180,19 @@ export function listCategoriesForFilter(): FilterCategory[] {
     'SELECT id, name, color_index, kind FROM categories ORDER BY position ASC'
   );
   return rows.map((r) => ({ id: r.id, name: r.name, colorIndex: r.color_index, kind: r.kind }));
+}
+
+// Inbox size for the Transactions tab segments; month null = every month.
+export function countInbox(month: string | null, accountIds?: string[] | null): { all: number; byRules: number } {
+  const scope = accountsClause(accountIds);
+  const row = db.getFirstSync<{ all_n: number | null; rules_n: number | null }>(
+    `SELECT COUNT(*) as all_n, SUM(CASE WHEN matched_rule_id IS NOT NULL THEN 1 ELSE 0 END) as rules_n
+     FROM transactions
+     WHERE category_override_id IS NULL AND is_transfer = 0
+       AND (? IS NULL OR strftime('%Y-%m', date) = ?) ${scope.clause}`,
+    [month, month, ...scope.params]
+  );
+  return { all: row?.all_n ?? 0, byRules: row?.rules_n ?? 0 };
 }
 
 export function countTransactionsInMonth(month: string, accountIds?: string[] | null): number {

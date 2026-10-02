@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Amount } from './Amount';
 import { CategoryPill } from './CategoryPill';
-import { spacing, type } from '../theme/tokens';
+import { radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles } from '../theme/ThemeContext';
 
 export interface TransactionRowData {
@@ -16,11 +16,14 @@ export interface TransactionRowData {
   isTransfer: boolean;
   /** Shown beside the category when rows aren't grouped under date headers. */
   date?: string;
+  /** Inbox rows with a category show a Confirm button (needs onConfirm). */
+  confirmable?: boolean;
 }
 
 interface TransactionRowProps {
   data: TransactionRowData;
   onPress: (id: string) => void;
+  onConfirm?: (id: string) => void;
 }
 
 const SIGN_WORD = { income: 'plus', expense: 'minus', neutral: '' };
@@ -28,7 +31,7 @@ const SIGN_WORD = { income: 'plus', expense: 'minus', neutral: '' };
 // React.memo + primitive-only data + a stable onPress (useCallback at the
 // screen level) — the pattern that keeps a long SectionList from
 // re-rendering every row when one row's category changes.
-function TransactionRowBase({ data, onPress }: TransactionRowProps) {
+function TransactionRowBase({ data, onPress, onConfirm }: TransactionRowProps) {
   const styles = useStyles(makeStyles);
   const spokenAmount = `${SIGN_WORD[data.kind]} ₹${Math.abs(data.amount).toFixed(2)} rupees`.trim();
 
@@ -50,6 +53,11 @@ function TransactionRowBase({ data, onPress }: TransactionRowProps) {
         </View>
       </View>
       <Amount value={data.amount} kind={data.kind} size="sm" />
+      {data.confirmable && onConfirm && (
+        <Pressable onPress={() => onConfirm(data.id)} hitSlop={8} style={styles.confirm} accessibilityLabel={`Confirm ${data.merchant}`}>
+          <Text style={styles.confirmText}>Confirm</Text>
+        </Pressable>
+      )}
     </Pressable>
   );
 }
@@ -73,6 +81,14 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   },
   meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   date: { ...type.caption, color: colors.textSecondary },
+  confirm: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  confirmText: { ...type.caption, color: colors.accent },
   merchant: {
     ...type.bodyMedium,
     color: colors.textPrimary,
