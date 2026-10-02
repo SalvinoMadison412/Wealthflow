@@ -1,10 +1,10 @@
 import { AccountMonth, BalanceSummaryData, combineAccountMonths } from '../data/balance';
-import { Kind } from '../data/statements';
+import { Kind, KindRow } from '../data/statements';
 import { findRecurringMerchants } from '../data/recurring';
 import { describeRule } from '../data/rulePattern';
 import { db } from './db';
 import { AUTO_MATCH_ID } from './recategorize';
-import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
+import { UNCATEGORIZED_CATEGORY_ID } from './schema';
 
 // null/undefined = no restriction (every account). An empty array
 // means "no accounts in this scope" and must return
@@ -405,7 +405,7 @@ export type CategoryBudgetRow = {
   txCount: number;
 };
 
-// Every category (except Transfer — it's not a spend category) with its
+// Every expense-kind category (Transfer is an asset) with its
 // spend for the given month. The screen filters to "spend > 0 or budget
 // set" itself — categories is a small table, unlike transactions, so
 // that client-side filter on an already-tiny joined result is fine.
@@ -427,9 +427,9 @@ export function getCategoryBudgetRows(month: string, accountIds?: string[] | nul
               WHERE t.category_id = c.id AND t.is_transfer = 0 AND t.withdrawal > 0
                 AND strftime('%Y-%m', t.date) = ? ${scope.clause}) as tx_count
      FROM categories c
-     WHERE c.id != ?
+     WHERE c.kind = 'expense'
      ORDER BY c.position ASC`,
-    [month, ...scope.params, month, ...scope.params, TRANSFER_CATEGORY_ID]
+    [month, ...scope.params, month, ...scope.params]
   );
   return rows.map((r) => ({
     id: r.id,
@@ -439,6 +439,42 @@ export function getCategoryBudgetRows(month: string, accountIds?: string[] | nul
     spent: r.spent,
     txCount: r.tx_count,
   }));
+}
+
+// Per-category deposit/withdrawal totals with the category's kind, dates
+// inclusive ('YYYY-MM-DD' strings compare correctly). Transfers are included:
+// the pair nets out. A month is [`${m}-01`, `${m}-31`]; to-date is ['0', monthEnd].
+export function getKindTotals(range: { from: string; to: string }, accountIds?: string[] | null): KindRow[] {
+  const scope = accountsClause(accountIds);
+  return db
+    .getAllSync<{ id: string; name: string; color_index: number; kind: Kind | null; deposit: number; withdrawal: number }>(
+      `SELECT c.id, c.name, c.color_index, c.kind,
+              COALESCE(SUM(t.deposit), 0) as deposit, COALESCE(SUM(t.withdrawal), 0) as withdrawal
+       FROM transactions t JOIN categories c ON c.id = t.category_id
+       WHERE t.date >= ? AND t.date <= ? ${scope.clause}
+       GROUP BY c.id ORDER BY c.position ASC`,
+      [range.from, range.to, ...scope.params]
+    )
+    .map((r) => ({ id: r.id, name: r.name, colorIndex: r.color_index, kind: r.kind, deposit: r.deposit, withdrawal: r.withdrawal }));
+}
+
+// Cash at bank across accounts as of `monthEnd` ('YYYY-MM-DD'): each
+// account's last balance on or before it, and its balance before its first
+// row (opening). Accounts with no row yet count as 0. Not getBalanceSummary,
+// which is one month and breaks if a month has no rows.
+export function getCashAsOf(monthEnd: string, accountIds?: string[] | null): { opening: number; closing: number } {
+  const scope = accountsClause(accountIds);
+  const rows = db.getAllSync<{ opening: number; closing: number }>(
+    `SELECT (SELECT t2.balance - COALESCE(t2.deposit, 0) + COALESCE(t2.withdrawal, 0) FROM transactions t2
+              WHERE t2.account_id = t.account_id AND t2.date <= ?
+              ORDER BY t2.date ASC, t2.rowid ASC LIMIT 1) as opening,
+            (SELECT t3.balance FROM transactions t3
+              WHERE t3.account_id = t.account_id AND t3.date <= ?
+              ORDER BY t3.date DESC, t3.rowid DESC LIMIT 1) as closing
+     FROM transactions t WHERE t.date <= ? ${scope.clause} GROUP BY t.account_id`,
+    [monthEnd, monthEnd, monthEnd, ...scope.params]
+  );
+  return { opening: rows.reduce((s, r) => s + r.opening, 0), closing: rows.reduce((s, r) => s + r.closing, 0) };
 }
 
 export type StatementListItem = {
