@@ -201,7 +201,7 @@ sync (§6) with the session.
 | `HomeScreen` (Net card, chart and balance card anchor on the newest month with data, not today) | `hasAnyTransactions`, `listAccounts` (staleness), `listMonthsWithData`, `getMonthSummary(month)`, `getMonthlyTotals(6, month)`, `BalanceSummary`, `listRecentTransactions(5)`, profile (all scoped by `useAccountFilter()`, see `AccountFilter.tsx`) | – |
 | `ImportScreen` | `listAccounts` | `createAccount`, `renameAccount`, `importStatement` |
 | `TransactionsScreen` | `listMonthsWithData`, `listCategoriesForFilter`, `listTransactions(filters)` (account via the shared filter, month, category, uncategorised, received/sent, amount range, recurring, `sort`: an `ORDER BY` picked from `SORT_SQL`); month is a Budget-style ‹ March 2026 › stepper over months with data (label taps toggle All months). Received/Sent/Net tiles sum the listed rows (transfers included). The Filters button opens a `Modal` sheet whose controls edit the screen's own filter state, so the list updates live behind it; Reset clears the sheet's filters but not the month | – |
-| `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one") or `insertRule` (with `suggestPattern` prefill) |
+| `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one", which also finalizes the row) or `insertRule` (with `suggestPattern` prefill) then `setCategoryOverride`. A Type control (Income / Expense / Asset / Liability) filters the category grid by `kind`; its default is the current category's kind, else deposit -> income, withdrawal -> expense. Uncategorized is not offered. A type with no matching category offers a general one (`Income`, `Expenses`, `Assets`, `Liabilities`), created on tap |
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
 | `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `countTransactionsInMonth`, `countUncategorized`, `getCategoryBudgetRows` | `setCategoryBudget`, `enableAutoCategorise`, `decategorizeMonth` |
@@ -359,6 +359,12 @@ and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLi
 
 ### 5.4 Categorisation (`src/db/matching.ts`, `src/data/rulePattern.ts`)
 
+- **Finalized** = `category_override_id IS NOT NULL` (or `is_transfer = 1`);
+  a rule match alone is not finalized. `setCategoryOverride` pins a
+  transaction (picking Uncategorized instead clears the pin and re-runs the
+  rules) and `finalizeTransactions(ids)` pins each row to the category it
+  already has, skipping Uncategorized. Creating a rule from the sheet also
+  pins that row.
 - Every category has a `kind` (`src/data/statements.ts`): income, expense,
   asset or liability; Uncategorized alone has none. Each `PresetRule`
   carries one (Income → income, Investments → asset, Credit card & loans →

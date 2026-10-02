@@ -9,10 +9,11 @@ import { CategoryPill } from '../components/CategoryPill';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionDetails } from '../components/TransactionDetails';
 import { suggestPattern } from '../data/rulePattern';
+import { Kind, KINDS } from '../data/statements';
+import { UNCATEGORIZED_CATEGORY_ID } from '../db/schema';
 import { getTransactionDetail, listCategoriesForFilter } from '../db/queries';
 import { getOrCreateCategoryByName } from '../db/categories';
 import {
-  clearCategoryOverride,
   insertRule,
   retroCount,
   setCategoryOverride,
@@ -21,6 +22,9 @@ import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
+
+// A type picked without a category falls back to one general category.
+const GENERAL: Record<Kind, string> = { income: 'Income', expense: 'Expenses', asset: 'Assets', liability: 'Liabilities' };
 
 type Route = RouteProp<RootStackParamList, 'CategorizeSheet'>;
 
@@ -41,6 +45,7 @@ export function CategorizeSheet() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [matcherText, setMatcherText] = useState('');
   const [showDetails, setShowDetails] = useState(false);
+  const [pickedKind, setPickedKind] = useState<Kind | null>(null);
 
   const retro = useMemo(
     () => (pendingCategoryId ? retroCount(matcherText.trim() || null, null) : 0),
@@ -53,13 +58,19 @@ export function CategorizeSheet() {
 
   const amount = transaction.deposit ?? transaction.withdrawal ?? 0;
   const kind: 'income' | 'expense' = transaction.deposit != null ? 'income' : 'expense';
+  // Type: the user's pick, else the current category's, else by direction.
+  const activeKind: Kind = pickedKind ?? categories.find((c) => c.id === transaction.categoryId)?.kind ?? kind;
+  const generalName = GENERAL[activeKind];
+  const visible = categories.filter((c) => c.kind === activeKind && c.id !== UNCATEGORIZED_CATEGORY_ID);
+  const hasGeneral = categories.some((c) => c.name === generalName);
+
+  function pickType(k: Kind) {
+    setPickedKind(k);
+    setPendingCategoryId(null);
+    setPendingCategoryName(null);
+  }
 
   function pickCategory(categoryId: string, categoryName: string) {
-    if (categoryId === transaction!.categoryId) {
-      setPendingCategoryId(null);
-      setPendingCategoryName(null);
-      return;
-    }
     setPendingCategoryId(categoryId);
     setPendingCategoryName(categoryName);
     setMatcherText(suggestPattern(transaction!.merchant));
@@ -68,7 +79,7 @@ export function CategorizeSheet() {
   function addNewCategory() {
     const name = newCategoryName.trim();
     if (!name) return;
-    pickCategory(getOrCreateCategoryByName(name, kind), name);
+    pickCategory(getOrCreateCategoryByName(name, activeKind), name);
     setNewCategoryName('');
     setShowNewCategoryField(false);
   }
@@ -81,8 +92,8 @@ export function CategorizeSheet() {
 
   function createRule() {
     if (!pendingCategoryId || !pendingCategoryName || !matcherText.trim()) return;
-    clearCategoryOverride(transaction!.id);
     insertRule({ merchant: matcherText.trim(), category: pendingCategoryName });
+    setCategoryOverride(transaction!.id, pendingCategoryId);
     navigation.goBack();
   }
 
@@ -162,13 +173,31 @@ export function CategorizeSheet() {
           />
         )}
 
+        <Text style={styles.sectionLabel}>TYPE</Text>
+        <View style={styles.typeRow}>
+          {KINDS.map((k) => (
+            <Pressable key={k} onPress={() => pickType(k)} style={[styles.typeChip, activeKind === k && styles.typeChipOn]}>
+              <Text style={[styles.typeChipText, activeKind === k && styles.typeChipTextOn]}>{k}</Text>
+            </Pressable>
+          ))}
+        </View>
+
         <Text style={styles.sectionLabel}>CATEGORY</Text>
         <View style={styles.grid}>
-          {categories.map((c) => (
+          {visible.map((c) => (
             <Pressable key={c.id} onPress={() => pickCategory(c.id, c.name)} hitSlop={12}>
               <CategoryPill name={c.name} colorIndex={c.colorIndex} />
             </Pressable>
           ))}
+          {!hasGeneral && (
+            <Pressable
+              onPress={() => pickCategory(getOrCreateCategoryByName(generalName, activeKind), generalName)}
+              style={styles.newCategoryChip}
+              hitSlop={12}
+            >
+              <Text style={styles.newCategoryChipText}>{generalName}</Text>
+            </Pressable>
+          )}
           {!showNewCategoryField && (
             <Pressable onPress={() => setShowNewCategoryField(true)} style={styles.newCategoryChip} hitSlop={12}>
               <Feather name="plus" size={12} color={colors.accent} />
@@ -274,6 +303,29 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xxl,
     marginBottom: spacing.sm,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  typeChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  typeChipOn: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  typeChipText: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textTransform: 'capitalize',
+  },
+  typeChipTextOn: {
+    color: colors.accentText,
   },
   grid: {
     flexDirection: 'row',
