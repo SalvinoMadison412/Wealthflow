@@ -377,7 +377,8 @@ and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLi
   the Rules tab lists only rules the user wrote. Tapping it calls
   `enableAutoCategorise(month)`, which sets the local `settings.auto_categorise`
   flag and recategorises. `recategorize()` then applies, per transaction:
-  manual override → user rules → built-in pattern (`findPreset` over
+  paired transfer (`is_transfer = 1`, always stays on Transfer) → manual
+  override → user rules → built-in pattern (`findPreset` over
   `PRESET_RULES` in `src/data/autoCategorize.ts`) → Uncategorized. A
   preset match stores `matched_rule_id = 'auto'` and the transaction sheet
   says "Auto-categorised". Preset categories are created lazily, only when

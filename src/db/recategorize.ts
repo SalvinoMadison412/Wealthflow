@@ -3,7 +3,7 @@ import { parseMonths } from '../data/decategorize';
 import { getOrCreateCategoryByName } from './categories';
 import { db } from './db';
 import { compileRules, DbRuleRow, findMatch, matchText } from './matching';
-import { UNCATEGORIZED_CATEGORY_ID } from './schema';
+import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
 
 export const AUTO_CATEGORISE_SETTING = 'auto_categorise';
 // JSON array of 'YYYY-MM' where the built-in patterns are off (see data/decategorize.ts).
@@ -19,6 +19,7 @@ type TransactionRow = {
   withdrawal: number | null;
   deposit: number | null;
   category_override_id: string | null;
+  is_transfer: number;
 };
 
 type RecategorizeScope = 'all' | { statementId: string };
@@ -51,15 +52,23 @@ export function recategorize(scope: RecategorizeScope = 'all'): void {
   const transactions =
     scope === 'all'
       ? db.getAllSync<TransactionRow>(
-          'SELECT id, date, merchant, description, withdrawal, deposit, category_override_id FROM transactions'
+          'SELECT id, date, merchant, description, withdrawal, deposit, category_override_id, is_transfer FROM transactions'
         )
       : db.getAllSync<TransactionRow>(
-          'SELECT id, date, merchant, description, withdrawal, deposit, category_override_id FROM transactions WHERE statement_id = ?',
+          'SELECT id, date, merchant, description, withdrawal, deposit, category_override_id, is_transfer FROM transactions WHERE statement_id = ?',
           [scope.statementId]
         );
 
   db.withTransactionSync(() => {
     for (const tx of transactions) {
+      // Paired transfers stay on Transfer regardless of rules or overrides.
+      if (tx.is_transfer) {
+        db.runSync('UPDATE transactions SET category_id = ?, matched_rule_id = NULL WHERE id = ?', [
+          TRANSFER_CATEGORY_ID,
+          tx.id,
+        ]);
+        continue;
+      }
       if (tx.category_override_id) {
         db.runSync('UPDATE transactions SET category_id = ?, matched_rule_id = NULL WHERE id = ?', [
           tx.category_override_id,
