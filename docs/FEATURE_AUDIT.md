@@ -685,21 +685,18 @@ not a separate system.
 
 Assuming the §0 audit-fix PR (A–I) lands first as a prerequisite.
 
-1. **§3.1 Sort-uncategorized triage screen** — it is the flywheel of a
-   rule-based categorizer; ten taps should clear a statement, and today
-   nothing even tells the user how much is left to sort.
-2. **§1.1 + §1.2 + §1.3 Statement ledger with row-level break and unparsed
+1. **§1.1 + §1.2 + §1.3 Statement ledger with row-level break and unparsed
    lines** — makes "reconciliation is the correctness check" true after the
    result card closes, and pinpoints *which row* broke instead of a delta.
-3. **§2.1 Column-aware parsing, then §2.2 HDFC** — the app is a Kotak app
+2. **§2.1 Column-aware parsing, then §2.2 HDFC** — the app is a Kotak app
    until this exists; column assembly is the deterministic foundation that
    makes each further bank a small template rather than a new regex.
-4. **§3.2–3.5 Rules bundle (edit, direction/account conditions, match
+3. **§3.2–3.5 Rules bundle (edit, direction/account conditions, match
    counts/shadowing, match on description) + §4.5 search** — a day or two of
    quick wins that turn the rules engine from "works" into "maintainable at
    40 rules", and fix the description-vs-merchant mismatch users will hit
    first.
-5. **§6.1 + §6.2 Rules/categories JSON export-import and CSV transaction
+4. **§6.1 + §6.2 Rules/categories JSON export-import and CSV transaction
    export** — the user's accumulated work and data should survive the phone;
    it is also the on-device precursor to any future Supabase rule sync and
    the format §3.7 rule packs need.

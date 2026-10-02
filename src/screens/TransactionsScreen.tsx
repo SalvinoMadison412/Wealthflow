@@ -12,13 +12,15 @@ import { FilterChip } from '../components/FilterChip';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
 import {
+  countInbox,
   hasAnyTransactions,
-  listCategoriesForFilter,
   listMonthsWithData,
   listTransactions,
   TransactionListItem,
   TransactionSort,
 } from '../db/queries';
+import { UNCATEGORIZED_CATEGORY_ID } from '../db/schema';
+import { finalizeTransactions } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
@@ -81,6 +83,7 @@ function toRowData(item: TransactionListItem, showDate: boolean): TransactionRow
     kind,
     isTransfer: item.isTransfer,
     date: showDate ? shortDateLabel(item.date) : undefined,
+    confirmable: item.categoryId !== UNCATEGORIZED_CATEGORY_ID,
   };
 }
 
@@ -96,8 +99,7 @@ export function TransactionsScreen() {
   const navigation = useNavigation<Nav>();
   // undefined = newest month with data (follows new imports); 'all' = every month.
   const [monthChoice, setMonthChoice] = useState<string | 'all' | undefined>(undefined);
-  const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [uncategorizedOnly, setUncategorizedOnly] = useState(false);
+  const [view, setView] = useState<'all' | 'byRules'>('all');
   const [direction, setDirection] = useState<'received' | 'sent' | null>(null);
   const [recurringOnly, setRecurringOnly] = useState(false);
   const [sort, setSort] = useState<TransactionSort>('newest');
@@ -112,21 +114,20 @@ export function TransactionsScreen() {
   const months = useQuery(() => listMonthsWithData(accountIds), [accountId]);
   const month = monthChoice === 'all' ? null : (monthChoice ?? months[0] ?? null);
   const monthIndex = month ? months.indexOf(month) : -1;
-  const categories = useQuery(() => listCategoriesForFilter(), []);
+  const counts = useQuery(() => countInbox(month, accountIds), [accountId, month]);
   const items = useQuery(
     () =>
       listTransactions({
         scopeAccountIds: accountIds,
         month: month ?? undefined,
-        categoryId: categoryId ?? undefined,
-        uncategorizedOnly,
+        view,
         direction: direction ?? undefined,
         recurringOnly,
         minAmount,
         maxAmount,
         sort,
       }),
-    [accountId, month, categoryId, uncategorizedOnly, direction, recurringOnly, minAmount, maxAmount, sort]
+    [accountId, month, view, direction, recurringOnly, minAmount, maxAmount, sort]
   );
 
   // Sorting by amount breaks the day grouping, so rows go flat and carry their own date.
@@ -152,18 +153,17 @@ export function TransactionsScreen() {
     [navigation]
   );
 
+  const handleConfirm = useCallback((id: string) => finalizeTransactions([id]), []);
+
   // What the Filters sheet holds (sort counts as one setting); the month lives outside it.
   const filterCount =
     (sort !== 'newest' ? 1 : 0) +
-    (categoryId !== null || uncategorizedOnly ? 1 : 0) +
     (direction !== null ? 1 : 0) +
     (recurringOnly ? 1 : 0) +
     (minAmount != null || maxAmount != null ? 1 : 0);
   const hasActiveFilters = monthChoice !== undefined || filterCount > 0;
   const resetFilters = useCallback(() => {
     setSort('newest');
-    setCategoryId(null);
-    setUncategorizedOnly(false);
     setDirection(null);
     setRecurringOnly(false);
     setMinText('');
@@ -244,6 +244,33 @@ export function TransactionsScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.viewSegment}>
+        {([['all', 'All imports', counts.all], ['byRules', 'By rules', counts.byRules]] as const).map(([value, label, n]) => (
+          <Pressable
+            key={value}
+            onPress={() => setView(value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: view === value }}
+            style={[styles.segmentItem, view === value && styles.segmentItemOn]}
+          >
+            <Text style={[styles.segmentText, view === value && styles.segmentTextOn]}>
+              {label} ({n})
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {view === 'byRules' && items.length > 0 && (
+        <Pressable
+          onPress={() => finalizeTransactions(items.map((i) => i.id))}
+          style={styles.confirmAll}
+          accessibilityRole="button"
+        >
+          <Feather name="check" size={14} color={colors.accentText} />
+          <Text style={styles.confirmAllText}>Confirm all {items.length}</Text>
+        </Pressable>
+      )}
+
       <View style={styles.tiles}>
         <View style={styles.tile}>
           <Text style={styles.tileLabel}>Received</Text>
@@ -261,7 +288,16 @@ export function TransactionsScreen() {
 
       {sections.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No transactions match these filters</Text>
+          <Text style={styles.emptyTitle}>
+            {filterCount > 0 ? 'No transactions match these filters' : 'All caught up'}
+          </Text>
+          {filterCount === 0 && (
+            <Text style={styles.emptySubtitle}>
+              {counts.all === 0
+                ? 'Nothing left to review. Finalized transactions are in Reports.'
+                : 'Nothing categorised by a rule here. Switch to All imports.'}
+            </Text>
+          )}
           {recurringOnly && (
             <Text style={styles.emptySubtitle}>Recurring needs at least two months of statements.</Text>
           )}
@@ -287,7 +323,7 @@ export function TransactionsScreen() {
               </View>
             ) : null
           }
-          renderItem={({ item }) => <TransactionRow data={toRowData(item, !byDate)} onPress={handlePressRow} />}
+          renderItem={({ item }) => <TransactionRow data={toRowData(item, !byDate)} onPress={handlePressRow} onConfirm={handleConfirm} />}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
@@ -370,37 +406,6 @@ export function TransactionsScreen() {
                   />
                 </View>
               </View>
-
-              <Text style={styles.sectionLabel}>CATEGORY</Text>
-              <View style={styles.chipWrap}>
-                <FilterChip
-                  label="All"
-                  selected={categoryId === null && !uncategorizedOnly}
-                  onPress={() => {
-                    setCategoryId(null);
-                    setUncategorizedOnly(false);
-                  }}
-                />
-                <FilterChip
-                  label="Uncategorized only"
-                  selected={uncategorizedOnly}
-                  onPress={() => {
-                    setUncategorizedOnly((v) => !v);
-                    setCategoryId(null);
-                  }}
-                />
-                {categories.map((c) => (
-                  <FilterChip
-                    key={c.id}
-                    label={c.name}
-                    selected={categoryId === c.id}
-                    onPress={() => {
-                      setCategoryId(c.id);
-                      setUncategorizedOnly(false);
-                    }}
-                  />
-                ))}
-              </View>
             </ScrollView>
 
             <View style={[styles.sheetFooter, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
@@ -467,6 +472,20 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   },
   monthLabel: { ...type.h2, color: colors.textPrimary, minWidth: 160, textAlign: 'center' },
   chevronDisabled: { opacity: 0.3 },
+  viewSegment: { flexDirection: 'row', backgroundColor: colors.track, borderRadius: radii.pill, padding: 3, marginHorizontal: spacing.pageGutter, marginBottom: spacing.md },
+  confirmAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    marginHorizontal: spacing.pageGutter,
+    marginBottom: spacing.md,
+    backgroundColor: colors.accent,
+    borderRadius: radii.pill,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  confirmAllText: { ...type.label, color: colors.accentText },
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   amountField: {
     flex: 1,

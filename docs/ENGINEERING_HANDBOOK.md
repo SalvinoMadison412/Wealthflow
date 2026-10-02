@@ -51,11 +51,16 @@ Everything in the architecture follows from those promises:
    the reconciliation check. Several files show one summary: statements
    imported, transactions, new vs duplicates skipped, how many balanced,
    and any file that couldn't be read (skipped, not fatal).
-5. **Transactions**: full list under a month stepper, with Received / Sent / Net
-   totals for whatever is listed and a Filters button that opens a sheet (sort
-   by newest / oldest / highest / lowest amount, type, recurring only, amount
-   range, category; the month stays outside it, and a badge counts the active
-   settings, a non-default sort included). Sorting by amount drops the day
+5. **Transactions** is a review inbox: imported transactions stay here until
+   finalized (the user picks a category in the sheet, or taps Confirm). An
+   **All imports** | **By rules** switch (each with a count) sits under a month
+   stepper; By rules lists only rule or auto-categorised rows and has Confirm
+   all. Rows with a category carry a Confirm button; paired transfers never
+   appear. Finalized transactions leave the list and live in Reports. Received /
+   Sent / Net totals follow whatever is listed, and a Filters button opens a
+   sheet (sort by newest / oldest / highest / lowest amount, type, recurring
+   only, amount range; the month stays outside it, and a badge counts the
+   active settings, a non-default sort included). Sorting by amount drops the day
    headers and shows each row's date instead; tap a row
    to categorise it ("just this one") or create a rule from it.
 6. **Rules**: priority-ordered list; enable/disable, move up/down, delete.
@@ -200,7 +205,7 @@ sync (§6) with the session.
 | `OnboardingScreen` | session user metadata, existing profile | `saveProfile` (also used for edit) |
 | `HomeScreen` (Net card, chart and balance card anchor on the newest month with data, not today) | `hasAnyTransactions`, `listAccounts` (staleness), `listMonthsWithData`, `getMonthSummary(month)`, `getMonthlyTotals(6, month)`, `BalanceSummary`, `listRecentTransactions(5)`, profile (all scoped by `useAccountFilter()`, see `AccountFilter.tsx`) | – |
 | `ImportScreen` | `listAccounts` | `createAccount`, `renameAccount`, `importStatement` |
-| `TransactionsScreen` | `listMonthsWithData`, `listCategoriesForFilter`, `listTransactions(filters)` (account via the shared filter, month, category, uncategorised, received/sent, amount range, recurring, `sort`: an `ORDER BY` picked from `SORT_SQL`); month is a Budget-style ‹ March 2026 › stepper over months with data (label taps toggle All months). Received/Sent/Net tiles sum the listed rows (transfers included). The Filters button opens a `Modal` sheet whose controls edit the screen's own filter state, so the list updates live behind it; Reset clears the sheet's filters but not the month | – |
+| `TransactionsScreen` | `listMonthsWithData`, `listTransactions(filters)` (account via the shared filter, month, `view` (`all` = inbox: `category_override_id IS NULL AND is_transfer = 0`; `byRules` adds `matched_rule_id IS NOT NULL`), received/sent, amount range, recurring, `sort`: an `ORDER BY` picked from `SORT_SQL`), `countInbox(month, accountIds)` for the segment counts; month is a ‹ March 2026 › stepper over months with data (label taps toggle All months). Received/Sent/Net tiles sum the listed rows (transfers included). The Filters button opens a `Modal` sheet whose controls edit the screen's own filter state, so the list updates live behind it; Reset clears the sheet's filters but not the month | `finalizeTransactions` (row Confirm, Confirm all) |
 | `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one", which also finalizes the row) or `insertRule` (with `suggestPattern` prefill) then `setCategoryOverride`. A Type control (Income / Expense / Asset / Liability) filters the category grid by `kind`; its default is the current category's kind, else deposit -> income, withdrawal -> expense. Uncategorized is not offered. A type with no matching category offers a general one (`Income`, `Expenses`, `Assets`, `Liabilities`), created on tap |
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
@@ -529,7 +534,8 @@ Whole-snapshot sync, because rules and categories are a few dozen rows:
   server `updated_at` newer than `rules_synced_at` → replace local;
   otherwise push local. Replacing local resets affected transactions to
   Uncategorized, swaps the rows in one SQLite transaction, then
-  `recategorize('all')`.
+  `recategorize('all')`. It also clears manual
+  overrides, so a pull un-finalizes transactions (known limit, see §9).
 - Categories sync their `kind` with the rest of the row.
 - Nothing is pushed until the first pull has succeeded, so a fresh
   install can never blank the account. Pull writes are ignored by the
@@ -629,3 +635,8 @@ that.
 - Optional client-encrypted sync of monthly aggregates for households is
   designed in `docs/REDESIGN_PLAN.md` ("Household Phase 1") and not
   started. It must stay ciphertext-only on the server.
+- Transactions inbox follow-ups: advanced accounting filters (by type,
+  account, date range) for Reports; align Home's Net card (cash flow) with
+  the P&L; `replaceLocal` in `rulesSync.ts` clears manual overrides on a sync
+  pull, which un-finalizes transactions (upgrade: `PRAGMA defer_foreign_keys =
+  ON`, clear only overrides whose category no longer exists).
