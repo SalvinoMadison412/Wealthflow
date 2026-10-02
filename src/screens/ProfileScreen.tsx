@@ -10,8 +10,9 @@ import { useAuth } from '../auth/AuthContext';
 import { PressableScale } from '../components/PressableScale';
 import { SettingsRow, SettingsSection } from '../components/SettingsRow';
 import { RootStackParamList } from '../navigation/RootNavigator';
+import { KINDS } from '../data/statements';
 import { futureValue, monthsToGoal } from '../data/calculator';
-import { Account, deleteAccount, deleteCategory, listAccounts, renameAccount, renameCategory, setCategoryColor, setSetting, wipeAllData } from '../db/transactions';
+import { Account, deleteAccount, deleteCategory, listAccounts, renameAccount, renameCategory, setCategoryColor, setCategoryKind, setSetting, wipeAllData } from '../db/transactions';
 import { FilterCategory, getSetting, listCategoriesForFilter } from '../db/queries';
 import { useQuery } from '../db/useQuery';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
@@ -300,6 +301,19 @@ function CategorySettingsRow({ category }: { category: FilterCategory }) {
             </Pressable>
           ))}
         </View>
+        {category.kind && (
+          <View style={styles.kindRow}>
+            {KINDS.map((k) => (
+              <Pressable
+                key={k}
+                onPress={() => setCategoryKind(category.id, k)}
+                style={[styles.kindChip, category.kind === k && styles.kindChipActive]}
+              >
+                <Text style={[styles.kindChipText, category.kind === k && styles.kindChipTextActive]}>{k}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
         <Pressable
           onPress={() => {
             if (name.trim()) renameCategory(category.id, name);
@@ -554,6 +568,29 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  kindRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  kindChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  kindChipActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  kindChipText: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textTransform: 'capitalize',
+  },
+  kindChipTextActive: {
+    color: colors.accentText,
   },
   colorSwatch: {
     width: 20,

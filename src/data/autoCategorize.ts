@@ -1,5 +1,7 @@
 // Pure — no expo-sqlite import, unit tested directly.
-export type PresetRule = { category: string; pattern: string };
+import { Kind } from './statements';
+
+export type PresetRule = { category: string; kind: Kind; pattern: string };
 
 // Built-in regex rules, applied only when the user taps Auto-categorise.
 // Tested case-insensitively against "merchant description" (see
@@ -16,58 +18,72 @@ export type PresetRule = { category: string; pattern: string };
 export const PRESET_RULES: PresetRule[] = [
   {
     category: 'Income',
+    kind: 'income',
     pattern: String.raw`\bsalary\b|\bstipend\b|\bint\.pd\b|\binterest\b|\bdividend\b|refund|cashback|reimburs`,
   },
   {
     category: 'Investments',
+    kind: 'asset',
     pattern: String.raw`zerodha|groww|upstox|kuvera|indmoney|smallcase|mutual ?fund|\bsip\b|safegold|\bnps\b|\bppf\b|angel ?one|icici ?direct`,
   },
   {
     category: 'Credit card & loans',
+    kind: 'liability',
     pattern: String.raw`onecard|\bslice\b|\bcred\b|credit ?card|card ?bill|\bemi\b|\bloan\b|bajaj ?fin|lazypay|\bsimpl\b`,
   },
   {
     category: 'Subscriptions',
+    kind: 'expense',
     pattern: String.raw`netflix|spotify|hotstar|prime ?video|amazon ?prime|\bprime\b|youtube|bookmyshow|zee5|sonyliv|crunchyr|apple\.com|google ?play|membership|subscription`,
   },
   {
     category: 'Rent & Home',
+    kind: 'expense',
     pattern: String.raw`\brent\b|apartment|residency|\btower\b|skyview|\bsociety\b|maintenance|\bpg\b|hostel|\bflats?\b|\bvilla\b|\bhomes?\b`,
   },
   {
     category: 'Groceries',
+    kind: 'expense',
     pattern: String.raw`instamart|bigbasket|blinkit|zepto|d-?mart|jiomart|milkbasket|country ?delight|\bkirana\b|supermarket|super ?bazaar|provision|\bgrocer|\bmart\b|general ?store|\bmilk\b|\bdairy\b|vegetable|\bfruits?\b`,
   },
   {
     category: 'Food & Dining',
+    kind: 'expense',
     pattern: String.raw`swiggy|zomato|eatsure|domino|pizza|mcdonald|\bmcd\b|hardcastle|\bkfc\b|burger|starbucks|subway|haldiram|\bcafe\b|coffee|restaurant|\bkitchen\b|\bdhaba\b|biryani|pulao|\btiffin\b|\bmess\b|bakery|bakers|\bsweets?\b|ice ?cream|\bice\b|cream ?stone|\bfood|\bjuice\b|\bchai\b|\btea\b|\bsnacks?\b|\bwraps?\b|rooster|bombaiwala|\bdine\b|\beat(s|ery)\b`,
   },
   {
     category: 'Transport & Fuel',
+    kind: 'expense',
     pattern: String.raw`rapido|\buber\b|\bola\b|redbus|irctc|fastag|\bmetro\b|blusmart|\bhpcl\b|\bbpcl\b|\biocl\b|indian ?oil|petrol|\bfuel\b|\bmotors?\b|\btyres?\b|batter(y|ies)|travels?\b|\bcabs?\b|parking`,
   },
   {
     category: 'Health & Fitness',
+    kind: 'expense',
     pattern: String.raw`apollo|pharmeasy|1mg|netmeds|medplus|practo|cult\.?fit|\bgym\b|fitness|pharma|medical|hospital|clinic|dental|diagnost|\blab\b|health`,
   },
   {
     category: 'Personal care',
+    kind: 'expense',
     pattern: String.raw`\bsalon\b|\bspa\b|barber|parlou?r|\bhair\b|grooming|beauty`,
   },
   {
     category: 'Bills & Utilities',
+    kind: 'expense',
     pattern: String.raw`airtel|\bjio\b|vodafone|\bbsnl\b|\bvi\b|bescom|tata ?power|electricity|\bpower\b|broadband|fibernet|recharge|\bgas\b|water ?bill|\bdth\b|postpaid|prepaid`,
   },
   {
     category: 'Shopping',
+    kind: 'expense',
     pattern: String.raw`amazon|flipkart|myntra|ajio|meesho|nykaa|croma|decathlon|trends|lifestyle|westside|\bstores?\b|boutique`,
   },
   {
     category: 'Other businesses',
+    kind: 'expense',
     pattern: String.raw`ventures|\bpvt\b|\bltd\b|\bllp\b|enterprises?|traders|industries|solutions|services|technolog|bharatpe|razorpay|payu|cashfree|\bpaytm\b`,
   },
   {
     category: 'People & UPI',
+    kind: 'expense',
     pattern: String.raw`\bupi/`,
   },
 ];

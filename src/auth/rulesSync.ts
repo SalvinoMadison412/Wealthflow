@@ -1,5 +1,6 @@
 import { AppState } from 'react-native';
 
+import { defaultKind, Kind } from '../data/statements';
 import { decideOnPull, PullDecision } from './syncDecision';
 import { supabase } from './supabase';
 import { db, subscribeToChanges } from '../db/db';
@@ -27,6 +28,7 @@ type LocalCategory = {
   bucket: string;
   monthly_budget: number | null;
   position: number;
+  kind: Kind | null;
 };
 type LocalRule = {
   id: string;
@@ -42,7 +44,7 @@ type ServerRule = Omit<LocalRule, 'enabled'> & { enabled: boolean; updated_at: s
 
 function readLocalSnapshot() {
   const categories = db.getAllSync<LocalCategory>(
-    'SELECT id, name, color_index, bucket, monthly_budget, position FROM categories WHERE id NOT IN (?, ?)',
+    'SELECT id, name, color_index, bucket, monthly_budget, position, kind FROM categories WHERE id NOT IN (?, ?)',
     RESERVED
   );
   const rules = db.getAllSync<LocalRule>(
@@ -95,8 +97,8 @@ function replaceLocal(categories: ServerCategory[], rules: ServerRule[]) {
     db.runSync('DELETE FROM categories WHERE id NOT IN (?, ?)', RESERVED);
     for (const c of categories) {
       db.runSync(
-        'INSERT INTO categories (id, name, color_index, bucket, monthly_budget, position) VALUES (?, ?, ?, ?, ?, ?)',
-        [c.id, c.name, c.color_index, c.bucket === 'wants' ? 'needs' : c.bucket, c.monthly_budget, c.position]
+        'INSERT INTO categories (id, name, color_index, bucket, monthly_budget, position, kind) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [c.id, c.name, c.color_index, c.bucket === 'wants' ? 'needs' : c.bucket, c.monthly_budget, c.position, c.kind ?? defaultKind(c.name)]
       );
     }
     for (const r of rules) {
@@ -115,7 +117,7 @@ async function pullRulesSnapshot(userId: string): Promise<PullDecision | 'failed
   const [cats, rs] = await Promise.all([
     supabase
       .from('categories')
-      .select('id, name, color_index, bucket, monthly_budget, position, updated_at')
+      .select('id, name, color_index, bucket, monthly_budget, position, kind, updated_at')
       .eq('user_id', userId),
     supabase
       .from('rules')

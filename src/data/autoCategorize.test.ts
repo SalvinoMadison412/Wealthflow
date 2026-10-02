@@ -1,5 +1,6 @@
 import { matchText } from '../db/matching';
 import { findPreset, PRESET_RULES } from './autoCategorize';
+import { KINDS } from './statements';
 
 // merchant alone, or merchant + raw statement description
 const categoryOf = (merchant: string, description = '') => findPreset(matchText(merchant, description))?.category ?? null;
@@ -60,3 +61,9 @@ test('short tokens do not over-match', () => {
   expect(categoryOf('Steam')).toBeNull();
 });
 
+
+describe('preset kinds', () => {
+  it('every preset has a valid kind', () => {
+    for (const r of PRESET_RULES) expect(KINDS).toContain(r.kind);
+  });
+});
