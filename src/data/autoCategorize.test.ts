@@ -61,3 +61,9 @@ test('short tokens do not over-match', () => {
   expect(categoryOf('Steam')).toBeNull();
 });
 
+
+describe('preset kinds', () => {
+  it('every preset has a valid kind', () => {
+    for (const r of PRESET_RULES) expect(KINDS).toContain(r.kind);
+  });
+});
