@@ -73,7 +73,8 @@ Everything in the architecture follows from those promises:
    (light / dark / system), Take the tour, and Family (locked, with a
    note on what it will do).
 9. **Profile**: account (edit profile, sign out), accounts, categories,
-   income fallback, wipe all data, savings calculator.
+   income fallback, wipe all data, savings calculator. Tapping a category
+   edits its name, colour and type (Income / Expense / Asset / Liability).
 10. **Statements**: every import with period, count and reconciliation
     badge; delete one (its transactions go, rules and categories stay).
 11. **Tour**: on a device's first signed-in launch, five spotlight steps
@@ -204,7 +205,7 @@ sync (§6) with the session.
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
 | `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `countTransactionsInMonth`, `countUncategorized`, `getCategoryBudgetRows` | `setCategoryBudget`, `enableAutoCategorise`, `decategorizeMonth` |
-| `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, `deleteAccount` (auth context: `delete_my_account()` RPC, local sign-out, then `wipeAllData`; typed-DELETE confirm), rename/delete account, rename/recolour/delete category, `setSetting('monthly_income')`, `wipeAllData` |
+| `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, `deleteAccount` (auth context: `delete_my_account()` RPC, local sign-out, then `wipeAllData`; typed-DELETE confirm), rename/delete account, rename/recolour/retype/delete category, `setSetting('monthly_income')`, `wipeAllData` |
 | `MenuSheet` | profile, `getSetting('appearance')` | `setSetting('appearance')`, `deleteSetting('tour_done')`; `replace()`s itself with Profile or Statements |
 | `StatementsScreen` | `listStatements` | `deleteStatement` |
 
@@ -335,14 +336,14 @@ runs migrations, and exposes `subscribeToChanges(listener, tables?)`.
 `schema.ts` migrations are keyed on `PRAGMA user_version`; append a new
 SQL string to `MIGRATIONS` to change the schema (v2 folded the removed
 Wants bucket into Needs; v1's CHECK still allows `'wants'` because SQLite
-cannot alter a CHECK without a table rebuild, so the app just never writes it; v3 added `transactions.dedupe_key` with a UNIQUE index, backfilled once at startup by `backfillDedupeKeys()` in `db.ts`, which also deletes any pre-existing duplicates). Current tables:
+cannot alter a CHECK without a table rebuild, so the app just never writes it; v3 added `transactions.dedupe_key` with a UNIQUE index, backfilled once at startup by `backfillDedupeKeys()` in `db.ts`, which also deletes any pre-existing duplicates; v4 added `categories.kind` and backfilled it from the category name via `defaultKind`). Current tables:
 
 | Table | Purpose | Notes |
 |---|---|---|
 | `accounts` | A bank account the user imports into | `owner_label` defaults to "Me" (household phase 0) |
 | `statements` | One row per import | `period_start/end` from first/last transaction date, `reconciled_ok`, `imported_at` |
 | `transactions` | Every parsed row | id = `accountId|date|withdrawal|deposit|balance|refNo|description` (see `transactionId.ts`). `dedupe_key` (UNIQUE, no account in it: bank ref + direction + amount + date when there is a ref, else date + amounts + balance + description) means a transaction seen again, in any account, is stored once. `category_id` is the effective category, `category_override_id` a manual pin, `matched_rule_id` which rule set it, `is_transfer` |
-| `categories` | User categories + two seeded reserved ones | `bucket` (unused, always 'needs'), `monthly_budget`, `color_index`, `position` |
+| `categories` | User categories + two seeded reserved ones | `bucket` (unused, always 'needs'), `monthly_budget`, `color_index`, `position`, `kind` (`income`/`expense`/`asset`/`liability`; NULL only for Uncategorized; v4) |
 | `rules` | Categorisation rules | `merchant_pattern` (regex or plain contains), `amount_json`, `category_id`, `enabled`, `position` (lower = higher priority) |
 | `settings` | Key/value | `profile` (JSON mirror), `monthly_income`, `rules_synced_at`, `appearance`, `tour_done`, `auto_categorise`, budget preset |
 
@@ -358,6 +359,13 @@ and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLi
 
 ### 5.4 Categorisation (`src/db/matching.ts`, `src/data/rulePattern.ts`)
 
+- Every category has a `kind` (`src/data/statements.ts`): income, expense,
+  asset or liability; Uncategorized alone has none. Each `PresetRule`
+  carries one (Income → income, Investments → asset, Credit card & loans →
+  liability, the rest expense), `defaultKind(name)` maps a bare name the
+  same way, and `getOrCreateCategoryByName(name, kind)` requires it.
+  `insertRule` reuses an existing category's kind. The user changes it in
+  Profile > Categories.
 - A rule has an optional merchant pattern and an optional amount
   condition (`moreThan`, `lessThan`, `equalTo`, `between`). Both present
   → both must match.
@@ -470,7 +478,7 @@ editing `.env.local`.
 | Table | Key | Columns | Written by |
 |---|---|---|---|
 | `profiles` | `id` = `auth.users.id` | `full_name`, `email`, `phone`, `age_range`, `income_range`, `goal`, `occupation`, `updated_at` | Onboarding / Edit profile (`saveProfile`) |
-| `categories` | `(user_id, id)` | `name`, `color_index`, `bucket`, `monthly_budget`, `position`, `updated_at` | Rules sync |
+| `categories` | `(user_id, id)` | `name`, `color_index`, `bucket`, `monthly_budget`, `position`, `kind`, `updated_at` | Rules sync |
 | `rules` | `(user_id, id)` | `merchant_pattern`, `amount_json`, `category_id`, `enabled`, `position`, `created_at`, `updated_at` | Rules sync |
 
 `id` values in `categories`/`rules` are the same random strings the local
@@ -484,6 +492,9 @@ holding personal data). Keep the files as the record of what was applied.
 `20260920000000_drop_wants_bucket.sql` (Needs/Savings only) must be run
 before the Wants removal ships; until then a pull maps any `wants` row to
 `needs` (`rulesSync.ts`).
+`20261003000000_category_kind.sql` (adds `categories.kind`) must be run
+before the build that syncs `kind` ships, or pushes will fail; a null `kind`
+on pull falls back to `defaultKind(name)`.
 
 ### 6.2b Deleting an account
 
@@ -513,6 +524,7 @@ Whole-snapshot sync, because rules and categories are a few dozen rows:
   otherwise push local. Replacing local resets affected transactions to
   Uncategorized, swaps the rows in one SQLite transaction, then
   `recategorize('all')`.
+- Categories sync their `kind` with the rest of the row.
 - Nothing is pushed until the first pull has succeeded, so a fresh
   install can never blank the account. Pull writes are ignored by the
   change listener for one debounce window so they do not echo back.

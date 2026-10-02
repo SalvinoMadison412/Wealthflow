@@ -1,5 +1,6 @@
 import { matchText } from '../db/matching';
 import { findPreset, PRESET_RULES } from './autoCategorize';
+import { KINDS } from './statements';
 
 // merchant alone, or merchant + raw statement description
 const categoryOf = (merchant: string, description = '') => findPreset(matchText(merchant, description))?.category ?? null;

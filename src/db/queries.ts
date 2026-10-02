@@ -1,4 +1,5 @@
 import { AccountMonth, BalanceSummaryData, combineAccountMonths } from '../data/balance';
+import { Kind } from '../data/statements';
 import { findRecurringMerchants } from '../data/recurring';
 import { describeRule } from '../data/rulePattern';
 import { db } from './db';
@@ -169,15 +170,15 @@ export function listMonthsWithData(accountIds?: string[] | null): string[] {
   return rows.map((r) => r.month);
 }
 
-export type FilterCategory = { id: string; name: string; colorIndex: number };
+export type FilterCategory = { id: string; name: string; colorIndex: number; kind: Kind | null };
 
 // Every category including Uncategorized/Transfer — the Category filter
 // chip's option list is deliberately the full set, not just user ones.
 export function listCategoriesForFilter(): FilterCategory[] {
-  const rows = db.getAllSync<{ id: string; name: string; color_index: number }>(
-    'SELECT id, name, color_index FROM categories ORDER BY position ASC'
+  const rows = db.getAllSync<{ id: string; name: string; color_index: number; kind: Kind | null }>(
+    'SELECT id, name, color_index, kind FROM categories ORDER BY position ASC'
   );
-  return rows.map((r) => ({ id: r.id, name: r.name, colorIndex: r.color_index }));
+  return rows.map((r) => ({ id: r.id, name: r.name, colorIndex: r.color_index, kind: r.kind }));
 }
 
 export function countTransactionsInMonth(month: string, accountIds?: string[] | null): number {
