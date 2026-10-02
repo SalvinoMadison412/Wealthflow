@@ -59,12 +59,19 @@ Everything in the architecture follows from those promises:
    headers and shows each row's date instead; tap a row
    to categorise it ("just this one") or create a rule from it.
 6. **Rules**: priority-ordered list; enable/disable, move up/down, delete.
-   **Account filter** (Home, Transactions, Budget): with two or more
+   **Account filter** (Home, Transactions, Reports): with two or more
    accounts, a quiet "All accounts ▾" caption under the header opens a
    small list. The default is every account consolidated; picking one
    scopes every number on all three tabs. The choice is shared across tabs
    and kept in `settings` (`account_filter`).
-7. **Budget**: spending by category for a month (donut showing the top 4
+7. **Reports** (replaces Budget): a P&L | Balance Sheet switch under the
+   month stepper. **P&L** is the selected month: income categories, expense
+   categories and net profit. **Balance Sheet** is everything up to the end of
+   that month: Assets (cash at bank plus asset categories), Liabilities, Net
+   worth and a check line (net worth = opening cash + net profit + anything
+   still Uncategorized; a tick shows when it holds with nothing unclassified).
+   Both follow the account filter and read live from categorisation. The
+   P&L's expense part is the old Budget view: spending by category for a month (donut showing the top 4
    categories plus one grey "Others" slice, with a labelled legend; the
    category list below still lists every category sorted by spend with its
    share and transaction count), optional per-category monthly budgets set
@@ -163,7 +170,7 @@ extractor.
 |---|---|
 | No session | `Login`, `Otp` |
 | Session, no profile row | `Onboarding` |
-| Session + profile | `MainTabs` (Home, Transactions, Budget, Rules), `Profile`, `EditProfile`, `Statements`, `Menu` (sheet), `Import`, `NewRuleForm`, `CategorizeSheet` |
+| Session + profile | `MainTabs` (Home, Transactions, Reports, Rules), `Profile`, `EditProfile`, `Statements`, `Menu` (sheet), `Import`, `NewRuleForm`, `CategorizeSheet` |
 
 React Navigation swaps stacks automatically when `session` or `profile`
 changes. The edit-profile route is deliberately named `EditProfile`, not
@@ -204,7 +211,7 @@ sync (§6) with the session.
 | `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one") or `insertRule` (with `suggestPattern` prefill) |
 | `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
-| `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `countTransactionsInMonth`, `countUncategorized`, `getCategoryBudgetRows` | `setCategoryBudget`, `enableAutoCategorise`, `decategorizeMonth` |
+| `ReportsScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `countTransactionsInMonth`, `countUncategorized`, `getCategoryBudgetRows` (expense-kind only), `getKindTotals` (month and to-date), `getCashAsOf`, `buildReports` | `setCategoryBudget`, `enableAutoCategorise`, `decategorizeMonth` |
 | `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, `deleteAccount` (auth context: `delete_my_account()` RPC, local sign-out, then `wipeAllData`; typed-DELETE confirm), rename/delete account, rename/recolour/retype/delete category, `setSetting('monthly_income')`, `wipeAllData` |
 | `MenuSheet` | profile, `getSetting('appearance')` | `setSetting('appearance')`, `deleteSetting('tour_done')`; `replace()`s itself with Profile or Statements |
 | `StatementsScreen` | `listStatements` | `deleteStatement` |
@@ -254,7 +261,7 @@ design), dark accent `#34D399` with dark ink text (`accentText`) on it.
 `inverse` is a surface that stays dark in both themes (Smart Calculator
 card, snackbar); do not use `textPrimary` as a fill, it goes near-white in
 dark. The quick-add button is the accent disc with a 5 px ring in the page
-colour, a soft accent shadow in light and no glow in dark. The Budget donut colours its top 4
+colour, a soft accent shadow in light and no glow in dark. The Reports donut colours its top 4
 categories with their pill colour (`pillPalette[colorIndex].text`) and the
 rest as one `textSecondary` "Others" slice (`topWithOthers`), flat ends and
 a small gap between slices.
@@ -380,7 +387,7 @@ and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLi
   wins; no match → Uncategorized. A manual override always beats rules.
 - New rules are inserted at the top (`position = min − 1`) so a rule the
   user just made for a transaction wins.
-- **Auto-categorise** (Budget tab, above Categories, shown while anything
+- **Auto-categorise** (Reports tab, above Income, shown while anything
   is Uncategorized) runs in the background and is **not** stored as rules:
   the Rules tab lists only rules the user wrote. Tapping it calls
   `enableAutoCategorise(month)`, which sets the local `settings.auto_categorise`
@@ -391,7 +398,7 @@ and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLi
   says "Auto-categorised". Preset categories are created lazily, only when
   something lands in them. The flag is local (not synced); presets are not
   synced either, only the categories they create.
-- **Decategorize** (Budget tab, "Decategorize <month>" beside the
+- **Decategorize** (Reports tab, "Decategorize <month>" beside the
   Categories title, behind a confirmation): `decategorizeMonth(month)`
   clears every manual override in that month, adds it to
   `settings.decategorized_months` (JSON array of `YYYY-MM`, see
@@ -430,7 +437,7 @@ and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLi
   recurring when it appears in 2+ distinct calendar months and every
   amount is within 10% of its median (rent, subscriptions, EMIs, salary).
   Needs two months of statements; there is no cadence detection.
-- `balance.ts` + `getBalanceSummary(month)`: the Home and Budget balance
+- `balance.ts` + `getBalanceSummary(month)`: the Home balance
   card. Per account: inflows and outflows are the month's deposit and
   withdrawal sums, closing is the running balance of the chronologically
   last row (`ORDER BY date DESC, rowid DESC`; rows are inserted in
@@ -439,8 +446,18 @@ and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLi
   reconcile. Accounts are then summed. Transfers are included (it is the
   account's real money movement), unlike the income/expense cards. Home
   shows the latest month that has data, not the current calendar month;
-  Budget follows its month selector. An account with no rows in a month
+  Reports use their own cash query (below). An account with no rows in a month
   contributes nothing to that month's balance.
+- `statements.ts` (Reports): `signed(kind, deposit, withdrawal)` (Income and
+  Liability = deposit - withdrawal, Expense and Asset = withdrawal - deposit;
+  a refund lowers an expense, a card payment lowers a liability, a transfer
+  pair nets to zero) and `buildReports(rows, openingCash, closingCash)` ->
+  `{ pl, bs, check }`. The screen feeds it `getKindTotals` rows (per category
+  deposit/withdrawal sums with the category's kind) for the month (P&L) and
+  to the month's end (Balance Sheet, check), and `getCashAsOf(monthEnd)`
+  (each account's last balance on or before the date, and its balance before
+  its first row; not `getBalanceSummary`). Check: net worth - (opening cash +
+  net profit + unclassified) is 0 exactly when the statements reconcile.
 - `staleness.ts`: Home nudges to import when the newest statement's
   period end is more than 35 days ago.
 
@@ -581,7 +598,7 @@ production blockers are in `docs/RELEASING.md`.
 `npx jest` runs the pure-logic suites: statement row parsing and the
 Kotak parser against a synthetic statement fixture, reconciliation,
 transaction id derivation, rule matching, rule pattern suggestion,
-transfer detection, budget maths, staleness, sync decision, palette key
+transfer detection, budget maths, P&L / Balance Sheet maths, staleness, sync decision, palette key
 parity, tour card placement. Screens and
 anything touching SQLite or Supabase are verified by hand on the
 emulator; when adding logic, put the decision in a pure function and test
