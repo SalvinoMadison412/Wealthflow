@@ -541,6 +541,11 @@ npx jest                        # tests
   and rebuild.
 - Prebuild adds `ios.bundleIdentifier` to `app.json`; do not commit that
   line until the iOS port starts.
+- `android.blockedPermissions` in `app.json` strips storage and
+  draw-over-other-apps permissions that libraries merge in but the app
+  never uses (the document picker needs no storage permission). Check
+  `android/app/src/main/AndroidManifest.xml` after adding a native
+  dependency.
 - Metro's file watcher without watchman occasionally misses edits on
   macOS; install watchman (`brew install watchman`) or restart Metro with
   `--clear`.
