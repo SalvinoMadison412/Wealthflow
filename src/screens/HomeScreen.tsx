@@ -217,7 +217,7 @@ export function HomeScreen() {
           </View>
         )}
 
-        <View style={styles.card}>
+        <View style={[styles.card, styles.netCard]}>
           <Text style={styles.cardLabel}>NET · {longMonth(dataMonth).toUpperCase()}</Text>
           <Amount value={net} kind={net >= 0 ? 'income' : 'expense'} size="lg" />
           <View style={styles.splitRow}>
@@ -311,6 +311,9 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: radii.sheet,
     padding: spacing.lg,
+  },
+  netCard: {
+    backgroundColor: colors.summaryBg,
   },
   cardLabel: {
     ...type.label,

@@ -20,11 +20,11 @@ export const fontAssets = {
 // `colors` / `pillPalette` from useTheme() so the appearance setting
 // (light / dark / system) applies everywhere.
 export const lightColors = {
-  background: '#FAFAF8',
+  background: '#F6F8FA',
   card: '#FFFFFF',
   textPrimary: '#14161A',
-  textSecondary: '#6B7280',
-  border: '#E7E8EC',
+  textSecondary: '#566270',
+  border: '#E6EAEE',
   accent: '#0A8058', // emerald; 5:1 against white so button labels pass AA
   accentText: '#FFFFFF',
   // Accent/secondary text on a dark surface (e.g. the Smart Calculator
@@ -33,12 +33,14 @@ export const lightColors = {
   accentOnDark: '#6EE7B7',
   onDarkSecondary: '#A7C4B8',
   incomeFill: '#1FAA6D',
-  incomeText: '#15803D',
+  incomeText: '#166534',
   expenseFill: '#E5484D',
   expenseText: '#C0393E',
   warningFill: '#F5A623',
   warningText: '#92600B',
-  track: '#EEF0F4',
+  track: '#E6EAEE',
+  // Tinted surface for the Home net/summary card.
+  summaryBg: '#E3F3EC',
   // Fixed dark surface for cards that stay dark in both themes (Smart
   // Calculator, snackbar). Not textPrimary: that goes near-white in dark.
   inverse: '#14161A',
@@ -49,11 +51,11 @@ export const lightColors = {
 export type Colors = typeof lightColors;
 
 export const darkColors: Colors = {
-  background: '#0F1115',
-  card: '#181B21',
+  background: '#0E1214',
+  card: '#161B1F',
   textPrimary: '#F2F3F5',
-  textSecondary: '#9AA0AA',
-  border: '#2A2E36',
+  textSecondary: '#98A2AD',
+  border: '#242B31',
   accent: '#34D399',
   accentText: '#0E1015', // dark ink on mint: 9.9:1
   accentOnDark: '#6EE7B7',
@@ -64,8 +66,9 @@ export const darkColors: Colors = {
   expenseText: '#F87171',
   warningFill: '#F5A623',
   warningText: '#FBBF24',
-  track: '#232730',
-  inverse: '#232833',
+  track: '#242B31',
+  summaryBg: '#11302A',
+  inverse: '#1F262B',
   white: '#FFFFFF',
   black: '#000000',
 };
@@ -80,22 +83,22 @@ export const colors = lightColors;
 export type PillPalette = { bg: string; text: string }[];
 
 const PILL_HUES: { light: { bg: string; text: string }; dark: string }[] = [
-  { light: { bg: '#E8EBFA', text: '#3A4BB3' }, dark: '#8B9BF4' }, // 0 indigo
+  { light: { bg: '#E8EBFA', text: '#3A4BB3' }, dark: '#A3AEEF' }, // 0 indigo
   { light: { bg: '#E1F5EB', text: '#15803D' }, dark: '#4ADE80' }, // 1 green
   { light: { bg: '#FCE4E5', text: '#B3363B' }, dark: '#F87171' }, // 2 coral
-  { light: { bg: '#FDF0D5', text: '#92600B' }, dark: '#FBBF24' }, // 3 amber
+  { light: { bg: '#FDF0D5', text: '#92600B' }, dark: '#EDC25A' }, // 3 amber
   { light: { bg: '#DDF4F2', text: '#0F766E' }, dark: '#2DD4BF' }, // 4 teal
-  { light: { bg: '#EFE6FA', text: '#6D28D9' }, dark: '#C084FC' }, // 5 purple
+  { light: { bg: '#EFE6FA', text: '#6D28D9' }, dark: '#CFA3F5' }, // 5 purple
   { light: { bg: '#FCE7F3', text: '#BE185D' }, dark: '#F472B6' }, // 6 pink
-  { light: { bg: '#E0F2FE', text: '#0369A1' }, dark: '#38BDF8' }, // 7 sky — Transfer
+  { light: { bg: '#E0F2FE', text: '#0369A1' }, dark: '#6CC4EE' }, // 7 sky — Transfer
   { light: { bg: '#ECF5D8', text: '#4D7C0F' }, dark: '#A3E635' }, // 8 olive
   { light: { bg: '#EDEFF3', text: '#475569' }, dark: '#94A3B8' }, // 9 slate — Uncategorized
 ];
 
-// Dark pills reuse the hue as text and a 22%-alpha wash of it as the
+// Dark pills reuse the hue as text and a 14%-alpha wash of it as the
 // background, which reads on dark cards without a second hand-tuned set.
 export function pillPaletteFor(_colors: Colors, scheme: 'light' | 'dark'): PillPalette {
-  return PILL_HUES.map((h) => (scheme === 'light' ? h.light : { bg: `${h.dark}38`, text: h.dark }));
+  return PILL_HUES.map((h) => (scheme === 'light' ? h.light : { bg: `${h.dark}24`, text: h.dark }));
 }
 
 export const pillPalette: PillPalette = pillPaletteFor(lightColors, 'light');
