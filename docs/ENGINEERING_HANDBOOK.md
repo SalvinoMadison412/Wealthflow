@@ -230,7 +230,7 @@ applies to the children), `Amount` (INR formatting with sign and colour),
 `tokens.ts` holds two palettes with identical keys, `lightColors` and
 `darkColors` (type `Colors`), plus `pillPaletteFor(colors, scheme)` for
 the ten category tints (index 9 reserved for Uncategorized, 7 for
-Transfer; dark pills are the hue as text over a 22 % wash of itself).
+Transfer; dark pills are the hue as text over a 14 % wash of itself).
 Spacing, radii, the type scale (one font file per weight) and
 `contentWrap` are scheme-independent.
 
@@ -247,6 +247,12 @@ function Screen() {
   ...
 }
 ```
+
+Palette ("Fresh tint"): cool-tinted neutrals. Light page `#F6F8FA` on
+white cards, secondary text `#566270`, income text `#166534`. Dark page
+`#0E1214` with `#161B1F` cards and `#98A2AD` secondary text. The Home net
+card uses the `summaryBg` token (light `#E3F3EC`, dark `#11302A`); every
+text pair on it is at least 4.5:1.
 
 Brand: emerald. Light accent `#0A8058` (5:1 against white, so button
 labels pass AA; the whites and neutrals are unchanged from the original
