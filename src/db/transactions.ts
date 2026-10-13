@@ -276,7 +276,15 @@ export function moveRule(id: string, direction: 'up' | 'down'): void {
 // recategorize.ts), so setting category_id here directly is equivalent to
 // (and cheaper than) writing the override and re-running the full
 // recategorize pass for a single row.
+// An override is also what marks a transaction as finalized (see the inbox
+// in queries.ts), and Uncategorized can never be finalized: picking it
+// just clears the pin and lets the rules decide again.
 export function setCategoryOverride(transactionId: string, categoryId: string): void {
+  if (categoryId === UNCATEGORIZED_CATEGORY_ID) {
+    clearCategoryOverride(transactionId);
+    recategorize('all');
+    return;
+  }
   db.runSync('UPDATE transactions SET category_override_id = ?, category_id = ?, matched_rule_id = NULL WHERE id = ?', [
     categoryId,
     categoryId,
@@ -286,6 +294,17 @@ export function setCategoryOverride(transactionId: string, categoryId: string): 
 
 export function clearCategoryOverride(transactionId: string): void {
   db.runSync('UPDATE transactions SET category_override_id = NULL WHERE id = ?', [transactionId]);
+}
+
+// "Confirm" in the inbox: pin each listed transaction to the category it
+// currently has. Uncategorized rows are skipped (they can't be finalized).
+export function finalizeTransactions(ids: string[]): void {
+  if (ids.length === 0) return;
+  db.runSync(
+    `UPDATE transactions SET category_override_id = category_id, matched_rule_id = NULL
+     WHERE id IN (${ids.map(() => '?').join(',')}) AND category_id != ?`,
+    [...ids, UNCATEGORIZED_CATEGORY_ID]
+  );
 }
 
 // How many other transactions a not-yet-saved rule would also catch —
