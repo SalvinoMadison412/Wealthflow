@@ -3,7 +3,7 @@
 <!-- Published copy of this policy. It must stay true to the code: change it in
 the same PR as any change to what data leaves the phone, then re-publish it. -->
 
-Last updated: 27 September 2026
+Last updated: 13 October 2026
 
 WealthFlow ("the app", "we") is a personal finance app for Android, operated by
 Salvino Madison, an individual developer. Contact: salvinokevin7@gmail.com.
@@ -20,7 +20,10 @@ switch phones, this data is gone; importing your statements again restores it.
 
 When you sign in we keep:
 
-- **Sign-in details** from Google: your account identifier and email address.
+- **Sign-in details** from Google: your account identifier, email address, display
+  name and profile picture link.
+- **Sign-in logs**: the IP address and time of each sign-in, kept by our backend
+  provider to keep accounts secure.
 - **Your profile**, as you enter it: name, email, phone number, age range,
   monthly income range, main goal and occupation.
 - **Your categories and rules**: category names, colours and monthly budgets,
@@ -49,6 +52,21 @@ We do not share your data with anyone else, unless required by law.
   synced rules, but keeps your account.
 - **Delete account** (Menu > Profile) removes your account, as described below.
 
+## Your rights
+
+We hold your account data because you agreed to it by signing in and filling in
+your profile. You can:
+
+- **See and correct it**: your profile, categories and rules are shown in the app
+  and can be edited there. For a copy of everything we hold, email us.
+- **Erase it**: use Delete account, or email us.
+- **Withdraw your consent** at any time by deleting your account. The app needs an
+  account to work, so this ends your use of it.
+
+**Complaints**: email Salvino Madison at salvinokevin7@gmail.com. We reply within
+30 days. If you are in India and are not satisfied with the reply, you can complain
+to the Data Protection Board of India.
+
 ## Deleting your account
 
 In the app, go to Menu > Profile > **Delete account**, type DELETE and confirm.
@@ -69,9 +87,9 @@ restricted so each user can reach only their own records.
 
 ## Children
 
-WealthFlow can be used by people of any age. Children and teenagers should use it with the
-permission and help of a parent or guardian. A parent or guardian can delete a child's account
-and data at any time with Delete account in the app, or by emailing salvinokevin7@gmail.com.
+WealthFlow is for people aged 18 and over. It is not directed at children, and we do
+not knowingly collect data from anyone under 18. If you believe someone under 18 has
+an account, email salvinokevin7@gmail.com and we will delete it and its data.
 
 ## Changes
 
