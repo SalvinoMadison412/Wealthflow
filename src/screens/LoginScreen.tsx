@@ -2,11 +2,12 @@ import { AntDesign } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sendPhoneOtp, signInWithGoogle, supabaseConfigured } from '../auth/supabase';
 import { Logo } from '../components/Logo';
+import { PRIVACY_POLICY_URL } from '../links';
 import { PressableScale } from '../components/PressableScale';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
@@ -105,6 +106,14 @@ export function LoginScreen() {
         </PressableScale>
 
         {error && <Text style={styles.error}>{error}</Text>}
+
+        <Text style={styles.legal}>
+          Your name, profile and rules are stored with your account. By continuing you agree to the{' '}
+          <Text style={styles.legalLink} accessibilityRole="link" onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
+            Privacy policy
+          </Text>
+          .
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -201,5 +210,15 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     ...type.caption,
     color: colors.expenseText,
     textAlign: 'center',
+  },
+  legal: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  legalLink: {
+    color: colors.accent,
+    textDecorationLine: 'underline',
   },
 });

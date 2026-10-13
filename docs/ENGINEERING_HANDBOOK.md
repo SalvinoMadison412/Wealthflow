@@ -18,7 +18,7 @@ shows spending, income, budgets and trends.
 
 The product promises, in the words shown on the Home screen:
 
-> We keep just two things: your sign-in details and the rules you create.
+> We keep just three things: your sign-in details, your profile and the rules you create.
 > Your bank statements, transactions and insights live only on this phone,
 > and no AI ever reads them: every transaction is sorted by fixed rules, on
 > your device. Delete the app or switch phones and they're gone; re-import
@@ -30,7 +30,7 @@ Everything in the architecture follows from those promises:
 |---|---|
 | Statements and transactions never leave the phone | PDF parsing runs in a hidden WebView on-device; transactions are stored only in a local SQLite database; there is no code path that uploads them. |
 | No AI | Extraction is pdf.js text positions plus regular expressions. Categorisation is user-written merchant patterns and amount thresholds, first match wins. `CLAUDE.md` forbids adding a model to either path. |
-| Only sign-in details and rules are kept on the account | Supabase holds three tables: `profiles`, `categories`, `rules`. Nothing else. |
+| Only sign-in details, profile and rules are kept on the account | Supabase holds three tables: `profiles`, `categories`, `rules`. Nothing else. |
 | Re-importing restores insights | Import is idempotent (a transaction's `dedupe_key` is derived from its content, never from the account), and rules pulled from the account re-categorise re-imported transactions the same way. |
 
 ### User-facing flow
@@ -594,7 +594,8 @@ that.
   naming the ceiling and the upgrade path. Grep for them before planning
   performance or multi-device work.
 - Strings shown to users make privacy claims (§1). If a change would make
-  any of them untrue, change the copy in the same PR.
+  any of them untrue, change the copy in the same PR. The policy itself is
+  linked from Login and Profile > About via `PRIVACY_POLICY_URL` (`src/links.ts`).
 
 ---
 
