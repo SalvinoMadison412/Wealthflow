@@ -87,9 +87,12 @@ restricted so each user can reach only their own records.
 
 ## Children
 
-WealthFlow is for people aged 18 and over. It is not directed at children, and we do
-not knowingly collect data from anyone under 18. If you believe someone under 18 has
-an account, email salvinokevin7@gmail.com and we will delete it and its data.
+WealthFlow is for people aged 13 and over. It is not directed at children under 13, and
+we do not knowingly collect data from them. If you are under 18, use WealthFlow only with
+the permission and help of a parent or guardian. A parent or guardian can delete a child's
+account and data at any time with Delete account in the app, or by emailing
+salvinokevin7@gmail.com. If you believe a child under 13 has an account, email us and we
+will delete it.
 
 ## Changes
 
