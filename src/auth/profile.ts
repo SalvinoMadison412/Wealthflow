@@ -12,10 +12,11 @@ export type Profile = {
 
 export type Option = { value: string; label: string };
 
-export const AGE_RANGES: Option[] = [
-  { value: '<18', label: 'Under 18' },
-  ...['18-24', '25-34', '35-44', '45-54', '55+'].map((v) => ({ value: v, label: v })),
-];
+// The app is 18+ (docs/PRIVACY_POLICY.md, "Children"): no under-18 option.
+export const AGE_RANGES: Option[] = ['18-24', '25-34', '35-44', '45-54', '55+'].map((v) => ({
+  value: v,
+  label: v,
+}));
 
 // `midpoint` seeds the existing monthly_income fallback that Budget uses.
 export const INCOME_RANGES: (Option & { midpoint: number })[] = [
