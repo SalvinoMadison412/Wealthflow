@@ -1,0 +1,122 @@
+<!-- New Rule: Merchant / Amount switch — placement options. Click the switches; they work. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WealthFlow - New Rule switch options</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@700&display=swap" rel="stylesheet">
+<style>
+  /* values copied from src/theme/tokens.ts (light) */
+  :root {
+    --bg: #F6F8FA; --card: #FFFFFF; --text: #14161A; --text2: #566270;
+    --border: #E6EAEE; --accent: #0A8058; --accent-text: #FFFFFF;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #DDE2E7; font-family: Inter, sans-serif; color: var(--text); padding: 24px 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
+  .col { width: 360px; }
+  .tag { font: 600 13px/18px Inter; margin-bottom: 4px; }
+  .note { font: 400 12px/16px Inter; color: var(--text2); margin-bottom: 10px; min-height: 32px; }
+  .phone { background: var(--bg); height: 700px; border-radius: 28px; padding: 16px; display: flex; flex-direction: column;
+           box-shadow: 0 10px 30px rgba(0,0,0,.12); border: 1px solid #C9D0D6; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  h2 { font: 700 18px/26px Manrope; }
+  .x { font-size: 22px; line-height: 1; }
+  .form { display: flex; flex-direction: column; gap: 24px; flex: 1; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .label { font: 400 12px/16px Inter; color: var(--text2); }
+  .input { font: 400 15px/22px Inter; border: 0; border-bottom: 1px solid var(--border); padding: 8px 0; background: none;
+           color: var(--text); width: 100%; outline: none; }
+  .input:focus { border-color: var(--accent); }
+  .help { font: 400 12px/16px Inter; color: var(--text2); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { height: 32px; padding: 0 12px; border-radius: 999px; font: 500 13px/30px Inter; background: var(--card);
+          border: 1px solid var(--border); color: var(--text); cursor: pointer; }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .mchip { height: 24px; padding: 0 10px; border-radius: 999px; font: 500 12px/24px Inter; background: var(--card);
+           border: 1px solid var(--border); }
+  .pill { height: 24px; padding: 0 10px; border-radius: 999px; font: 500 12px/24px Inter; }
+  .pill.sel { outline: 2px solid var(--accent); }
+  .amount { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--border); font: 600 18px/26px Inter; }
+  .amount .input { border: 0; font: 600 18px/26px Inter; }
+  .save { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 12px; padding: 16px;
+          font: 500 16px/18px Inter; }
+
+  /* A: segmented control */
+  .seg { display: flex; background: var(--border); border-radius: 12px; padding: 3px; }
+  .seg button { flex: 1; border: 0; background: none; border-radius: 9px; height: 36px; font: 500 13px/18px Inter;
+                color: var(--text2); cursor: pointer; }
+  .seg button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  /* C: underline tabs */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .tabs button { flex: 1; border: 0; background: none; height: 40px; font: 500 13px/18px Inter; color: var(--text2);
+                 border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
+  .tabs button.on { color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="row" id="row"></div>
+<script>
+const OPTIONS = [
+  { v: 'seg',   mode: 'merchant', tag: 'Option A - Segmented control', note: 'Full-width switch right under the title. Clearest "pick one" signal.' },
+  { v: 'chips', mode: 'merchant', tag: 'Option B - Chips',             note: 'Same chips the app already uses for filters, under a "MATCH BY" label.' },
+  { v: 'tabs',  mode: 'merchant', tag: 'Option C - Underline tabs',    note: 'Tabs with an underline, flush with the form.' },
+  { v: 'seg',   mode: 'amount',   tag: 'Amount selected (any option)', note: 'Merchant field is gone; only the amount condition shows.' },
+];
+const CATS = [['Food','#FCE4E5','#B3363B',1],['Groceries','#E1F5EB','#15803D'],['Shopping','#EFE6FA','#6D28D9'],
+              ['Travel','#DDF4F2','#0F766E'],['Bills','#FDF0D5','#92600B'],['Rent','#E8EBFA','#3A4BB3']];
+const split = (s) => s.split(',').map((m) => m.trim()).filter(Boolean);
+
+function sw(v, mode) {
+  const b = (m, t) => `<button class="${v === 'chips' ? 'chip ' : ''}${mode === m ? 'on' : ''}" data-mode="${m}">${t}</button>`;
+  const inner = b('merchant', 'Merchant') + b('amount', 'Amount');
+  if (v === 'chips') return `<div class="field"><div class="label">MATCH BY</div><div class="chips">${inner}</div></div>`;
+  return `<div class="${v}">${inner}</div>`;
+}
+
+function body(mode, text) {
+  if (mode === 'amount') return `
+    <div class="field"><div class="label">AMOUNT</div>
+      <div class="chips"><span class="chip on">More than</span><span class="chip">Less than</span><span class="chip">Equal to</span><span class="chip">Between</span></div>
+    </div>
+    <div class="field"><div class="label">AMOUNT MORE THAN</div>
+      <div class="amount">₹<input class="input" inputmode="decimal" value="500"></div>
+    </div>`;
+  return `
+    <div class="field"><div class="label">MERCHANTS</div>
+      <input class="input" type="text" value="${text}" placeholder="e.g., Swiggy, Zomato">
+      <div class="help">Separate merchants with commas</div>
+      <div class="chips preview">${split(text).map((m) => `<span class="mchip">${m}</span>`).join('')}</div>
+    </div>`;
+}
+
+function render(col, o) {
+  col.innerHTML = `<div class="tag">${o.tag}</div><div class="note">${o.note}</div>
+    <div class="phone">
+      <div class="header"><h2>New Rule</h2><span class="x">✕</span></div>
+      <div class="form">${sw(o.v, o.mode)}${body(o.mode, o.text)}
+        <div class="field"><div class="label">CATEGORY</div><div class="chips">
+          ${CATS.map(([n, bg, fg, sel]) => `<span class="pill ${sel ? 'sel' : ''}" style="background:${bg};color:${fg}">${n}</span>`).join('')}
+        </div></div>
+      </div>
+      <button class="save">Save Rule</button>
+    </div>`;
+  col.querySelectorAll('[data-mode]').forEach((btn) => btn.onclick = () => { o.mode = btn.dataset.mode; render(col, o); });
+  const input = col.querySelector('input[type=text]');
+  if (input) input.oninput = () => {
+    o.text = input.value;
+    col.querySelector('.preview').innerHTML = split(o.text).map((m) => `<span class="mchip">${m}</span>`).join('');
+  };
+}
+
+OPTIONS.forEach((o) => {
+  o.text = 'Swiggy, Zomato, Blinkit, Dominos';
+  const col = document.createElement('div');
+  col.className = 'col';
+  document.getElementById('row').appendChild(col);
+  render(col, o);
+});
+</script>
+</body>
+</html>

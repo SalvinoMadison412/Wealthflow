@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { useAuth } from '../auth/AuthContext';
 import { FilterChip } from '../components/FilterChip';
@@ -29,6 +29,7 @@ export function MenuSheet() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { profile } = useAuth();
   const appearance = useQuery(() => getSetting('appearance') ?? 'system', []);
+  const advanced = useQuery(() => getSetting('advanced_access') === '1', []);
   const [familyOpen, setFamilyOpen] = useState(false);
 
   // replace() closes the sheet and opens the destination in one step.
@@ -59,6 +60,27 @@ export function MenuSheet() {
               onPress={() => setSetting('appearance', a.value)}
             />
           ))}
+        </View>
+      </SettingsSection>
+
+      <SettingsSection title="Features">
+        <View>
+          <View style={styles.switchRow}>
+            <Feather name="sliders" size={18} color={colors.textSecondary} />
+            <Text style={styles.switchLabel}>Advanced Access</Text>
+            <Switch
+              value={advanced}
+              onValueChange={(on) => setSetting('advanced_access', on ? '1' : '0')}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor={colors.card}
+              accessibilityLabel="Advanced Access"
+            />
+          </View>
+          <Text style={styles.lockedNote}>
+            {advanced
+              ? 'Transactions is a review list: confirm what rules and auto-categorise picked, one by one or all at once.'
+              : 'Rules and auto-categorise sort your transactions for you. Turn this on to review and confirm what they picked.'}
+          </Text>
         </View>
       </SettingsSection>
 
@@ -114,6 +136,17 @@ const makeStyles = ({ colors }: Theme) =>
       flexDirection: 'row',
       gap: spacing.sm,
       paddingVertical: spacing.sm,
+    },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: 48,
+      gap: spacing.md,
+    },
+    switchLabel: {
+      ...type.body,
+      color: colors.textPrimary,
+      flex: 1,
     },
     locked: {
       opacity: 0.5,
