@@ -28,7 +28,7 @@ Everything in the architecture follows from those promises:
 
 | Promise | How it is enforced |
 |---|---|
-| Statements and transactions never leave the phone | PDF parsing runs in a hidden WebView on-device; transactions are stored only in a local SQLite database; there is no code path that uploads them. |
+| Statements and transactions never leave the phone | PDF parsing runs in a hidden WebView on-device; transactions are stored only in a local SQLite database; there is no code path that uploads them. `android.allowBackup` is `false` in `app.json`, so Android's cloud backup and device-to-device transfer cannot copy the database off the phone either. |
 | No AI | Extraction is pdf.js text positions plus regular expressions. Categorisation is user-written merchant patterns and amount thresholds, first match wins. `CLAUDE.md` forbids adding a model to either path. |
 | Only sign-in details and rules are kept on the account | Supabase holds three tables: `profiles`, `categories`, `rules`. Nothing else. |
 | Re-importing restores insights | Import is idempotent (a transaction's `dedupe_key` is derived from its content, never from the account), and rules pulled from the account re-categorise re-imported transactions the same way. |
