@@ -14,6 +14,14 @@ test('merchant pattern matches as a case-insensitive contains for a plain word',
   expect(findMatch(compiled, 'SWIGGY*ORDER', 100)?.id).toBe('r1');
 });
 
+test('comma-separated merchants match any one of them, ignoring case and spaces', () => {
+  const compiled = compileRules([rule({ merchant_pattern: 'Swiggy, zomato ,, AMAZON.IN(' })]);
+  expect(findMatch(compiled, 'SWIGGY*ORDER', 100)?.id).toBe('r1');
+  expect(findMatch(compiled, 'upi/Zomato Ltd', 100)?.id).toBe('r1');
+  expect(findMatch(compiled, 'amazon.in(pvt)', 100)?.id).toBe('r1');
+  expect(findMatch(compiled, 'Blinkit', 100)).toBeUndefined();
+});
+
 test('an invalid regex falls back to a literal contains instead of throwing', () => {
   const compiled = compileRules([rule({ merchant_pattern: 'AMAZON.IN(' })]);
   expect(() => findMatch(compiled, 'AMAZON.IN(unmatched paren merchant)', 100)).not.toThrow();

@@ -208,7 +208,7 @@ sync (§6) with the session.
 | `ImportScreen` | `listAccounts` | `createAccount`, `renameAccount`, `importStatement` |
 | `TransactionsScreen` | `listMonthsWithData`, `listTransactions(filters)` (account via the shared filter, month, `view` (`all` = inbox: `category_override_id IS NULL AND is_transfer = 0`; `byRules` adds `matched_rule_id IS NOT NULL`), received/sent, amount range, recurring, `sort`: an `ORDER BY` picked from `SORT_SQL`), `countInbox(month, accountIds)` for the segment counts; month is a ‹ March 2026 › stepper over months with data (label taps toggle All months). Received/Sent/Net tiles sum the listed rows (transfers included). The Filters button opens a `Modal` sheet whose controls edit the screen's own filter state, so the list updates live behind it; Reset clears the sheet's filters but not the month | `finalizeTransactions` (row Confirm, Confirm all) |
 | `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one", which also finalizes the row) or `insertRule` (with `suggestPattern` prefill) then `setCategoryOverride`. A Type control (Income / Expense / Asset / Liability) filters the category grid by `kind`; its default is the current category's kind, else deposit -> income, withdrawal -> expense. Uncategorized is not offered. A type with no matching category offers a general one (`Income`, `Expenses`, `Assets`, `Liabilities`), created on tap |
-| `NewRuleFormScreen` | categories | `getOrCreateCategoryByName`, `insertRule` |
+| `NewRuleFormScreen` (a Merchant / Amount switch picks the one condition the rule saves; Merchant takes a comma-separated list, with an info button explaining that case is ignored) | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
 | `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `countTransactionsInMonth`, `countUncategorized`, `getCategoryBudgetRows` | `setCategoryBudget`, `enableAutoCategorise`, `decategorizeMonth` |
 | `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, `deleteAccount` (auth context: `delete_my_account()` RPC, local sign-out, then `wipeAllData`; typed-DELETE confirm), rename/delete account, rename/recolour/retype/delete category, `setSetting('monthly_income')`, `wipeAllData` |
@@ -356,7 +356,7 @@ cannot alter a CHECK without a table rebuild, so the app just never writes it; v
 | `statements` | One row per import | `period_start/end` from first/last transaction date, `reconciled_ok`, `imported_at` |
 | `transactions` | Every parsed row | id = `accountId|date|withdrawal|deposit|balance|refNo|description` (see `transactionId.ts`). `dedupe_key` (UNIQUE, no account in it: bank ref + direction + amount + date when there is a ref, else date + amounts + balance + description) means a transaction seen again, in any account, is stored once. `category_id` is the effective category, `category_override_id` a manual pin, `matched_rule_id` which rule set it, `is_transfer` |
 | `categories` | User categories + two seeded reserved ones | `bucket` (unused, always 'needs'), `monthly_budget`, `color_index`, `position`, `kind` (`income`/`expense`/`asset`/`liability`; NULL only for Uncategorized; v4) |
-| `rules` | Categorisation rules | `merchant_pattern` (regex or plain contains), `amount_json`, `category_id`, `enabled`, `position` (lower = higher priority) |
+| `rules` | Categorisation rules | `merchant_pattern` (comma-separated terms, each a regex or plain contains), `amount_json`, `category_id`, `enabled`, `position` (lower = higher priority) |
 | `settings` | Key/value | `profile` (JSON mirror), `monthly_income`, `rules_synced_at`, `appearance`, `tour_done`, `auto_categorise`, budget preset |
 
 `transactions.ts` holds every write (`importStatement`, `deleteStatement`,
@@ -386,14 +386,17 @@ and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLi
   Profile > Categories.
 - A rule has an optional merchant pattern and an optional amount
   condition (`moreThan`, `lessThan`, `equalTo`, `between`). Both present
-  → both must match.
+  → both must match. The New Rule form saves one or the other, never both.
 - A pattern is tested against `matchText(merchant, description)`: the
   cleaned merchant plus the raw statement description. Statements truncate
   the merchant (Kotak at 15 chars) while the description keeps UPI notes
   such as `/McD` or `/Foodcharges`.
-- The merchant pattern is compiled once as a case-insensitive regex; if
-  it is not a valid regex it falls back to a literal contains. A plain
-  word is therefore both a "contains" rule and a regex.
+- The merchant pattern is a comma-separated list of terms
+  (`Swiggy, Zomato`); the rule matches when any term does. Each term is
+  compiled once as a case-insensitive regex; if it is not a valid regex
+  it falls back to a literal contains. A plain word is therefore both a
+  "contains" rule and a regex. A comma always separates, so a term
+  cannot contain one.
 - Rules are evaluated in `position` order, enabled only; the first match
   wins; no match → Uncategorized. A manual override always beats rules.
 - New rules are inserted at the top (`position = min − 1`) so a rule the

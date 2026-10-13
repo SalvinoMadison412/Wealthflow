@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CategoryPill } from '../components/CategoryPill';
 import { FilterChip } from '../components/FilterChip';
 import { PressableScale } from '../components/PressableScale';
-import { AmountCondition } from '../db/matching';
+import { AmountCondition, splitMerchants } from '../db/matching';
 import { getOrCreateCategoryByName } from '../db/categories';
 import { insertRule } from '../db/transactions';
 import { listCategoriesForFilter } from '../db/queries';
@@ -28,17 +28,18 @@ function isValidNumber(text: string): boolean {
   return text.trim().length > 0 && !Number.isNaN(Number(text));
 }
 
-// Merchant and amount are two independent, optional conditions (at least
-// one required) rather than an either/or toggle — a rule can be
-// "Blinkit" alone, "over ₹500" alone, or both together (AND).
+// A rule made here matches by merchant or by amount, never both: the
+// switch at the top picks which, and only that condition is saved.
 export function NewRuleFormScreen() {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const navigation = useNavigation();
   const categories = useQuery(() => listCategoriesForFilter(), []);
 
+  const [mode, setMode] = useState<'merchant' | 'amount'>('merchant');
+  const [showMerchantInfo, setShowMerchantInfo] = useState(false);
   const [merchant, setMerchant] = useState('');
-  const [operator, setOperator] = useState<AmountOperator | null>(null);
+  const [operator, setOperator] = useState<AmountOperator>('moreThan');
   const [value, setValue] = useState('');
   const [min, setMin] = useState('');
   const [max, setMax] = useState('');
@@ -46,18 +47,10 @@ export function NewRuleFormScreen() {
   const [showNewCategoryField, setShowNewCategoryField] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  const amountValid =
-    operator === null
-      ? true
-      : operator === 'between'
-        ? isValidNumber(min) && isValidNumber(max)
-        : isValidNumber(value);
+  const merchants = splitMerchants(merchant);
+  const amountValid = operator === 'between' ? isValidNumber(min) && isValidNumber(max) : isValidNumber(value);
 
-  const canSave = categoryName !== null && (merchant.trim().length > 0 || operator !== null) && amountValid;
-
-  function selectOperator(key: AmountOperator) {
-    setOperator((current) => (current === key ? null : key));
-  }
+  const canSave = categoryName !== null && (mode === 'merchant' ? merchants.length > 0 : amountValid);
 
   function addNewCategory() {
     const name = newCategoryName.trim();
@@ -70,22 +63,20 @@ export function NewRuleFormScreen() {
 
   function save() {
     if (!canSave || !categoryName) return;
-    const amount: AmountCondition | undefined =
-      operator === null
-        ? undefined
-        : operator === 'between'
-          ? { operator: 'between', min: Number(min), max: Number(max) }
-          : { operator, value: Number(value) };
+    const amount: AmountCondition =
+      operator === 'between'
+        ? { operator: 'between', min: Number(min), max: Number(max) }
+        : { operator, value: Number(value) };
 
-    insertRule({
-      category: categoryName,
-      merchant: merchant.trim() || undefined,
-      amount,
-    });
+    insertRule(
+      mode === 'merchant'
+        ? { category: categoryName, merchant: merchants.join(', ') }
+        : { category: categoryName, amount }
+    );
     navigation.goBack();
   }
 
-  const activeOperator = OPERATORS.find((o) => o.key === operator);
+  const activeOperator = OPERATORS.find((o) => o.key === operator)!;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -97,58 +88,102 @@ export function NewRuleFormScreen() {
       </View>
 
       <ScrollView contentContainerStyle={[styles.form, contentWrap]} keyboardShouldPersistTaps="handled">
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel}>MERCHANT CONTAINS</Text>
-          <TextInput
-            style={styles.input}
-            value={merchant}
-            onChangeText={setMerchant}
-            placeholder="e.g., Swiggy (optional)"
-            placeholderTextColor={colors.textSecondary}
-          />
+        <View style={styles.segment} accessibilityRole="tablist">
+          {(['merchant', 'amount'] as const).map((m) => (
+            <Pressable
+              key={m}
+              onPress={() => setMode(m)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: mode === m }}
+              style={[styles.segmentOption, mode === m && styles.segmentOptionSelected]}
+            >
+              <Text style={[styles.segmentLabel, mode === m && styles.segmentLabelSelected]}>
+                {m === 'merchant' ? 'Merchant' : 'Amount'}
+              </Text>
+            </Pressable>
+          ))}
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel}>AMOUNT (OPTIONAL)</Text>
-          <View style={styles.chipRow}>
-            {OPERATORS.map((o) => (
-              <FilterChip key={o.key} label={o.label} selected={operator === o.key} onPress={() => selectOperator(o.key)} />
-            ))}
-          </View>
-
-          {operator === 'between' ? (
-            <View style={styles.betweenRow}>
-              <View style={styles.betweenField}>
-                <Text style={styles.fieldLabel}>MIN</Text>
-                <View style={styles.amountRow}>
-                  <Text style={styles.currency}>₹</Text>
-                  <TextInput
-                    style={[styles.input, styles.amountInput]}
-                    value={min}
-                    onChangeText={setMin}
-                    keyboardType="decimal-pad"
-                    placeholder="0.00"
-                    placeholderTextColor={colors.textSecondary}
-                  />
-                </View>
-              </View>
-              <View style={styles.betweenField}>
-                <Text style={styles.fieldLabel}>MAX</Text>
-                <View style={styles.amountRow}>
-                  <Text style={styles.currency}>₹</Text>
-                  <TextInput
-                    style={[styles.input, styles.amountInput]}
-                    value={max}
-                    onChangeText={setMax}
-                    keyboardType="decimal-pad"
-                    placeholder="0.00"
-                    placeholderTextColor={colors.textSecondary}
-                  />
-                </View>
-              </View>
+        {mode === 'merchant' ? (
+          <View style={styles.field}>
+            <View style={styles.labelRow}>
+              <Text style={styles.fieldLabel}>MERCHANTS</Text>
+              <Pressable
+                onPress={() => setShowMerchantInfo((shown) => !shown)}
+                hitSlop={16}
+                accessibilityRole="button"
+                accessibilityLabel="How merchant matching works"
+                accessibilityState={{ expanded: showMerchantInfo }}
+              >
+                <Feather name="info" size={16} color={showMerchantInfo ? colors.accent : colors.textSecondary} />
+              </Pressable>
             </View>
-          ) : (
-            activeOperator && (
+            <TextInput
+              style={styles.input}
+              value={merchant}
+              onChangeText={setMerchant}
+              placeholder="e.g., Swiggy, Zomato"
+              placeholderTextColor={colors.textSecondary}
+              autoCorrect={false}
+            />
+            <Text style={styles.fieldLabel}>Separate merchants with commas</Text>
+            {showMerchantInfo && (
+              <Text style={styles.info}>
+                Capital and small letters are treated the same, so "swiggy" also matches "SWIGGY". A transaction
+                that contains any one of these merchants gets this category.
+              </Text>
+            )}
+            {merchants.length > 1 && (
+              <View style={styles.grid}>
+                {merchants.map((m, i) => (
+                  <View key={i} style={styles.merchantChip}>
+                    <Text style={styles.merchantChipText}>{m}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>AMOUNT</Text>
+            <View style={styles.chipRow}>
+              {OPERATORS.map((o) => (
+                <FilterChip key={o.key} label={o.label} selected={operator === o.key} onPress={() => setOperator(o.key)} />
+              ))}
+            </View>
+
+            {operator === 'between' ? (
+              <View style={styles.betweenRow}>
+                <View style={styles.betweenField}>
+                  <Text style={styles.fieldLabel}>MIN</Text>
+                  <View style={styles.amountRow}>
+                    <Text style={styles.currency}>₹</Text>
+                    <TextInput
+                      style={[styles.input, styles.amountInput]}
+                      value={min}
+                      onChangeText={setMin}
+                      keyboardType="decimal-pad"
+                      placeholder="0.00"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+                <View style={styles.betweenField}>
+                  <Text style={styles.fieldLabel}>MAX</Text>
+                  <View style={styles.amountRow}>
+                    <Text style={styles.currency}>₹</Text>
+                    <TextInput
+                      style={[styles.input, styles.amountInput]}
+                      value={max}
+                      onChangeText={setMax}
+                      keyboardType="decimal-pad"
+                      placeholder="0.00"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
+                </View>
+              </View>
+            ) : (
               <View style={styles.field}>
                 <Text style={styles.fieldLabel}>{activeOperator.fieldLabel}</Text>
                 <View style={styles.amountRow}>
@@ -163,9 +198,9 @@ export function NewRuleFormScreen() {
                   />
                 </View>
               </View>
-            )
-          )}
-        </View>
+            )}
+          </View>
+        )}
 
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>CATEGORY</Text>
@@ -247,6 +282,58 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: colors.border,
     paddingVertical: spacing.sm,
+  },
+  segment: {
+    flexDirection: 'row',
+    backgroundColor: colors.track,
+    borderRadius: radii.button,
+    padding: 3,
+  },
+  segmentOption: {
+    flex: 1,
+    height: 42,
+    borderRadius: radii.button - 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentOptionSelected: {
+    backgroundColor: colors.card,
+  },
+  segmentLabel: {
+    ...type.label,
+    color: colors.textSecondary,
+  },
+  segmentLabelSelected: {
+    color: colors.textPrimary,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  info: {
+    ...type.caption,
+    color: colors.textPrimary,
+    backgroundColor: colors.card,
+    borderRadius: radii.button,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  merchantChip: {
+    height: 24,
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    justifyContent: 'center',
+  },
+  merchantChipText: {
+    ...type.label,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textPrimary,
   },
   chipRow: {
     flexDirection: 'row',
