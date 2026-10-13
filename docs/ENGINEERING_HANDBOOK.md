@@ -35,8 +35,8 @@ Everything in the architecture follows from those promises:
 
 ### User-facing flow
 
-1. **Sign in** with Google (phone OTP is built but on hold until an SMS
-   provider is configured).
+1. **Sign in** with Google (phone OTP is built but hidden behind
+   `PHONE_SIGN_IN_ENABLED` in `LoginScreen` until an SMS provider is configured).
 2. **Onboarding**: name, email, phone, age range, monthly income range,
    main goal, occupation. Stored in the account's `profiles` row.
 3. **Home**: greeting, and either a pre-import explainer (default budget
@@ -181,7 +181,8 @@ token auto-refresh only while the app is foregrounded.
   to the `plain` PKCE challenge method (logged as a warning in dev).
 - **Phone**: `signInWithOtp({ phone })` then `verifyOtp` with the 6-digit
   SMS code. Numbers without `+` are assumed Indian (`+91`). Needs an SMS
-  provider enabled in Supabase before it works.
+  provider enabled in Supabase before it works, so the Login screen hides it
+  (`PHONE_SIGN_IN_ENABLED = false`).
 
 `AuthContext.tsx` holds `{ loading, session, profile, saveProfile,
 signOut }`. On a session it fetches the `profiles` row; if the network
@@ -605,7 +606,8 @@ that.
 
 ## 9. Known gaps and where to go next
 
-- Phone OTP needs an SMS provider (Twilio or similar) enabled in Supabase.
+- Phone OTP needs an SMS provider (Twilio or similar) enabled in Supabase;
+  then set `PHONE_SIGN_IN_ENABLED` in `LoginScreen.tsx` to show it again.
 - Only Kotak Mahindra has a bank-specific parser; other banks go through
   the generic parser and rely on the reconciliation check to flag
   problems. Add templates as statements from other banks arrive.

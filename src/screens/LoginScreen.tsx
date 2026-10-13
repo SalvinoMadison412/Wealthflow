@@ -12,6 +12,10 @@ import { RootStackParamList } from '../navigation/RootNavigator';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
+// No SMS provider is configured in Supabase yet, so "Send code" can only fail.
+// Flip this once one is (docs/RELEASING.md, "Before production").
+const PHONE_SIGN_IN_ENABLED = false;
+
 // Indian numbers by default; anything typed with a leading "+" is taken
 // as already international.
 function normalizePhone(raw: string): string | null {
@@ -75,34 +79,38 @@ export function LoginScreen() {
           )}
         </PressableScale>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or use your phone</Text>
-          <View style={styles.dividerLine} />
-        </View>
+        {PHONE_SIGN_IN_ENABLED && (
+          <>
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or use your phone</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-        <View style={styles.phoneRow}>
-          <Text style={styles.phonePrefix}>+91</Text>
-          <TextInput
-            style={styles.phoneInput}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            placeholder="Mobile number"
-            placeholderTextColor={colors.textSecondary}
-            autoComplete="tel"
-            textContentType="telephoneNumber"
-            onSubmitEditing={handlePhone}
-          />
-        </View>
+            <View style={styles.phoneRow}>
+              <Text style={styles.phonePrefix}>+91</Text>
+              <TextInput
+                style={styles.phoneInput}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder="Mobile number"
+                placeholderTextColor={colors.textSecondary}
+                autoComplete="tel"
+                textContentType="telephoneNumber"
+                onSubmitEditing={handlePhone}
+              />
+            </View>
 
-        <PressableScale style={styles.primaryButton} onPress={handlePhone} disabled={busy != null}>
-          {busy === 'phone' ? (
-            <ActivityIndicator color={colors.accentText} />
-          ) : (
-            <Text style={styles.primaryText}>Send code</Text>
-          )}
-        </PressableScale>
+            <PressableScale style={styles.primaryButton} onPress={handlePhone} disabled={busy != null}>
+              {busy === 'phone' ? (
+                <ActivityIndicator color={colors.accentText} />
+              ) : (
+                <Text style={styles.primaryText}>Send code</Text>
+              )}
+            </PressableScale>
+          </>
+        )}
 
         {error && <Text style={styles.error}>{error}</Text>}
       </ScrollView>
