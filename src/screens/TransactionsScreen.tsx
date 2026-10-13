@@ -13,6 +13,7 @@ import { PressableScale } from '../components/PressableScale';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
 import {
   countInbox,
+  getSetting,
   hasAnyTransactions,
   listMonthsWithData,
   listTransactions,
@@ -109,6 +110,8 @@ export function TransactionsScreen() {
   const minAmount = parseAmount(minText);
   const maxAmount = parseAmount(maxText);
 
+  // Off (Basic): the tab lists every transaction and there is no confirm step.
+  const advanced = useQuery(() => getSetting('advanced_access') === '1', []);
   const hasData = useQuery(() => hasAnyTransactions(), []);
   const { accountId, accountIds } = useAccountFilter();
   const months = useQuery(() => listMonthsWithData(accountIds), [accountId]);
@@ -120,14 +123,14 @@ export function TransactionsScreen() {
       listTransactions({
         scopeAccountIds: accountIds,
         month: month ?? undefined,
-        view,
+        view: advanced ? view : undefined,
         direction: direction ?? undefined,
         recurringOnly,
         minAmount,
         maxAmount,
         sort,
       }),
-    [accountId, month, view, direction, recurringOnly, minAmount, maxAmount, sort]
+    [accountId, month, advanced, view, direction, recurringOnly, minAmount, maxAmount, sort]
   );
 
   // Sorting by amount breaks the day grouping, so rows go flat and carry their own date.
@@ -244,23 +247,25 @@ export function TransactionsScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.viewSegment}>
-        {([['all', 'All imports', counts.all], ['byRules', 'By rules', counts.byRules]] as const).map(([value, label, n]) => (
-          <Pressable
-            key={value}
-            onPress={() => setView(value)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: view === value }}
-            style={[styles.segmentItem, view === value && styles.segmentItemOn]}
-          >
-            <Text style={[styles.segmentText, view === value && styles.segmentTextOn]}>
-              {label} ({n})
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      {advanced && (
+        <View style={styles.viewSegment}>
+          {([['all', 'All imports', counts.all], ['byRules', 'By rules', counts.byRules]] as const).map(([value, label, n]) => (
+            <Pressable
+              key={value}
+              onPress={() => setView(value)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: view === value }}
+              style={[styles.segmentItem, view === value && styles.segmentItemOn]}
+            >
+              <Text style={[styles.segmentText, view === value && styles.segmentTextOn]}>
+                {label} ({n})
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
 
-      {view === 'byRules' && items.length > 0 && (
+      {advanced && view === 'byRules' && items.length > 0 && (
         <Pressable
           onPress={() => finalizeTransactions(items.map((i) => i.id))}
           style={styles.confirmAll}
@@ -289,9 +294,9 @@ export function TransactionsScreen() {
       {sections.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>
-            {filterCount > 0 ? 'No transactions match these filters' : 'All caught up'}
+            {filterCount > 0 ? 'No transactions match these filters' : advanced ? 'All caught up' : 'No transactions here'}
           </Text>
-          {filterCount === 0 && (
+          {advanced && filterCount === 0 && (
             <Text style={styles.emptySubtitle}>
               {counts.all === 0
                 ? 'Nothing left to review. Finalized transactions are in Reports.'
@@ -323,7 +328,7 @@ export function TransactionsScreen() {
               </View>
             ) : null
           }
-          renderItem={({ item }) => <TransactionRow data={toRowData(item, !byDate)} onPress={handlePressRow} onConfirm={handleConfirm} />}
+          renderItem={({ item }) => <TransactionRow data={toRowData(item, !byDate)} onPress={handlePressRow} onConfirm={advanced ? handleConfirm : undefined} />}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
