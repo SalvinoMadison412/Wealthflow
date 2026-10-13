@@ -3,12 +3,13 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Constants from 'expo-constants';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../auth/AuthContext';
 import { PressableScale } from '../components/PressableScale';
 import { SettingsRow, SettingsSection } from '../components/SettingsRow';
+import { PRIVACY_POLICY_URL } from '../links';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { KINDS } from '../data/statements';
 import { futureValue, monthsToGoal } from '../data/calculator';
@@ -81,7 +82,11 @@ export function ProfileScreen() {
 
         <SettingsSection title="About">
           <SettingsRow icon="info" label="Version" value={Constants.expoConfig?.version ?? '1.0.0'} showChevron={false} />
-          <Text style={styles.privacyNote}>All processing happens on your device. Nothing is uploaded.</Text>
+          <SettingsRow icon="shield" label="Privacy policy" onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} />
+          <Text style={styles.privacyNote}>
+            Statements and transactions stay on your device. Your profile, categories and rules are stored with your
+            account.
+          </Text>
         </SettingsSection>
       </ScrollView>
     </SafeAreaView>
