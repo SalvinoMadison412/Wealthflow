@@ -2,15 +2,20 @@ import { AntDesign } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sendPhoneOtp, signInWithGoogle, supabaseConfigured } from '../auth/supabase';
 import { Logo } from '../components/Logo';
+import { PRIVACY_POLICY_URL } from '../links';
 import { PressableScale } from '../components/PressableScale';
 import { RootStackParamList } from '../navigation/RootNavigator';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
+
+// No SMS provider is configured in Supabase yet, so "Send code" can only fail.
+// Flip this once one is (docs/RELEASING.md, "Before production").
+const PHONE_SIGN_IN_ENABLED = false;
 
 // Indian numbers by default; anything typed with a leading "+" is taken
 // as already international.
@@ -75,36 +80,48 @@ export function LoginScreen() {
           )}
         </PressableScale>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or use your phone</Text>
-          <View style={styles.dividerLine} />
-        </View>
+        {PHONE_SIGN_IN_ENABLED && (
+          <>
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or use your phone</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-        <View style={styles.phoneRow}>
-          <Text style={styles.phonePrefix}>+91</Text>
-          <TextInput
-            style={styles.phoneInput}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            placeholder="Mobile number"
-            placeholderTextColor={colors.textSecondary}
-            autoComplete="tel"
-            textContentType="telephoneNumber"
-            onSubmitEditing={handlePhone}
-          />
-        </View>
+            <View style={styles.phoneRow}>
+              <Text style={styles.phonePrefix}>+91</Text>
+              <TextInput
+                style={styles.phoneInput}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder="Mobile number"
+                placeholderTextColor={colors.textSecondary}
+                autoComplete="tel"
+                textContentType="telephoneNumber"
+                onSubmitEditing={handlePhone}
+              />
+            </View>
 
-        <PressableScale style={styles.primaryButton} onPress={handlePhone} disabled={busy != null}>
-          {busy === 'phone' ? (
-            <ActivityIndicator color={colors.accentText} />
-          ) : (
-            <Text style={styles.primaryText}>Send code</Text>
-          )}
-        </PressableScale>
+            <PressableScale style={styles.primaryButton} onPress={handlePhone} disabled={busy != null}>
+              {busy === 'phone' ? (
+                <ActivityIndicator color={colors.accentText} />
+              ) : (
+                <Text style={styles.primaryText}>Send code</Text>
+              )}
+            </PressableScale>
+          </>
+        )}
 
         {error && <Text style={styles.error}>{error}</Text>}
+
+        <Text style={styles.legal}>
+          Your name, profile and rules are stored with your account. By continuing you agree to the{' '}
+          <Text style={styles.legalLink} accessibilityRole="link" onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}>
+            Privacy policy
+          </Text>
+          .
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -201,5 +218,15 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     ...type.caption,
     color: colors.expenseText,
     textAlign: 'center',
+  },
+  legal: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  legalLink: {
+    color: colors.accent,
+    textDecorationLine: 'underline',
   },
 });
