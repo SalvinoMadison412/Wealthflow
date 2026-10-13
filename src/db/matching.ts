@@ -24,14 +24,26 @@ type CompiledRule = {
 // regex for free. An invalid pattern (e.g. an unescaped merchant name
 // like "AMAZON.IN") falls back to a literal contains rather than
 // rejecting the rule outright.
-function compileMerchantMatcher(pattern: string): (merchant: string) => boolean {
+function compileTerm(term: string): (merchant: string) => boolean {
   try {
-    const regex = new RegExp(pattern, 'i');
+    const regex = new RegExp(term, 'i');
     return (merchant) => regex.test(merchant);
   } catch {
-    const needle = pattern.toLowerCase();
+    const needle = term.toLowerCase();
     return (merchant) => merchant.toLowerCase().includes(needle);
   }
+}
+
+export function splitMerchants(pattern: string): string[] {
+  return pattern.split(',').map((term) => term.trim()).filter(Boolean);
+}
+
+// A pattern is a comma-separated list of terms; any one matching is a match.
+// ponytail: a comma always separates, so a merchant name or regex containing
+// one ("a{1,3}") can't be written. Add an escape if someone needs it.
+function compileMerchantMatcher(pattern: string): (merchant: string) => boolean {
+  const terms = splitMerchants(pattern).map(compileTerm);
+  return (merchant) => terms.some((matches) => matches(merchant));
 }
 
 function matchesAmount(condition: AmountCondition, amount: number): boolean {
