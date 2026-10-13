@@ -340,13 +340,14 @@ export function getMonthlyTotals(monthsBack: number, endMonth: string, accountId
 type MonthSummary = { income: number; expense: number };
 
 // Home's "Net" card for one month. Excludes transfers, same as the chart.
-export function getMonthSummary(month: string, accountIds?: string[] | null): MonthSummary {
+// month null = every month.
+export function getMonthSummary(month: string | null, accountIds?: string[] | null): MonthSummary {
   const scope = accountsClause(accountIds, 'transactions');
   const row = db.getFirstSync<{ income: number; expense: number }>(
     `SELECT COALESCE(SUM(deposit), 0) as income, COALESCE(SUM(withdrawal), 0) as expense
      FROM transactions
-     WHERE is_transfer = 0 AND strftime('%Y-%m', date) = ? ${scope.clause}`,
-    [month, ...scope.params]
+     WHERE is_transfer = 0 AND (? IS NULL OR strftime('%Y-%m', date) = ?) ${scope.clause}`,
+    [month, month, ...scope.params]
   );
   return { income: row?.income ?? 0, expense: row?.expense ?? 0 };
 }

@@ -2,8 +2,8 @@ import { Feather } from '@expo/vector-icons';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CompositeNavigationProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../auth/AuthContext';
@@ -97,9 +97,16 @@ export function HomeScreen() {
   // Everything below anchors on the newest month that has data, not today:
   // a statement is usually a month or two behind the calendar.
   const { accountId, accountIds } = useAccountFilter();
-  const latestMonth = useQuery(() => listMonthsWithData(accountIds)[0] ?? null, [accountId]);
+  const months = useQuery(() => listMonthsWithData(accountIds), [accountId]);
+  // undefined follows the newest month (so a new import shows up); 'all' is
+  // every month; a picked month that the account filter then hides falls
+  // back to the newest.
+  const [monthChoice, setMonthChoice] = useState<string | 'all' | undefined>(undefined);
+  const latestMonth =
+    monthChoice === 'all' ? null : monthChoice && months.includes(monthChoice) ? monthChoice : (months[0] ?? null);
+  const monthIndex = latestMonth ? months.indexOf(latestMonth) : -1;
   const dataMonth = latestMonth ?? MONTH_KEY;
-  const summary = useQuery(() => getMonthSummary(dataMonth, accountIds), [dataMonth, accountId]);
+  const summary = useQuery(() => getMonthSummary(monthChoice === 'all' ? null : dataMonth, accountIds), [dataMonth, monthChoice, accountId]);
   const monthly = useQuery(
     () => getMonthlyTotals(6, chartEndMonth(listMonthsWithData(accountIds), 6, MONTH_KEY), accountIds),
     [accountId]
@@ -200,6 +207,34 @@ export function HomeScreen() {
           <Text style={styles.greetingSub}>{MONTH_NAME}</Text>
         </View>
 
+        <View style={styles.monthRow}>
+          <Pressable
+            onPress={() => setMonthChoice(months[monthIndex + 1])}
+            disabled={monthIndex < 0 || monthIndex >= months.length - 1}
+            hitSlop={13}
+            accessibilityLabel="Older month"
+            style={(monthIndex < 0 || monthIndex >= months.length - 1) && styles.chevronDisabled}
+          >
+            <Feather name="chevron-left" size={22} color={colors.textPrimary} />
+          </Pressable>
+          <Pressable
+            onPress={() => setMonthChoice(latestMonth ? 'all' : undefined)}
+            hitSlop={8}
+            accessibilityLabel={latestMonth ? 'Show all months' : 'Show one month'}
+          >
+            <Text style={styles.monthLabel}>{latestMonth ? longMonth(latestMonth) : 'All months'}</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setMonthChoice(months[monthIndex - 1])}
+            disabled={monthIndex <= 0}
+            hitSlop={13}
+            accessibilityLabel="Newer month"
+            style={monthIndex <= 0 && styles.chevronDisabled}
+          >
+            <Feather name="chevron-right" size={22} color={colors.textPrimary} />
+          </Pressable>
+        </View>
+
         {stale && (
           <View style={styles.nudge}>
             <View style={{ flex: 1 }}>
@@ -218,7 +253,7 @@ export function HomeScreen() {
         )}
 
         <View style={[styles.card, styles.netCard]}>
-          <Text style={styles.cardLabel}>NET · {longMonth(dataMonth).toUpperCase()}</Text>
+          <Text style={styles.cardLabel}>NET · {(latestMonth ? longMonth(latestMonth) : 'ALL MONTHS').toUpperCase()}</Text>
           <Amount value={net} kind={net >= 0 ? 'income' : 'expense'} size="lg" />
           <View style={styles.splitRow}>
             <View style={styles.splitItem}>
@@ -277,6 +312,14 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     ...type.caption,
     color: colors.textSecondary,
   },
+  monthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+  },
+  monthLabel: { ...type.h2, color: colors.textPrimary, minWidth: 160, textAlign: 'center' },
+  chevronDisabled: { opacity: 0.3 },
   nudge: {
     flexDirection: 'row',
     alignItems: 'center',
