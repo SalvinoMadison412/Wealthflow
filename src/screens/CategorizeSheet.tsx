@@ -68,7 +68,7 @@ export function CategorizeSheet() {
   function addNewCategory() {
     const name = newCategoryName.trim();
     if (!name) return;
-    pickCategory(getOrCreateCategoryByName(name), name);
+    pickCategory(getOrCreateCategoryByName(name, kind), name);
     setNewCategoryName('');
     setShowNewCategoryField(false);
   }

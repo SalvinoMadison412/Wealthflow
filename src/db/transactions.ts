@@ -2,6 +2,7 @@ import { PageContent } from '../pdf/types';
 import { parseStatement } from '../statement/registry';
 import { reconcile } from '../statement/reconciliation';
 import { ParsedStatement, ReconciliationResult } from '../statement/types';
+import { Kind } from '../data/statements';
 import { detectTransferPairs, TransferCandidate } from '../data/transfers';
 import { db } from './db';
 import { AmountCondition, compileRules, matchText } from './matching';
@@ -185,7 +186,9 @@ function runTransferDetection(): void {
 }
 
 export function insertRule(rule: { merchant?: string; amount?: AmountCondition; category: string }): void {
-  const categoryId = getOrCreateCategoryByName(rule.category);
+  // The category exists by now (picked or created by the caller); 'expense' only backs a bare name.
+  const kind = db.getFirstSync<{ kind: Kind | null }>('SELECT kind FROM categories WHERE name = ?', [rule.category])?.kind;
+  const categoryId = getOrCreateCategoryByName(rule.category, kind ?? 'expense');
   const { min } = db.getFirstSync<{ min: number | null }>('SELECT MIN(position) as min FROM rules') ?? {
     min: null,
   };
@@ -318,6 +321,11 @@ export function setCategoryBudget(categoryId: string, monthlyBudget: number | nu
 
 export function renameCategory(id: string, name: string): void {
   db.runSync('UPDATE categories SET name = ? WHERE id = ?', [name.trim(), id]);
+}
+
+export function setCategoryKind(id: string, kind: Kind): void {
+  if (id === UNCATEGORIZED_CATEGORY_ID) return;
+  db.runSync('UPDATE categories SET kind = ? WHERE id = ?', [kind, id]);
 }
 
 export function setCategoryColor(id: string, colorIndex: number): void {

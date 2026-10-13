@@ -88,6 +88,11 @@ const MIGRATIONS: string[] = [
   ALTER TABLE transactions ADD COLUMN dedupe_key TEXT;
   CREATE UNIQUE INDEX idx_transactions_dedupe ON transactions(dedupe_key);
   `,
+  // v4: 4-type model. kind is NULL only for Uncategorized.
+  `
+  ALTER TABLE categories ADD COLUMN kind TEXT CHECK (kind IN ('income','expense','asset','liability'));
+  UPDATE categories SET kind = CASE WHEN id='uncategorized' THEN NULL WHEN id='transfer' THEN 'asset' WHEN name='Income' THEN 'income' WHEN name='Investments' THEN 'asset' WHEN name='Credit card & loans' THEN 'liability' ELSE 'expense' END;
+  `,
 ];
 
 // PRAGMA user_version-keyed migrations — each entry runs once, in its own

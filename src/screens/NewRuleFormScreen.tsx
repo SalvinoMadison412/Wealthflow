@@ -62,7 +62,7 @@ export function NewRuleFormScreen() {
   function addNewCategory() {
     const name = newCategoryName.trim();
     if (!name) return;
-    getOrCreateCategoryByName(name);
+    getOrCreateCategoryByName(name, 'expense');
     setCategoryName(name);
     setNewCategoryName('');
     setShowNewCategoryField(false);
