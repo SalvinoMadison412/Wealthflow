@@ -128,7 +128,7 @@ export function HomeScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.safeTitle}>Your data is safe with us.</Text>
               <Text style={styles.safeText}>
-                We keep just two things: your sign-in details and the rules you create. Your bank statements,
+                We keep just three things: your sign-in details, your profile and the rules you create. Your bank statements,
                 transactions and insights live only on this phone, and no AI ever reads them: every transaction is
                 sorted by fixed rules, on your device. Delete the app or switch phones and they're gone; re-import
                 your statements and your insights come back.
@@ -217,7 +217,7 @@ export function HomeScreen() {
           </View>
         )}
 
-        <View style={styles.card}>
+        <View style={[styles.card, styles.netCard]}>
           <Text style={styles.cardLabel}>NET · {longMonth(dataMonth).toUpperCase()}</Text>
           <Amount value={net} kind={net >= 0 ? 'income' : 'expense'} size="lg" />
           <View style={styles.splitRow}>
@@ -311,6 +311,9 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: radii.sheet,
     padding: spacing.lg,
+  },
+  netCard: {
+    backgroundColor: colors.summaryBg,
   },
   cardLabel: {
     ...type.label,

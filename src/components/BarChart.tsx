@@ -120,6 +120,8 @@ export function BarChart({ data }: { data: MonthlyBar[] }) {
 
 const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   row: {
+    // Room for the flag icon above the tallest bar, so it never overlaps the card title.
+    paddingTop: spacing.lg,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
