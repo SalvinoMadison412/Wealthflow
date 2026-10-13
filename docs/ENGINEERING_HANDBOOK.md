@@ -358,13 +358,8 @@ cannot alter a CHECK without a table rebuild, so the app just never writes it; v
 | `statements` | One row per import | `period_start/end` from first/last transaction date, `reconciled_ok`, `imported_at` |
 | `transactions` | Every parsed row | id = `accountId|date|withdrawal|deposit|balance|refNo|description` (see `transactionId.ts`). `dedupe_key` (UNIQUE, no account in it: bank ref + direction + amount + date when there is a ref, else date + amounts + balance + description) means a transaction seen again, in any account, is stored once. `category_id` is the effective category, `category_override_id` a manual pin, `matched_rule_id` which rule set it, `is_transfer` |
 | `categories` | User categories + two seeded reserved ones | `bucket` (unused, always 'needs'), `monthly_budget`, `color_index`, `position`, `kind` (`income`/`expense`/`asset`/`liability`; NULL only for Uncategorized; v4) |
-<<<<<<< HEAD
-| `rules` | Categorisation rules | `merchant_pattern` (regex or plain contains), `amount_json`, `category_id`, `enabled`, `position` (lower = higher priority) |
-| `settings` | Key/value | `profile` (JSON mirror), `monthly_income`, `rules_synced_at`, `appearance`, `tour_done`, `auto_categorise`, `advanced_access`, budget preset |
-=======
 | `rules` | Categorisation rules | `merchant_pattern` (comma-separated terms, each a regex or plain contains), `amount_json`, `category_id`, `enabled`, `position` (lower = higher priority) |
-| `settings` | Key/value | `profile` (JSON mirror), `monthly_income`, `rules_synced_at`, `appearance`, `tour_done`, `auto_categorise`, budget preset |
->>>>>>> origin/main
+| `settings` | Key/value | `profile` (JSON mirror), `monthly_income`, `rules_synced_at`, `appearance`, `tour_done`, `auto_categorise`, `advanced_access`, budget preset |
 
 `transactions.ts` holds every write (`importStatement`, `deleteStatement`,
 `deleteAccount`, rule and category CRUD, overrides, `wipeAllData`). `queries.ts` holds every read the screens
