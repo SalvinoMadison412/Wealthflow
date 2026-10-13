@@ -128,7 +128,7 @@ export function HomeScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.safeTitle}>Your data is safe with us.</Text>
               <Text style={styles.safeText}>
-                We keep just two things: your sign-in details and the rules you create. Your bank statements,
+                We keep just three things: your sign-in details, your profile and the rules you create. Your bank statements,
                 transactions and insights live only on this phone, and no AI ever reads them: every transaction is
                 sorted by fixed rules, on your device. Delete the app or switch phones and they're gone; re-import
                 your statements and your insights come back.
