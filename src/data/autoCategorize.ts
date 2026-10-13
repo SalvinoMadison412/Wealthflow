@@ -1,5 +1,5 @@
 // Pure — no expo-sqlite import, unit tested directly.
-export type PresetRule = { category: string; pattern: string };
+type PresetRule = { category: string; pattern: string };
 
 // Built-in regex rules, applied only when the user taps Auto-categorise.
 // Tested case-insensitively against "merchant description" (see

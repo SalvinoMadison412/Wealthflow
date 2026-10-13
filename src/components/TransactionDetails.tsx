@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
-export type DetailRow = { label: string; value: string };
+type DetailRow = { label: string; value: string };
 
 // The fields read off the statement, one tap to copy each (or all of them).
 export function TransactionDetails({ rows }: { rows: DetailRow[] }) {

@@ -252,7 +252,7 @@ export function setRuleEnabled(id: string, enabled: boolean): void {
 }
 
 // Swaps this rule's position with its immediate neighbor — no
-// drag-and-drop (see docs/REDESIGN_PLAN.md PR 8), just move up/down.
+// drag-and-drop, just move up/down.
 // A no-op at either end of the list.
 export function moveRule(id: string, direction: 'up' | 'down'): void {
   const rules = db.getAllSync<{ id: string; position: number }>('SELECT id, position FROM rules ORDER BY position ASC');

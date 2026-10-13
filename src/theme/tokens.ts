@@ -1,12 +1,11 @@
-// Redesign tokens — see docs/REDESIGN_PLAN.md PR 1 for the source of every
-// value below. Single source for color/spacing/radii/type so every screen
+// Design tokens. Single source for color/spacing/radii/type so every screen
 // stays in sync.
 import { TextStyle } from 'react-native';
 
 // Loaded at runtime via useFonts in App.tsx, not the expo-font config
 // plugin: plugin-embedded fonts only take effect in a prebuilt/custom-dev-
 // client binary, not Expo Go, and CLAUDE.md requires staying Expo-Go-
-// compatible (no custom dev client). See docs/REDESIGN_PLAN.md PR 1 note.
+// compatible (no custom dev client).
 export const fontAssets = {
   'Inter-Regular': require('../../assets/fonts/Inter-Regular.ttf'),
   'Inter-Medium': require('../../assets/fonts/Inter-Medium.ttf'),

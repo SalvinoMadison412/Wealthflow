@@ -12,6 +12,9 @@ const inr = new Intl.NumberFormat('en-IN', {
 
 export const formatINR = (value: number) => inr.format(value);
 
+// Whole rupees, for budget/summary figures.
+export const formatRupees = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+
 const sizeStyle = { sm: type.amountSm, md: type.amountMd, lg: type.amountLg };
 const sign = { income: '+', expense: '−', neutral: '' };
 

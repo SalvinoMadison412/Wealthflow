@@ -1,7 +1,6 @@
 // Pure ID-generation logic — no expo-sqlite import, so it can be unit
 // tested directly (expo-sqlite's native binding isn't available under
-// Jest; see docs/REDESIGN_PLAN.md PR 2 for why the DB layer itself isn't
-// unit tested).
+// Jest, which is also why the DB layer itself isn't unit tested).
 
 // Deterministic and collision-free by construction, not a hash: the same
 // statement re-imported produces the same transaction ids, so `INSERT OR
