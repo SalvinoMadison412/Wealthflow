@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { sendPhoneOtp, signInWithGoogle, supabaseConfigured } from '../auth/supabase';
+import { sendPhoneOtp, signInAsGuest, signInWithGoogle, supabaseConfigured } from '../auth/supabase';
 import { Logo } from '../components/Logo';
 import { PRIVACY_POLICY_URL } from '../links';
 import { PressableScale } from '../components/PressableScale';
@@ -30,13 +30,20 @@ export function LoginScreen() {
   const styles = useStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [phone, setPhone] = useState('');
-  const [busy, setBusy] = useState<'google' | 'phone' | null>(null);
+  const [busy, setBusy] = useState<'google' | 'guest' | 'phone' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleGoogle = async () => {
     setBusy('google');
     setError(null);
     setError(await signInWithGoogle());
+    setBusy(null);
+  };
+
+  const handleGuest = async () => {
+    setBusy('guest');
+    setError(null);
+    setError(await signInAsGuest());
     setBusy(null);
   };
 
@@ -77,6 +84,14 @@ export function LoginScreen() {
               <AntDesign name="google" size={18} color={colors.textPrimary} />
               <Text style={styles.googleText}>Continue with Google</Text>
             </>
+          )}
+        </PressableScale>
+
+        <PressableScale style={styles.guestButton} onPress={handleGuest} disabled={busy != null}>
+          {busy === 'guest' ? (
+            <ActivityIndicator color={colors.textSecondary} />
+          ) : (
+            <Text style={styles.guestText}>Continue as guest</Text>
           )}
         </PressableScale>
 
@@ -167,6 +182,15 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   googleText: {
     ...type.bodyMedium,
     color: colors.textPrimary,
+  },
+  guestButton: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestText: {
+    ...type.bodyMedium,
+    color: colors.textSecondary,
   },
   dividerRow: {
     flexDirection: 'row',

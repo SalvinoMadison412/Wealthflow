@@ -3,7 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Constants from 'expo-constants';
 import React, { useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../auth/AuthContext';
@@ -28,7 +28,19 @@ export function ProfileScreen() {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { profile, signOut } = useAuth();
+  const { profile, session, signOut } = useAuth();
+  // A guest (anonymous) account can't be signed back into, so warn first.
+  const handleSignOut = () => {
+    if (!session?.user.is_anonymous) return signOut();
+    Alert.alert(
+      'Sign out of guest account?',
+      "You're using WealthFlow as a guest. Signing out ends this guest account and its synced rules can't be recovered. Statements on this device are kept.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign out', style: 'destructive', onPress: signOut },
+      ]
+    );
+  };
   const accounts = useQuery(() => listAccounts(), []);
   const categories = useQuery(() => listCategoriesForFilter(), []);
   const monthlyIncomeSetting = useQuery(() => getSetting('monthly_income'), []);
@@ -50,7 +62,7 @@ export function ProfileScreen() {
             value={profile?.email ?? profile?.phone ?? undefined}
             onPress={() => navigation.navigate('EditProfile')}
           />
-          <SettingsRow icon="log-out" label="Sign out" destructive showChevron={false} onPress={signOut} />
+          <SettingsRow icon="log-out" label="Sign out" destructive showChevron={false} onPress={handleSignOut} />
           <DeleteAccountRow />
         </SettingsSection>
 
