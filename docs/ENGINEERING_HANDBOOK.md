@@ -605,6 +605,10 @@ versionCode auto-increment, submit to Play's internal track). Steps, EAS environ
 variables (`.env.local` is not uploaded to EAS), Data safety answers and the
 production blockers are in `docs/RELEASING.md`.
 
+The Android package is `com.kevin.madison.wealthflowapp`. The first Play app
+(`com.kevin.madison.wealthflow`) was deleted on 2026-10-14 and that ID can never be
+reused; the URL scheme (`wealthflow://auth`) and the EAS project are unchanged.
+
 ### Tests
 
 `npx jest` runs the pure-logic suites: statement row parsing and the

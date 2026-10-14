@@ -30,7 +30,7 @@ code, no `android/` folder committed.
 4. **Host the privacy policy** at a public URL. `docs/PRIVACY_POLICY.md` is the
    source; re-publish the web copy whenever it changes. Play requires the URL.
 5. **Create the app** in Play Console: name WealthFlow, package
-   `com.kevin.madison.wealthflow`, free, app category Finance.
+   `com.kevin.madison.wealthflowapp`, free, app category Finance.
 
 ## Try a build first (no store needed)
 
