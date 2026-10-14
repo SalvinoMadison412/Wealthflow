@@ -191,6 +191,13 @@ token auto-refresh only while the app is foregrounded.
   SMS code. Numbers without `+` are assumed Indian (`+91`). Needs an SMS
   provider enabled in Supabase before it works, so the Login screen hides it
   (`PHONE_SIGN_IN_ENABLED = false`).
+- **Guest**: "Continue as guest" calls `signInAnonymously()`. The anonymous
+  user has a real session and `auth.uid()`, so onboarding, profile, rules sync
+  and delete-account run unchanged. It exists so Play reviewers and testers can
+  use the whole app without a Google account (Play "Sign-in details": nothing
+  restricted). A guest account can't be signed back into, so Profile > Sign
+  out warns guests first (`session.user.is_anonymous`). Upgrading a guest to
+  Google (`linkIdentity`) is not built.
 
 `AuthContext.tsx` holds `{ loading, session, profile, saveProfile,
 signOut }`. On a session it fetches the `profiles` row; if the network
@@ -492,7 +499,8 @@ editing `.env.local`.
   production), so any Google account can sign in. Scopes are the default
   non-sensitive openid/email/profile and there is no logo, so no Google
   verification is needed; adding a logo or sensitive scopes would require it),
-  Phone (built, provider not configured).
+  Phone (built, provider not configured), Anonymous (guest; needs
+  Authentication > Sign In / Providers > "Allow anonymous sign-ins" on).
 - Redirect URL allow-list must contain `wealthflow://auth` (and the
   `exp://…/--/auth` URL when developing in Expo Go).
 

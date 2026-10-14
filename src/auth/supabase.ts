@@ -59,6 +59,14 @@ export async function signInWithGoogle(): Promise<string | null> {
   return exchangeError?.message ?? null;
 }
 
+// Supabase anonymous user: a real session and auth.uid(), so profile, rules
+// sync and delete-account work unchanged. Needs "Allow anonymous sign-ins"
+// on in the Supabase dashboard.
+export async function signInAsGuest(): Promise<string | null> {
+  const { error } = await supabase.auth.signInAnonymously();
+  return error?.message ?? null;
+}
+
 export async function sendPhoneOtp(phone: string): Promise<string | null> {
   const { error } = await supabase.auth.signInWithOtp({ phone });
   return error?.message ?? null;
