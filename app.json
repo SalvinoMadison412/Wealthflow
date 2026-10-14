@@ -25,7 +25,7 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.SYSTEM_ALERT_WINDOW"
       ],
-      "package": "com.kevin.madison.wealthflow"
+      "package": "com.kevin.madison.wealthflowapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
