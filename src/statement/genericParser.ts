@@ -1,19 +1,20 @@
 import { PageContent } from '../pdf/types';
-import { canonicalMerchantName } from './merchantNames';
+import { classifyDescription } from './descriptions';
 import { groupIntoLines } from './lines';
 import {
   inferAmounts,
+  LEADING_AMOUNT_REGEX,
+  OPENING_BALANCE_LABEL_REGEX,
   OPENING_BALANCE_REGEX,
   parseAmount,
-  parseStatementDate,
-  ROW_REGEX,
+  parseRow,
 } from './rowParsing';
 import { ParsedStatement, Transaction } from './types';
 
-// Fallback for a bank layout no registered template recognizes. Same
-// row/opening-balance shape as Kotak's (# | date | description | ... two
-// trailing amounts), just without any keyword-based description cleanup —
-// the raw description is all we can offer without knowing the bank's format.
+const VALUE_DATE_SUFFIX = /\s*\(Value Date:[^)]*\)\s*$/i;
+
+// One parser for every bank: rows are recognised by shape (see rowParsing),
+// not by a per-bank template. The bank is named separately (registry.ts).
 export function parseGeneric(pages: PageContent[]): ParsedStatement {
   const transactions: Transaction[] = [];
   let openingBalance = 0;
@@ -21,36 +22,40 @@ export function parseGeneric(pages: PageContent[]): ParsedStatement {
   let seenOpeningBalance = false;
 
   for (const page of pages) {
-    for (const line of groupIntoLines(page.items)) {
-      const openingMatch = line.text.match(OPENING_BALANCE_REGEX);
-      if (openingMatch) {
-        openingBalance = parseAmount(openingMatch[1]);
+    const lines = groupIntoLines(page.items);
+    for (let i = 0; i < lines.length; i++) {
+      const { text } = lines[i];
+      const openingMatch = text.match(OPENING_BALANCE_REGEX);
+      const openingBelow =
+        !openingMatch && OPENING_BALANCE_LABEL_REGEX.test(text) ? lines[i + 1]?.text.match(LEADING_AMOUNT_REGEX) : null;
+      const opening = openingMatch ?? openingBelow;
+      if (opening) {
+        openingBalance = parseAmount(opening[1]);
         previousBalance = openingBalance;
         seenOpeningBalance = true;
+        if (openingBelow) i++;
         continue;
       }
 
-      const rowMatch = line.text.match(ROW_REGEX);
-      if (!rowMatch) continue;
+      const row = parseRow(text);
+      if (!row) continue;
 
-      const [, dateRaw, descriptionRaw, amountRaw, balanceRaw] = rowMatch;
-      const description = descriptionRaw.trim();
-      const balance = parseAmount(balanceRaw);
-      const amount = parseAmount(amountRaw);
-      const { withdrawal, deposit } = inferAmounts(amount, balance, previousBalance);
+      const description = row.description.replace(VALUE_DATE_SUFFIX, '');
+      const { withdrawal, deposit } = inferAmounts(row.amount, row.balance, previousBalance);
+      const { merchant, refNo } = classifyDescription(description);
 
       transactions.push({
-        date: parseStatementDate(dateRaw),
+        date: row.date,
         description,
-        merchant: canonicalMerchantName(description),
-        refNo: null,
+        merchant,
+        refNo,
         withdrawal,
         deposit,
-        balance,
-        raw: line.text,
+        balance: row.balance,
+        raw: text,
       });
 
-      previousBalance = balance;
+      previousBalance = row.balance;
     }
   }
 
