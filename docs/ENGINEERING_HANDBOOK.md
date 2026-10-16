@@ -376,7 +376,7 @@ with `requestIdleCallback` so toggles stay smooth.
 
 `importStatement(pages, accountId)`: parse → reconcile → insert statement
 and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLite transaction →
-`recategorize` the new rows → `runTransferDetection`. An import is never refused; it returns `{ added, duplicates }` and the result card says how many rows were skipped.
+`recategorize` the new rows → `runTransferDetection`. The one refusal is a PDF that parses to zero transactions (scanned or an unsupported layout): it throws `NO_TRANSACTIONS_MESSAGE` before anything is written, and `ImportScreen` reports the file as unreadable instead of showing a "Balanced" result (0 + 0 = 0) or asking which account it belongs to. Otherwise an import returns `{ added, duplicates }` and the result card says how many rows were skipped.
 
 ### 5.4 Categorisation (`src/db/matching.ts`, `src/data/rulePattern.ts`)
 
