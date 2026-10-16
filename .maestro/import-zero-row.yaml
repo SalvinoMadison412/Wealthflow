@@ -1,0 +1,12 @@
+# Regression for the zero-transaction false success (fixed in PR 74).
+# Fails on a branch without that fix: the import is shown as "Balanced".
+appId: com.kevin.madison.wealthflowapp
+---
+- runFlow: subflows/onboard.yaml
+- runFlow:
+    file: subflows/pick-pdf.yaml
+    env:
+      FILE: not-a-statement.pdf
+- assertVisible: No transactions found in this PDF.*
+- assertNotVisible: Balanced.*
+- assertNotVisible: Which account is this?

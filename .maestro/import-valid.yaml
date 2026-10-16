@@ -1,0 +1,14 @@
+appId: com.kevin.madison.wealthflowapp
+---
+- runFlow: subflows/onboard.yaml
+- runFlow:
+    file: subflows/pick-pdf.yaml
+    env:
+      FILE: synthetic-statement.pdf
+- assertVisible: Which account is this?
+- tapOn: Continue
+- assertVisible: Extracted.*6.*transactions
+- assertVisible: Balanced.*
+- tapOn: Done
+- tapOn: Transactions
+- assertVisible: Blinkit
