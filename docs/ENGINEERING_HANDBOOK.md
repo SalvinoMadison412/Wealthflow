@@ -637,7 +637,7 @@ labels (no `testID`s), so the same YAML should work on iOS later.
 | Flow | Checks |
 |---|---|
 | `launch.yaml` | fresh install → Continue as guest → profile → Home |
-| `import-valid.yaml` | imports `fixtures/synthetic-statement.pdf`: 6 transactions, "Balanced", rows on Transactions |
+| `import-valid.yaml` | imports `fixtures/synthetic-statement.pdf` (its header names the bank, which the account chooser pre-fills; a statement that names none leaves the bank field blank): 6 transactions, "Balanced", rows on Transactions |
 | `import-zero-row.yaml` | imports `fixtures/not-a-statement.pdf`: must be rejected, not shown as a balanced import (fails on a build without that fix) |
 
 Both PDFs are made-up data; never commit a real statement. Shared steps live
