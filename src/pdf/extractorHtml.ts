@@ -19,7 +19,11 @@ let cachedHtml: Promise<string> | null = null;
 // didn't come from a real network URL.
 export function buildExtractorHtml(): Promise<string> {
   if (!cachedHtml) {
-    cachedHtml = load();
+    // A failed build must not be cached, or one bad read breaks import until restart.
+    cachedHtml = load().catch((err) => {
+      cachedHtml = null;
+      throw err;
+    });
   }
   return cachedHtml;
 }
@@ -67,7 +71,14 @@ async function load(): Promise<string> {
   }
 
   async function extractText(requestId, base64, password) {
-    const pdfjsLib = await loadPdfjsLib();
+    let pdfjsLib;
+    try {
+      pdfjsLib = await loadPdfjsLib();
+    } catch (err) {
+      pdfjsLibPromise = null;
+      post({ requestId: requestId, type: 'error', message: 'Could not load the PDF reader: ' + String((err && err.message) || err) });
+      return;
+    }
     const data = base64ToBytes(base64);
     let doc;
     try {
@@ -111,6 +122,7 @@ async function load(): Promise<string> {
       return;
     }
     if (message.type === 'extract') {
+      post({ requestId: message.requestId, type: 'ack' });
       extractText(message.requestId, message.base64, message.password);
     }
   }
