@@ -31,11 +31,18 @@ export const OPENING_BALANCE_LABEL_REGEX = /Opening Balance/i;
 export const LEADING_AMOUNT_REGEX = new RegExp(`^\\s*(${AMOUNT})`);
 
 const ROW_START = new RegExp(`^(?:\\d+\\s+)?(${DATE})\\s+(.+)$`);
+const ROW_START_DATE = new RegExp(`^(?:\\d+\\s+)?(${DATE})(?:\\s|$)`);
 const SECOND_DATE = new RegExp(`^(${DATE})\\s+(.+)$`);
 // description amount balance [branch code]
 const AMOUNTS_LAST = new RegExp(`^(.+?)\\s+(${AMOUNT})${DRCR}\\s+(${AMOUNT})${DRCR}(?:\\s+\\d{1,6})?$`);
 // amount balance description (Remarks column last)
 const AMOUNTS_FIRST = new RegExp(`^(${AMOUNT})${DRCR}\\s+(${AMOUNT})${DRCR}\\s+(.+)$`);
+
+// The date a row starts with (after an optional serial number), or null.
+export function rowStartDate(text: string): string | null {
+  const start = text.match(ROW_START_DATE);
+  return start ? parseDate(start[1]) : null;
+}
 
 export function parseAmount(raw: string): number {
   return Number(raw.replace(/,/g, ''));

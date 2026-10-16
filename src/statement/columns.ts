@@ -1,0 +1,190 @@
+import { PageContent, TextItem } from '../pdf/types';
+import { classifyDescription, cleanDescription } from './descriptions';
+import { groupIntoLines } from './lines';
+import { parseAmount, parseDate, parseRow, rowStartDate } from './rowParsing';
+import { Coverage, Line, Transaction } from './types';
+
+// Reads the transaction table by its columns instead of one text line at a
+// time. Real statements wrap a narration over 2-4 lines and print the amounts
+// a few points above or below the date, so a row is everything from one date
+// down to the next (a "band"), and an amount's column — found from the header
+// — says whether it is a withdrawal, a deposit or the balance.
+
+// Right edges of the amount columns (amounts are right-aligned) and where the
+// date column starts.
+type Columns = { dateX: number; debit: number; credit: number; balance: number };
+
+const LABEL = {
+  date: /date/i,
+  narration: /narration|particulars|description|remarks/i,
+  debit: /withdrawal|debit|^dr\.?$/i,
+  credit: /deposit|credit|^cr\.?$/i,
+  balance: /balance|^bal\.?$/i,
+};
+const SUMMARY_LINE = /total|opening/i;
+// Text after the last row that can sit inside the narration column.
+const END_OF_TABLE = /statement summary|opening balance|closing bal|^\s*total\b|generated on|computer generated/i;
+// "8,000" | "4,650.00" | "4,650.00 Cr"
+const AMOUNT = /^(\d[\d,]*(?:\.\d{1,2})?)(?:\s*(Dr|Cr)\.?)?$/i;
+const DRCR = /^(Dr|Cr)\.?$/i;
+const EDGE_TOLERANCE = 30; // pt between a value's right edge and its column's
+const DATE_TOLERANCE = 20; // pt a row's first item may sit right of the date column
+const ABOVE = 3; // pt an amount may sit above its date and still belong to it
+const BALANCE_TOLERANCE = 0.01;
+
+function rightEdge(item: TextItem): number {
+  return item.x + item.width;
+}
+
+function findHeader(lines: Line[]): { columns: Columns; y: number } | null {
+  for (const line of lines) {
+    if (SUMMARY_LINE.test(line.text)) continue;
+    const find = (re: RegExp) => line.items.find((item) => re.test(item.str));
+    const narration = find(LABEL.narration);
+    const debit = find(LABEL.debit);
+    const credit = find(LABEL.credit);
+    const balance = find(LABEL.balance);
+    if (!narration || !debit || !credit || !balance) continue;
+    if (new Set([narration, debit, credit, balance]).size < 4) continue;
+    const date = find(LABEL.date);
+    return {
+      y: line.y,
+      columns: {
+        dateX: date && date.x < narration.x ? date.x : line.items[0].x,
+        debit: rightEdge(debit),
+        credit: rightEdge(credit),
+        balance: rightEdge(balance),
+      },
+    };
+  }
+  return null;
+}
+
+type Band = { date: string; x: number; lines: Line[] };
+
+type Amounts = { debit: number[]; credit: number[]; balance: number[] };
+
+function amountsIn(band: Band, columns: Columns): Amounts {
+  const found: Amounts = { debit: [], credit: [], balance: [] };
+  for (const line of band.lines) {
+    line.items.forEach((item, i) => {
+      const m = item.str.trim().match(AMOUNT);
+      if (!m) return;
+      const edge = rightEdge(item);
+      const column = (['debit', 'credit', 'balance'] as const).reduce((best, c) =>
+        Math.abs(columns[c] - edge) < Math.abs(columns[best] - edge) ? c : best
+      );
+      if (Math.abs(columns[column] - edge) > EDGE_TOLERANCE) return;
+      const next = line.items[i + 1];
+      const suffix = m[2] ?? (next && next.x - edge < EDGE_TOLERANCE ? next.str.trim().match(DRCR)?.[1] : undefined);
+      const value = parseAmount(m[1]);
+      found[column].push(column === 'balance' && suffix?.toLowerCase() === 'dr' ? -value : value);
+    });
+  }
+  return found;
+}
+
+// The anchor line's description exactly as the line parser reads it (so
+// transaction ids and dedupe keys don't change), else the narration text the
+// band starts with.
+function describe(band: Band): string {
+  const first = parseRow(band.lines[0].text);
+  if (first) return first.description;
+  for (const line of band.lines) {
+    const words = line.items
+      .map((item) => item.str.trim())
+      .filter((str) => str && !AMOUNT.test(str) && !DRCR.test(str) && !parseDate(str));
+    if (words.length) return words.join(' ').replace(/^\d+\s+/, '');
+  }
+  return '';
+}
+
+export type ColumnRead = { transactions: Transaction[]; openingBalance: number; coverage: Coverage };
+
+// null when the statement has no recognisable table header or no dated rows;
+// the caller then falls back to the line parser.
+export function parseByColumns(pages: PageContent[], openingBalance: number | null): ColumnRead | null {
+  let columns: Columns | null = null;
+  const bands: Band[] = [];
+
+  for (const page of pages) {
+    const lines = groupIntoLines(page.items);
+    const header = findHeader(lines);
+    if (header) columns = header.columns; // later pages may not repeat it
+    if (!columns) continue;
+    const dateX = columns.dateX;
+    const body = header ? lines.filter((line) => line.y < header.y) : lines;
+
+    const pageStart = bands.length;
+    let band: Band | null = null;
+    for (const line of body) {
+      const date = rowStartDate(line.text);
+      const startX = line.items[0].x;
+      if (date && startX <= dateX + DATE_TOLERANCE) {
+        band = { date, x: startX, lines: [line] };
+        bands.push(band);
+        continue;
+      }
+      if (!band) continue; // between the header and the first row
+      // A line starting in the date column that is not a row (footer,
+      // summary, disclaimer) ends the table on this page.
+      if (startX < band.x + 10 || END_OF_TABLE.test(line.text)) {
+        band = null;
+        continue;
+      }
+      band.lines.push(line);
+    }
+    // Lines up to ABOVE pt over a date belong to that date's row, not the one before.
+    for (let i = pageStart + 1; i < bands.length; i++) {
+      const anchorY = bands[i].lines[0].y;
+      const previous = bands[i - 1];
+      const lifted = previous.lines.filter((line, k) => k > 0 && line.y <= anchorY + ABOVE);
+      if (lifted.length) {
+        previous.lines = previous.lines.filter((line) => !lifted.includes(line));
+        bands[i].lines.push(...lifted);
+      }
+    }
+  }
+  if (!columns || bands.length === 0) return null;
+
+  const transactions: Transaction[] = [];
+  const unreadDates: string[] = [];
+  const mismatchDates: string[] = [];
+  let opening = openingBalance;
+  let previous = openingBalance;
+
+  for (const band of bands) {
+    const { debit, credit, balance } = amountsIn(band, columns);
+    if (balance.length !== 1 || debit.length + credit.length !== 1) {
+      unreadDates.push(band.date);
+      if (balance.length === 1) previous = balance[0];
+      continue;
+    }
+    const withdrawal = debit[0] ?? null;
+    const deposit = credit[0] ?? null;
+    if (opening === null) opening = previous = balance[0] + (withdrawal ?? 0) - (deposit ?? 0);
+    if (previous !== null && Math.abs(previous - (withdrawal ?? 0) + (deposit ?? 0) - balance[0]) > BALANCE_TOLERANCE) {
+      mismatchDates.push(band.date);
+    }
+    previous = balance[0];
+
+    const description = cleanDescription(describe(band));
+    const { merchant, refNo } = classifyDescription(description);
+    transactions.push({
+      date: band.date,
+      description,
+      merchant,
+      refNo,
+      withdrawal,
+      deposit,
+      balance: balance[0],
+      raw: band.lines[0].text,
+    });
+  }
+
+  return {
+    transactions,
+    openingBalance: opening ?? 0,
+    coverage: { rowsInPdf: bands.length, rowsRead: transactions.length, unreadDates, mismatchDates },
+  };
+}

@@ -3,7 +3,9 @@ import { reconcile } from './reconciliation';
 import { parseStatement } from './registry';
 
 // The same six transactions in ten banks' table layouts (see the fixture's
-// caveat: layouts are approximations written from memory).
+// caveat: layouts are approximations written from memory). SBI and HDFC also
+// carry a wrapped narration and amounts printed below the date, which only
+// the column reader (columns.ts) can place.
 const DATES = ['2026-03-07', '2026-03-09', '2026-03-15', '2026-03-31', '2026-03-31', '2026-03-31'];
 const WITHDRAWALS = [350, 500, null, null, 2000, 300];
 const DEPOSITS = [null, null, 120000, 12.5, null, null];
@@ -24,6 +26,10 @@ describe.each(BANK_LAYOUTS.map((layout) => [layout.id, layout] as const))('%s la
     expect(statement.transactions).toHaveLength(6);
     expect(statement.openingBalance).toBe(BANK_OPENING_BALANCE);
     expect(statement.closingBalance).toBe(BANK_CLOSING_BALANCE);
+  });
+
+  test('accounts for every row in the PDF', () => {
+    expect(statement.coverage).toEqual({ rowsInPdf: 6, rowsRead: 6, unreadDates: [], mismatchDates: [] });
   });
 
   test('reconciles', () => {

@@ -22,6 +22,18 @@ export type ParsedStatement = {
   // transaction table — so the user names/identifies the account by hand
   // in the Import screen's account chooser.
   bank?: string;
+  coverage: Coverage;
+};
+
+// Proof that every transaction row in the PDF was read: rowsInPdf counts the
+// dated rows found on the page, rowsRead the ones turned into transactions.
+// A mismatch is a read row whose balance doesn't follow from the previous one
+// (previous balance - withdrawal + deposit), so a skipped or misread row shows.
+export type Coverage = {
+  rowsInPdf: number;
+  rowsRead: number;
+  unreadDates: string[];
+  mismatchDates: string[];
 };
 
 export type ReconciliationResult = {
@@ -33,6 +45,7 @@ export type ReconciliationResult = {
 
 export type Line = {
   y: number;
+  items: TextItem[]; // left to right
   text: string;
 };
 
