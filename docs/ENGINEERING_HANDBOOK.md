@@ -213,9 +213,9 @@ sync (§6) with the session.
 | `LoginScreen` | – | Supabase auth calls |
 | `OtpScreen` | route param `phone` | `verifyOtp`, resend with 30 s cooldown |
 | `OnboardingScreen` | session user metadata, existing profile | `saveProfile` (also used for edit) |
-| `HomeScreen` (the same ‹ March 2026 › stepper as Transactions picks the month for the Net and balance cards, and tapping the label switches to All months (Net sums every month, the balance card is hidden); it follows the newest month until the user steps back. The chart stays a 6-month trend and Recent stays the latest 5, whatever the month) | `hasAnyTransactions`, `listAccounts` (staleness), `listMonthsWithData`, `getMonthSummary(month | null)`, `getMonthlyTotals(6, month)`, `BalanceSummary`, `listRecentTransactions(5)`, profile (all scoped by `useAccountFilter()`, see `AccountFilter.tsx`) | – |
+| `HomeScreen` (the shared `PeriodStepper` picks the period for the Net and balance cards; a whole-year period sums the year in Net and hides the balance card. Its "Change year in Filters" note opens Transactions with the Filters sheet up. The chart stays a 6-month trend and Recent stays the latest 5, whatever the month) | `hasAnyTransactions`, `listAccounts` (staleness), `usePeriod`, `getMonthSummary(period)`, `getMonthlyTotals(6, month)`, `BalanceSummary`, `listRecentTransactions(5)`, profile (all scoped by `useAccountFilter()`, see `AccountFilter.tsx`) | – |
 | `ImportScreen` | `listAccounts` | `createAccount`, `renameAccount`, `importStatement` |
-| `TransactionsScreen` | `getSetting('advanced_access')`: off passes no `view` (every transaction, transfers included) and hides the segment, Confirm and Confirm all; `listMonthsWithData`, `listTransactions(filters)` (account via the shared filter, month, `view` (`all` = inbox: `category_override_id IS NULL AND is_transfer = 0`; `byRules` adds `matched_rule_id IS NOT NULL`), received/sent, amount range, recurring, `sort`: an `ORDER BY` picked from `SORT_SQL`), `countInbox(month, accountIds)` for the segment counts; month is a ‹ March 2026 › stepper over months with data (label taps toggle All months). Received/Sent/Net tiles sum the listed rows (transfers included). The Filters button opens a `Modal` sheet whose controls edit the screen's own filter state, so the list updates live behind it; Reset clears the sheet's filters but not the month | `finalizeTransactions` (row Confirm, Confirm all) |
+| `TransactionsScreen` | `getSetting('advanced_access')`: off passes no `view` (every transaction, transfers included) and hides the segment, Confirm and Confirm all; `listTransactions(filters)` (account via the shared filter, the shared period (`usePeriod`) (a `date >= ? AND date < ?` range from `periodRange`, so `idx_transactions_date` is used; never `strftime` on the column), `view` (`all` = inbox: `category_override_id IS NULL AND is_transfer = 0`; `byRules` adds `matched_rule_id IS NOT NULL`), received/sent, amount range, recurring, `sort`: an `ORDER BY` picked from `SORT_SQL`), `countInbox(period, accountIds)` for the segment counts; the period comes from `PeriodStepper` (shared with Home). The Filters sheet's first row is YEAR, which jumps to that year's newest month. The `openFilters` route param (a timestamp) opens the sheet; Home's note sends it. Received/Sent/Net tiles sum the listed rows (transfers included). The Filters button opens a `Modal` sheet whose controls edit the screen's own filter state, so the list updates live behind it (amount boxes are debounced 300 ms); Reset clears the sheet's filters but not the period | `finalizeTransactions` (row Confirm, Confirm all) |
 | `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one", which also finalizes the row) or `insertRule` (with `suggestPattern` prefill) then `setCategoryOverride`. A Type control (Income / Expense / Asset / Liability) filters the category grid by `kind`; its default is the current category's kind, else deposit -> income, withdrawal -> expense. Uncategorized is not offered. A type with no matching category offers a general one (`Income`, `Expenses`, `Assets`, `Liabilities`), created on tap |
 | `NewRuleFormScreen` (a Merchant / Amount switch picks the one condition the rule saves; Merchant takes a comma-separated list, with an info button explaining that case is ignored) | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
@@ -223,6 +223,14 @@ sync (§6) with the session.
 | `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, `deleteAccount` (auth context: `delete_my_account()` RPC, local sign-out, then `wipeAllData`; typed-DELETE confirm), rename/delete account, rename/recolour/retype/delete category, `setSetting('monthly_income')`, `wipeAllData` |
 | `MenuSheet` | profile, `getSetting('appearance')`, `getSetting('advanced_access')` | `setSetting('appearance')`, `setSetting('advanced_access')` (Advanced Access switch), `deleteSetting('tour_done')`; `replace()`s itself with Profile or Statements |
 | `StatementsScreen` | `listStatements` | `deleteStatement` |
+
+**Shared period (Home + Transactions).** `components/PeriodStepper.tsx`
+holds one in-memory period (`useSyncExternalStore`, reset each launch):
+none = newest month with data, `'YYYY-MM'`, or `'YYYY'` for a whole year
+(`data/period.ts` `resolvePeriod`). `<PeriodStepper>` is the ‹ October 2026 ›
+row; it steps through every month with data, crossing years, and tapping the
+label toggles "All of 2026". Below it, a small note ("Change year in Filters")
+opens the Transactions Filters sheet. There is no all-time view.
 
 Screens re-run their queries through `useQuery(fn, deps)`
 (`src/db/useQuery.ts`), which subscribes to the SQLite change listener:
@@ -345,19 +353,79 @@ that extension as an asset so Metro never tries to parse it.
 1. `lines.ts` clusters text items by baseline (±2 px) into text lines,
    read left to right. This is the seam that turns pdf.js positions back
    into table rows.
-2. `rowParsing.ts` holds the bank-agnostic pieces: the row regex (a row
-   ends in exactly two decimal numbers, amount then running balance),
-   the opening-balance regex, amount and date parsing, and `inferAmounts`,
-   which decides whether an amount was a withdrawal or a deposit from the
-   change in running balance.
-3. `registry.ts` → `parseStatement(pages)`: if `canParseKotak` recognises
-   the layout, `parseKotak` runs (UPI/salary/interest description
-   cleanup, `bank: 'Kotak Mahindra Bank'`); otherwise `parseGeneric`
-   handles any bank with the same row shape. Adding a bank = one
-   `canParseX ? parseX :` branch.
-4. `merchantNames.ts` tidies merchant display names (contains-match on a
+2. `rowParsing.ts` → `parseRow(line)` reads one transaction row by shape,
+   not by bank: `[serial] date [value date] description [ref] amount
+   balance [branch code]`, or `date amount balance description` (PNB-style).
+   Dates: `d Mon yyyy`, `dd-Mon-yyyy`, `dd/mm/yy`, `dd/mm/yyyy`,
+   `dd-mm-yyyy` (day before month). A `Dr`/`Cr` after an amount is
+   dropped; a `Dr` on the balance means overdrawn (negative). Lines that
+   do not start with a date (headers, summaries, footers) are not rows.
+   `inferAmounts` decides withdrawal vs deposit from the change in
+   running balance, so the Dr/Cr suffix is never trusted for direction.
+3. `columns.ts` reads a statement **by its table columns** when it finds a
+   header line (narration/particulars/description, withdrawal/debit,
+   deposit/credit, balance). A row is everything from one date in the date
+   column down to the next (narrations wrap over 2-4 lines and amounts can
+   sit a few points off the date's baseline). An amount's column, matched
+   by right edge to the header label, says withdrawal, deposit or balance.
+   Columns carry to later pages (HDFC prints the header once). A row band
+   ends at the next date, a line starting in the date column, or summary
+   text ("statement summary", "opening balance", "generated on"...).
+   **Without a recognised header** (unusual or Hindi labels, no header, one
+   Amount column plus a Dr/Cr type), `columnSearch.ts` finds the columns from
+   the numbers: amounts with two decimals are grouped by right edge, and
+   again by left edge for left-aligned columns (the six busiest groups each),
+   and every role assignment is tried: separate
+   withdrawal/deposit/balance columns, or one amount column whose direction
+   comes from a Dr/Cr marker or a minus sign. A reading is accepted only if
+   it chains at least 4 rows and 90% of all rows, beats every other reading
+   by max(2, 10% of rows), and ends on a printed closing balance when the
+   statement has one. Identical readings count once. Dated lines with no
+   amounts above the table (a statement period) are not rows. Otherwise the
+   line reader below takes over. `coverage.layout` records which path read
+   the statement (`header`, `search`, `lines`). A separate Dr/Cr (or
+   DEBIT/CREDIT) cell belongs to the nearest amount on the same line within
+   130pt, either side (IDBI prints it left, PNB right). Amounts may carry a
+   ₹/Rs/INR prefix, and a 0.00 in the empty Withdrawal/Deposit cell is
+   ignored.
+   **Coverage:** every parse returns `coverage = { rowsInPdf, rowsRead,
+   unreadDates, mismatchDates }`. `rowsInPdf` counts dated rows on the page;
+   a row is unread when its amounts are missing or ambiguous; a mismatch is a
+   row whose balance does not equal previous balance - withdrawal + deposit.
+   `coverage.verified` is true only on the column path: the line reader
+   works out withdrawal vs deposit from the balance change, so its rows
+   always "follow" and its imports are shown as **unverified**, never
+   Balanced. Brought/carried-forward rows ("B/F", "C/F", "Balance
+   forward", a dated "Opening/Closing Balance" row) are not transactions:
+   they seed the balance chain and are not counted. A statement whose first
+   row is later than its last (newest first) is read bottom-up.
+   The import result card lists all of this, and `statements.reconciled_ok`
+   is only true when totals reconcile, the read is verified and coverage is
+   complete. The opening balance
+   comes from the statement, or from row 1 (balance + withdrawal - deposit).
+   The description stays the anchor line's text as the line reader reads it,
+   so ids and dedupe keys do not change; wrapped narration lines are not
+   stored yet.
+4. `genericParser.ts` is the only parser. It also reads the opening
+   balance, on the same line as its label or (HDFC-style summary block)
+   on the next line. `descriptions.ts` turns a narration into a merchant
+   and bank reference: UPI shapes for Kotak, SBI, HDFC, ICICI and Axis,
+   plus salary/interest keywords. `registry.ts` → `parseStatement(pages)`
+   adds `bank`, taken from a bank name in the lines that are **not**
+   transaction rows (narrations mention other banks); none found means
+   `bank` is `undefined` and the user types it in the account chooser.
+   `description` feeds the transaction id and `dedupe_key`, so changing
+   how it is built re-imports as new rows: Kotak output is pinned (the
+   real sample statement was diffed field by field before and after).
+   Known gaps: narrations wrapped onto a second line lose the second
+   line; the Chq/Ref column is kept in the description; merchant names
+   are only extracted for the UPI shapes above; credit-card statements
+   and statements without a running balance are not supported. The other
+   banks' layouts in `fixtures/syntheticBanks.ts` are from memory of
+   public formats; confirm against real (redacted) statements.
+5. `merchantNames.ts` tidies merchant display names (contains-match on a
    curated list). Display only; it never assigns a category.
-5. `reconciliation.ts`: `opening + Σcredits − Σdebits` must equal closing
+6. `reconciliation.ts`: `opening + Σcredits − Σdebits` must equal closing
    within ₹0.01. The result is stored per statement and shown on import.
    A failed reconciliation is the signal that a parser needs work.
 
@@ -388,7 +456,7 @@ with `requestIdleCallback` so toggles stay smooth.
 
 `importStatement(pages, accountId)`: parse → reconcile → insert statement
 and transactions (`INSERT OR IGNORE` against the `dedupe_key` index) in one SQLite transaction →
-`recategorize` the new rows → `runTransferDetection`. An import is never refused; it returns `{ added, duplicates }` and the result card says how many rows were skipped.
+`recategorize` the new rows → `runTransferDetection`. The one refusal is a PDF that parses to zero transactions (scanned or an unsupported layout): it throws `NO_TRANSACTIONS_MESSAGE` before anything is written, and `ImportScreen` reports the file as unreadable instead of showing a "Balanced" result (0 + 0 = 0) or asking which account it belongs to. Otherwise an import returns `{ added, duplicates }` and the result card says how many rows were skipped.
 
 ### 5.4 Categorisation (`src/db/matching.ts`, `src/data/rulePattern.ts`)
 

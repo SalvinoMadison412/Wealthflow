@@ -41,7 +41,8 @@ export type RootStackParamList = {
 
 export type MainTabsParamList = {
   Home: undefined;
-  Transactions: undefined;
+  // openFilters: a fresh timestamp opens the Filters sheet (Home's year note).
+  Transactions: { openFilters?: number } | undefined;
   Budget: undefined;
   Rules: undefined;
 };

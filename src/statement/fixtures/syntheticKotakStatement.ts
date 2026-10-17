@@ -17,6 +17,7 @@ export const syntheticKotakPages: PageContent[] = [
   {
     pageNumber: 1,
     items: [
+      ...row('Kotak', 'Mahindra', 'Bank', 'Account', 'Statement'),
       // Deliberately out of x-order to exercise groupIntoLines' sort-by-x.
       ...[...row('Opening', 'Balance', '5,000.00')].reverse(),
       ...row('1', '07', 'Mar', '2026', 'UPI/Blinkit/643209064515/PayviaRazorpay(Value Date: 07-03-2026)', '350.00', '4,650.00'),
