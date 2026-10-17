@@ -333,16 +333,32 @@ that extension as an asset so Metro never tries to parse it.
 1. `lines.ts` clusters text items by baseline (±2 px) into text lines,
    read left to right. This is the seam that turns pdf.js positions back
    into table rows.
-2. `rowParsing.ts` holds the bank-agnostic pieces: the row regex (a row
-   ends in exactly two decimal numbers, amount then running balance),
-   the opening-balance regex, amount and date parsing, and `inferAmounts`,
-   which decides whether an amount was a withdrawal or a deposit from the
-   change in running balance.
-3. `registry.ts` → `parseStatement(pages)`: if `canParseKotak` recognises
-   the layout, `parseKotak` runs (UPI/salary/interest description
-   cleanup, `bank: 'Kotak Mahindra Bank'`); otherwise `parseGeneric`
-   handles any bank with the same row shape. Adding a bank = one
-   `canParseX ? parseX :` branch.
+2. `rowParsing.ts` → `parseRow(line)` reads one transaction row by shape,
+   not by bank: `[serial] date [value date] description [ref] amount
+   balance [branch code]`, or `date amount balance description` (PNB-style).
+   Dates: `d Mon yyyy`, `dd-Mon-yyyy`, `dd/mm/yy`, `dd/mm/yyyy`,
+   `dd-mm-yyyy` (day before month). A `Dr`/`Cr` after an amount is
+   dropped; a `Dr` on the balance means overdrawn (negative). Lines that
+   do not start with a date (headers, summaries, footers) are not rows.
+   `inferAmounts` decides withdrawal vs deposit from the change in
+   running balance, so the Dr/Cr suffix is never trusted for direction.
+3. `genericParser.ts` is the only parser. It also reads the opening
+   balance, on the same line as its label or (HDFC-style summary block)
+   on the next line. `descriptions.ts` turns a narration into a merchant
+   and bank reference: UPI shapes for Kotak, SBI, HDFC, ICICI and Axis,
+   plus salary/interest keywords. `registry.ts` → `parseStatement(pages)`
+   adds `bank`, taken from a bank name in the lines that are **not**
+   transaction rows (narrations mention other banks); none found means
+   `bank` is `undefined` and the user types it in the account chooser.
+   `description` feeds the transaction id and `dedupe_key`, so changing
+   how it is built re-imports as new rows: Kotak output is pinned (the
+   real sample statement was diffed field by field before and after).
+   Known gaps: narrations wrapped onto a second line lose the second
+   line; the Chq/Ref column is kept in the description; merchant names
+   are only extracted for the UPI shapes above; credit-card statements
+   and statements without a running balance are not supported. The other
+   banks' layouts in `fixtures/syntheticBanks.ts` are from memory of
+   public formats; confirm against real (redacted) statements.
 4. `merchantNames.ts` tidies merchant display names (contains-match on a
    curated list). Display only; it never assigns a category.
 5. `reconciliation.ts`: `opening + Σcredits − Σdebits` must equal closing
