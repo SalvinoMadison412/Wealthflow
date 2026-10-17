@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../auth/AuthContext';
 import { PressableScale } from '../components/PressableScale';
-import { BudgetScreen } from '../screens/BudgetScreen';
+import { ReportsScreen } from '../screens/ReportsScreen';
 import { CategorizeSheet } from '../screens/CategorizeSheet';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ImportScreen } from '../screens/ImportScreen';
@@ -42,7 +42,7 @@ export type RootStackParamList = {
 export type MainTabsParamList = {
   Home: undefined;
   Transactions: undefined;
-  Budget: undefined;
+  Reports: undefined;
   Rules: undefined;
 };
 
@@ -51,7 +51,7 @@ export type MainTabsParamList = {
 const tabIcons: Record<keyof MainTabsParamList, keyof typeof Feather.glyphMap> = {
   Home: 'home',
   Transactions: 'list',
-  Budget: 'pie-chart',
+  Reports: 'pie-chart',
   Rules: 'sliders',
 };
 
@@ -83,7 +83,7 @@ function QuickAddFab({ bottom }: { bottom: number }) {
 
 // Custom renderer (rather than the default bottom-tabs layout) so the 4
 // tabs and the FAB sit in 5 EQUAL-width slots — Home, Transactions, an
-// empty slot the FAB floats over, Budget, Rules — giving every gap the
+// empty slot the FAB floats over, Reports, Rules — giving every gap the
 // same width instead of 4 evenly-spaced tabs with the FAB dropped
 // asymmetrically into the middle seam.
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
@@ -135,7 +135,7 @@ function MainTabs() {
       <Tabs.Navigator screenOptions={{ headerShown: false }} tabBar={(props) => <CustomTabBar {...props} />}>
         <Tabs.Screen name="Home" component={HomeScreen} />
         <Tabs.Screen name="Transactions" component={TransactionsScreen} />
-        <Tabs.Screen name="Budget" component={BudgetScreen} />
+        <Tabs.Screen name="Reports" component={ReportsScreen} />
         <Tabs.Screen name="Rules" component={RulesListScreen} />
       </Tabs.Navigator>
       <QuickAddFab bottom={barHeight - FAB_SIZE / 2} />

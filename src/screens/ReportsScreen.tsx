@@ -13,11 +13,14 @@ import {
   CategoryBudgetRow,
   countTransactionsInMonth,
   countUncategorized,
+  getCashAsOf,
   getCategoryBudgetRows,
+  getKindTotals,
   getSetting,
   listMonthsWithData,
 } from '../db/queries';
 import { parseMonths } from '../data/decategorize';
+import { buildReports, Line } from '../data/statements';
 import { topWithOthers } from '../data/spending';
 import { DECATEGORIZED_MONTHS_SETTING } from '../db/recategorize';
 import { decategorizeMonth, enableAutoCategorise, setCategoryBudget } from '../db/transactions';
@@ -42,10 +45,10 @@ function monthLabel(month: string): string {
 }
 
 function formatRupees(n: number): string {
-  return `₹${Math.round(n).toLocaleString('en-IN')}`;
+  return `${n < 0 ? '-' : ''}₹${Math.abs(Math.round(n)).toLocaleString('en-IN')}`;
 }
 
-export function BudgetScreen() {
+export function ReportsScreen() {
   const { colors, pillPalette } = useTheme();
   const styles = useStyles(makeStyles);
   // Opens on the newest month that has data — the current calendar month is
@@ -57,6 +60,17 @@ export function BudgetScreen() {
   const monthHasData = useQuery(() => countTransactionsInMonth(month, accountIds) > 0, [month, accountId]);
   const decategorized = useQuery(() => parseMonths(getSetting(DECATEGORIZED_MONTHS_SETTING)).includes(month), [month]);
   const [autoMessage, setAutoMessage] = useState<string | null>(null);
+  const [tab, setTab] = useState<'pl' | 'bs'>('pl');
+  // P&L = the month; Balance Sheet = everything up to the end of it.
+  const monthEnd = `${month}-31`;
+  const pl = useQuery(
+    () => buildReports(getKindTotals({ from: `${month}-01`, to: monthEnd }, accountIds), 0, 0).pl,
+    [month, accountId]
+  );
+  const toDate = useQuery(() => {
+    const cash = getCashAsOf(monthEnd, accountIds);
+    return buildReports(getKindTotals({ from: '0', to: monthEnd }, accountIds), cash.opening, cash.closing);
+  }, [month, accountId]);
 
   function autoCategorize() {
     const categorised = enableAutoCategorise(month);
@@ -112,6 +126,20 @@ export function BudgetScreen() {
           </Pressable>
         </View>
 
+        <View style={styles.segment}>
+          {(['pl', 'bs'] as const).map((t) => (
+            <Pressable key={t} onPress={() => setTab(t)} style={[styles.segmentItem, tab === t && styles.segmentActive]}>
+              <Text style={[styles.segmentText, tab === t && styles.segmentTextActive]}>
+                {t === 'pl' ? 'P&L' : 'Balance Sheet'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {tab === 'bs' ? (
+          <BalanceSheet bs={toDate.bs} check={toDate.check} />
+        ) : (
+          <>
         <View style={styles.card}>
           <View style={styles.donutWrap}>
             <Donut
@@ -164,8 +192,10 @@ export function BudgetScreen() {
           </View>
         )}
 
+        <LineSection title="Income" lines={pl.income} total={pl.totalIncome} />
+
         <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Categories</Text>
+          <Text style={styles.sectionTitle}>Expenses</Text>
           {monthHasData && !decategorized && (
             <Pressable onPress={confirmDecategorize} hitSlop={8} accessibilityRole="button">
               <Text style={styles.decategorizeText}>Decategorize {monthName}</Text>
@@ -179,9 +209,64 @@ export function BudgetScreen() {
             displayRows.map((row) => <CategoryBudgetCard key={row.id} row={row} totalSpent={totalSpent} />)
           )}
         </View>
+        <View style={styles.totalCard}>
+          <Text style={styles.totalLabel}>Net profit</Text>
+          <Text style={styles.totalValue}>{formatRupees(pl.net)}</Text>
+        </View>
+          </>
+        )}
       </ScrollView>
 
     </SafeAreaView>
+  );
+}
+
+function LineSection({ title, lines, total }: { title: string; lines: Line[]; total: number }) {
+  const styles = useStyles(makeStyles);
+  return (
+    <View style={styles.categoryList}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {lines.length === 0 ? (
+        <Text style={styles.noCategoriesText}>Nothing yet.</Text>
+      ) : (
+        lines.map((l) => (
+          <View key={l.id} style={styles.lineRow}>
+            <CategoryPill name={l.name} colorIndex={l.colorIndex} />
+            <Text style={styles.lineAmount}>{formatRupees(l.amount)}</Text>
+          </View>
+        ))
+      )}
+      <View style={styles.lineRow}>
+        <Text style={styles.totalLabel}>Total {title.toLowerCase()}</Text>
+        <Text style={styles.totalValue}>{formatRupees(total)}</Text>
+      </View>
+    </View>
+  );
+}
+
+function BalanceSheet({ bs, check }: { bs: ReturnType<typeof buildReports>['bs']; check: ReturnType<typeof buildReports>['check'] }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+  const cash: Line = { id: 'cash', name: 'Cash at bank', colorIndex: 9, amount: bs.cash };
+  return (
+    <>
+      <LineSection title="Assets" lines={[cash, ...bs.assets]} total={bs.totalAssets} />
+      <LineSection title="Liabilities" lines={bs.liabilities} total={bs.totalLiabilities} />
+      <View style={styles.totalCard}>
+        <Text style={styles.totalLabel}>Net worth</Text>
+        <Text style={styles.totalValue}>{formatRupees(bs.netWorth)}</Text>
+      </View>
+      <View style={styles.lineRow}>
+        <Text style={styles.noCategoriesText}>
+          {check.ok
+            ? 'Balances with your statements'
+            : check.unclassified !== 0
+              ? `${formatRupees(Math.abs(check.unclassified))} still uncategorised`
+              : `Off by ${formatRupees(Math.abs(check.diff))}; check statements`}
+        </Text>
+        {check.ok && <Feather name="check-circle" size={16} color={colors.incomeText} />}
+      </View>
+    </>
   );
 }
 
@@ -306,6 +391,38 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   autoButtonText: { ...type.label, color: colors.accentText },
+  segment: {
+    flexDirection: 'row',
+    backgroundColor: colors.track,
+    borderRadius: radii.pill,
+    padding: spacing.xs,
+  },
+  segmentItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+  },
+  segmentActive: { backgroundColor: colors.card },
+  segmentText: { ...type.label, color: colors.textSecondary },
+  segmentTextActive: { color: colors.textPrimary },
+  lineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  lineAmount: { ...type.bodyMedium, color: colors.textPrimary },
+  totalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderRadius: radii.sheet,
+    padding: spacing.lg,
+  },
+  totalLabel: { ...type.label, color: colors.textPrimary },
+  totalValue: { ...type.h3, color: colors.textPrimary },
   sectionTitle: {
     ...type.h3,
     color: colors.textPrimary,
