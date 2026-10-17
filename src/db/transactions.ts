@@ -77,15 +77,20 @@ export function renameAccount(id: string, input: { bank?: string; ownerLabel?: s
   }
 }
 
+export const NO_TRANSACTIONS_MESSAGE =
+  'No transactions found in this PDF. It may be scanned or in a layout we don\'t support yet.';
+
 // Parses + reconciles and persists: creates the statement and its
-// transactions, then recategorizes the new rows. Never refuses an import;
-// a transaction already stored (same dedupe_key, in ANY account) is skipped
+// transactions, then recategorizes the new rows. Only refuses a PDF that
+// parses to zero rows; a transaction already stored (same dedupe_key, in ANY account) is skipped
 // and counted in `duplicates` — see makeDedupeKey.
 export function importStatement(
   pages: PageContent[],
   accountId: string
 ): { statement: ParsedStatement; reconciliation: ReconciliationResult; added: number; duplicates: number } {
   const statement = parseStatement(pages);
+  // An empty parse would otherwise "reconcile" (0 + 0 = 0) and read as success.
+  if (statement.transactions.length === 0) throw new Error(NO_TRANSACTIONS_MESSAGE);
   const reconciliation = reconcile(statement);
 
   const statementId = newId();

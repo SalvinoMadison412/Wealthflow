@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PressableScale } from '../components/PressableScale';
-import { Account, createAccount, importStatement, listAccounts, renameAccount } from '../db/transactions';
+import { Account, createAccount, importStatement, listAccounts, NO_TRANSACTIONS_MESSAGE, renameAccount } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { usePdfExtractor } from '../pdf/PdfExtractorProvider';
 import { PageContent } from '../pdf/types';
@@ -106,6 +106,8 @@ export function ImportScreen() {
           summary = importOne(result.pages, accountId, summary);
         } else {
           const detected = parseStatement(result.pages);
+          // Don't ask which account an unreadable file belongs to.
+          if (detected.transactions.length === 0) throw new Error(NO_TRANSACTIONS_MESSAGE);
           setStatus({ kind: 'chooseAccount', pages: result.pages, bank: detected.bank, rest, done: summary });
           return;
         }
@@ -122,10 +124,9 @@ export function ImportScreen() {
   }
 
   async function pickPdf(forAccountId: string | null) {
-    const picked = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true });
-    if (picked.canceled) return;
-
     try {
+      const picked = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: true });
+      if (picked.canceled) return;
       const files: string[] = [];
       for (const asset of picked.assets) files.push(await uriToBase64(asset.uri));
       await runBatch(files, forAccountId, EMPTY_SUMMARY);
@@ -137,7 +138,12 @@ export function ImportScreen() {
   // The chosen account applies to this file and every one after it.
   async function finishWithAccount(accountId: string) {
     if (status.kind !== 'chooseAccount') return;
-    const done = importOne(status.pages, accountId, status.done);
+    let done: Summary;
+    try {
+      done = importOne(status.pages, accountId, status.done);
+    } catch (err) {
+      done = { ...status.done, failed: [...status.done.failed, err instanceof Error ? err.message : String(err)] };
+    }
     await runBatch(status.rest, accountId, done);
   }
 
