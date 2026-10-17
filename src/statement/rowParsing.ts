@@ -44,6 +44,19 @@ export function rowStartDate(text: string): string | null {
   return start ? parseDate(start[1]) : null;
 }
 
+// Rows that restate a balance rather than move money: "B/F", "Balance B/F",
+// "Brought forward", "C/F", "Carried forward", an "Opening/Closing Balance" row.
+export const CARRY_ROW =
+  /\b(?:b\/f|c\/f|brought\s+forward|carried\s+forward|bal(?:ance)?\s+(?:fwd|forward))\b|\b(?:opening|closing)\s+balance\b/i;
+// The balance a carry row ends with: "... 5,000.00" | "... 5,000.00 Cr".
+export const TRAILING_BALANCE_REGEX = new RegExp(`(${AMOUNT})${DRCR}\\s*$`);
+
+// Statements printed newest transaction first are read bottom-up so each
+// balance follows from the one before it.
+export function isNewestFirst(dates: string[]): boolean {
+  return dates.length > 1 && dates[0] > dates[dates.length - 1];
+}
+
 export function parseAmount(raw: string): number {
   return Number(raw.replace(/,/g, ''));
 }

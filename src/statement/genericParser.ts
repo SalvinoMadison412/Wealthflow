@@ -7,9 +7,13 @@ import {
   LEADING_AMOUNT_REGEX,
   OPENING_BALANCE_LABEL_REGEX,
   OPENING_BALANCE_REGEX,
+  CARRY_ROW,
+  isNewestFirst,
   parseAmount,
+  ParsedRow,
   parseRow,
   rowStartDate,
+  TRAILING_BALANCE_REGEX,
 } from './rowParsing';
 import { ParsedStatement, Transaction } from './types';
 
@@ -46,13 +50,15 @@ export function parseGeneric(pages: PageContent[]): ParsedStatement {
   return parseByLines(pages);
 }
 
+type LineEvent =
+  | { kind: 'opening'; value: number }
+  | { kind: 'carry'; balance: number | null }
+  | { kind: 'row'; row: ParsedRow; text: string };
+
 function parseByLines(pages: PageContent[]): ParsedStatement {
-  const transactions: Transaction[] = [];
+  let events: LineEvent[] = [];
   const unreadDates: string[] = [];
   let rowsInPdf = 0;
-  let openingBalance = 0;
-  let previousBalance = 0;
-  let seenOpeningBalance = false;
 
   for (const page of pages) {
     const lines = groupIntoLines(page.items);
@@ -63,44 +69,75 @@ function parseByLines(pages: PageContent[]): ParsedStatement {
         !openingMatch && OPENING_BALANCE_LABEL_REGEX.test(text) ? lines[i + 1]?.text.match(LEADING_AMOUNT_REGEX) : null;
       const opening = openingMatch ?? openingBelow;
       if (opening) {
-        openingBalance = parseAmount(opening[1]);
-        previousBalance = openingBalance;
-        seenOpeningBalance = true;
+        events.push({ kind: 'opening', value: parseAmount(opening[1]) });
         if (openingBelow) i++;
         continue;
       }
 
       const startDate = rowStartDate(text);
+      if (startDate && CARRY_ROW.test(text)) {
+        const carried = text.match(TRAILING_BALANCE_REGEX);
+        const value = carried && parseAmount(carried[1]) * (carried[2]?.toLowerCase() === 'dr' ? -1 : 1);
+        events.push({ kind: 'carry', balance: carried ? value : null });
+        continue;
+      }
       if (startDate) rowsInPdf++;
       const row = parseRow(text);
       if (!row) {
         if (startDate) unreadDates.push(startDate);
         continue;
       }
-
-      const description = cleanDescription(row.description);
-      const { withdrawal, deposit } = inferAmounts(row.amount, row.balance, previousBalance);
-      const { merchant, refNo } = classifyDescription(description);
-
-      transactions.push({
-        date: row.date,
-        description,
-        merchant,
-        refNo,
-        withdrawal,
-        deposit,
-        balance: row.balance,
-        raw: text,
-      });
-
-      previousBalance = row.balance;
+      events.push({ kind: 'row', row, text });
     }
   }
 
-  // Direction here comes from the balance movement, so a row only fails to
-  // follow from the previous one when the first row is misread or rows were
-  // skipped between them; without a printed opening balance the first row is
-  // the baseline.
+  // Newest-first statements: the printed opening balance still comes first,
+  // then the rows (and brought/carried-forward rows) bottom-up.
+  const rowDates = events.flatMap((e) => (e.kind === 'row' ? [e.row.date] : []));
+  if (isNewestFirst(rowDates)) {
+    events = [...events.filter((e) => e.kind === 'opening'), ...events.filter((e) => e.kind !== 'opening').reverse()];
+    unreadDates.reverse();
+  }
+
+  const transactions: Transaction[] = [];
+  let openingBalance = 0;
+  let previousBalance = 0;
+  let seenOpeningBalance = false;
+  for (const event of events) {
+    if (event.kind === 'opening') {
+      openingBalance = previousBalance = event.value;
+      seenOpeningBalance = true;
+      continue;
+    }
+    if (event.kind === 'carry') {
+      if (event.balance === null) continue;
+      if (!seenOpeningBalance && transactions.length === 0) {
+        openingBalance = event.balance;
+        seenOpeningBalance = true;
+      }
+      previousBalance = event.balance;
+      continue;
+    }
+    const { row, text } = event;
+    const description = cleanDescription(row.description);
+    const { withdrawal, deposit } = inferAmounts(row.amount, row.balance, previousBalance);
+    const { merchant, refNo } = classifyDescription(description);
+    transactions.push({
+      date: row.date,
+      description,
+      merchant,
+      refNo,
+      withdrawal,
+      deposit,
+      balance: row.balance,
+      raw: text,
+    });
+    previousBalance = row.balance;
+  }
+
+  // Direction here comes from the balance movement, so the check below can
+  // only catch skipped rows, never a misread one: coverage is unverified.
+  // Without a printed opening balance the first row is the baseline.
   const mismatchDates: string[] = [];
   let previous: number | null = seenOpeningBalance ? openingBalance : null;
   for (const t of transactions) {
@@ -114,6 +151,12 @@ function parseByLines(pages: PageContent[]): ParsedStatement {
     openingBalance: seenOpeningBalance ? openingBalance : transactions[0]?.balance ?? 0,
     closingBalance: transactions[transactions.length - 1]?.balance ?? previousBalance,
     transactions,
-    coverage: { rowsInPdf: Math.max(rowsInPdf, transactions.length), rowsRead: transactions.length, unreadDates, mismatchDates },
+    coverage: {
+      verified: false,
+      rowsInPdf: Math.max(rowsInPdf, transactions.length),
+      rowsRead: transactions.length,
+      unreadDates,
+      mismatchDates,
+    },
   };
 }

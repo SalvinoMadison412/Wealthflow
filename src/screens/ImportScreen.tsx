@@ -53,6 +53,8 @@ type Summary = {
   // follow from the previous one (statement/types.ts Coverage).
   unread: number;
   mismatched: number;
+  // Statements read line by line, where the balance check can't confirm rows.
+  unverified: number;
   failed: string[];
   last: { statement: ParsedStatement; reconciliation: ReconciliationResult } | null;
 };
@@ -64,6 +66,7 @@ const EMPTY_SUMMARY: Summary = {
   unbalanced: 0,
   unread: 0,
   mismatched: 0,
+  unverified: 0,
   failed: [],
   last: null,
 };
@@ -103,7 +106,9 @@ export function ImportScreen() {
       extracted: done.extracted + statement.transactions.length,
       added: done.added + added,
       duplicates: done.duplicates + duplicates,
-      unbalanced: done.unbalanced + (reconciliation.ok && unread === 0 && coverage.mismatchDates.length === 0 ? 0 : 1),
+      unbalanced:
+        done.unbalanced + (reconciliation.ok && coverage.verified && unread === 0 && coverage.mismatchDates.length === 0 ? 0 : 1),
+      unverified: done.unverified + (coverage.verified ? 0 : 1),
       unread: done.unread + unread,
       mismatched: done.mismatched + coverage.mismatchDates.length,
       last: { statement, reconciliation },
@@ -431,7 +436,8 @@ function ResultCard({ summary, onDone }: { summary: Summary; onDone: () => void 
   const { statement, reconciliation } = summary.last!;
   const single = summary.files === 1;
   const fullyRead = summary.unread === 0 && summary.mismatched === 0;
-  const balanced = single ? reconciliation.ok && fullyRead : summary.unbalanced === 0;
+  const verified = summary.unverified === 0;
+  const balanced = single ? reconciliation.ok && fullyRead && verified : summary.unbalanced === 0;
   const badge = balanced ? pillPalette[1] : pillPalette[3];
   return (
     <View style={styles.resultBox}>
@@ -472,12 +478,16 @@ function ResultCard({ summary, onDone }: { summary: Summary; onDone: () => void 
           {single
             ? balanced
               ? 'Balanced — opening + credits − debits matches the closing balance.'
-              : reconciliation.ok
-                ? 'The totals match, but some rows need checking.'
-                : `Off by ₹${Math.abs(reconciliation.delta).toFixed(2)}.`
+              : !verified
+                ? "Unverified — this layout was read line by line, so the balances can't confirm each row. Check a few transactions."
+                : reconciliation.ok
+                  ? 'The totals match, but some rows need checking.'
+                  : `Off by ₹${Math.abs(reconciliation.delta).toFixed(2)}.`
             : balanced
               ? 'All statements balanced.'
-              : `${summary.unbalanced} of ${summary.files} statements didn't balance.`}
+              : summary.unverified > 0
+                ? `${summary.unbalanced} of ${summary.files} statements need checking (${summary.unverified} read line by line, unverified).`
+                : `${summary.unbalanced} of ${summary.files} statements didn't balance.`}
         </Text>
       </View>
 

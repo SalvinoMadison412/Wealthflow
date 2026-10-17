@@ -77,10 +77,11 @@ export function renameAccount(id: string, input: { bank?: string; ownerLabel?: s
   }
 }
 
-// Balanced only counts when every dated row in the PDF was read and each one
-// follows from the previous balance (see Coverage in statement/types.ts).
+// Balanced only counts when the rows were read by column (verified), every
+// dated row in the PDF was read and each one follows from the previous
+// balance (see Coverage in statement/types.ts).
 function fullyRead({ coverage }: ParsedStatement): boolean {
-  return coverage.rowsRead === coverage.rowsInPdf && coverage.mismatchDates.length === 0;
+  return coverage.verified && coverage.rowsRead === coverage.rowsInPdf && coverage.mismatchDates.length === 0;
 }
 
 // Parses + reconciles and persists: creates the statement and its

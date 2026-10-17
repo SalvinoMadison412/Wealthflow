@@ -30,6 +30,10 @@ export type ParsedStatement = {
 // A mismatch is a read row whose balance doesn't follow from the previous one
 // (previous balance - withdrawal + deposit), so a skipped or misread row shows.
 export type Coverage = {
+  // True when each row's withdrawal/deposit came from its column, so the
+  // balance check can catch a misread row. The line reader works direction
+  // out from the balance itself, so its rows always "follow": unverified.
+  verified: boolean;
   rowsInPdf: number;
   rowsRead: number;
   unreadDates: string[];

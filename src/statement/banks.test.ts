@@ -29,7 +29,12 @@ describe.each(BANK_LAYOUTS.map((layout) => [layout.id, layout] as const))('%s la
   });
 
   test('accounts for every row in the PDF', () => {
-    expect(statement.coverage).toEqual({ rowsInPdf: 6, rowsRead: 6, unreadDates: [], mismatchDates: [] });
+    expect(statement.coverage).toMatchObject({ rowsInPdf: 6, rowsRead: 6, unreadDates: [], mismatchDates: [] });
+  });
+
+  test('is verified by column unless the layout has no withdrawal/deposit columns', () => {
+    // PNB-style: one Amount column plus a Dr/Cr type, read by the line reader.
+    expect(statement.coverage.verified).toBe(id !== 'pnb');
   });
 
   test('reconciles', () => {
@@ -69,3 +74,30 @@ test('another bank named inside a narration is not the statement bank', () => {
 });
 
 test.todo('narrations wrapped onto a second line keep their continuation text');
+
+// Statements printed latest-first, and brought/carried-forward rows, in every
+// layout: still six transactions, oldest first, each following the last.
+describe.each(
+  BANK_LAYOUTS.flatMap((layout) =>
+    [
+      { newestFirst: true },
+      { carryRows: true },
+      { newestFirst: true, carryRows: true },
+    ].map((opts) => [`${layout.id} ${JSON.stringify(opts)}`, layout, opts] as const)
+  )
+)('%s', (_name, layout, opts) => {
+  const statement = parseStatement(syntheticBankPages(layout, opts));
+
+  test('reads six transactions oldest first and balances', () => {
+    expect(statement.transactions.map((t) => t.date)).toEqual(DATES);
+    expect(statement.transactions.map((t) => t.withdrawal)).toEqual(WITHDRAWALS);
+    expect(statement.transactions.map((t) => t.deposit)).toEqual(DEPOSITS);
+    expect(statement.openingBalance).toBe(BANK_OPENING_BALANCE);
+    expect(statement.closingBalance).toBe(BANK_CLOSING_BALANCE);
+    expect(reconcile(statement).ok).toBe(true);
+  });
+
+  test('does not count brought/carried-forward rows as transactions', () => {
+    expect(statement.coverage).toMatchObject({ rowsInPdf: 6, rowsRead: 6, unreadDates: [], mismatchDates: [] });
+  });
+});

@@ -1,7 +1,7 @@
 import { PageContent, TextItem } from '../pdf/types';
 import { classifyDescription, cleanDescription } from './descriptions';
 import { groupIntoLines } from './lines';
-import { parseAmount, parseDate, parseRow, rowStartDate } from './rowParsing';
+import { CARRY_ROW, isNewestFirst, parseAmount, parseDate, parseRow, rowStartDate } from './rowParsing';
 import { Coverage, Line, Transaction } from './types';
 
 // Reads the transaction table by its columns instead of one text line at a
@@ -152,9 +152,22 @@ export function parseByColumns(pages: PageContent[], openingBalance: number | nu
   const mismatchDates: string[] = [];
   let opening = openingBalance;
   let previous = openingBalance;
+  let carryRows = 0;
+  const ordered = isNewestFirst(bands.map((band) => band.date)) ? [...bands].reverse() : bands;
 
-  for (const band of bands) {
+  for (const band of ordered) {
     const { debit, credit, balance } = amountsIn(band, columns);
+    const description = cleanDescription(describe(band));
+    if (CARRY_ROW.test(description)) {
+      // A brought/carried-forward row restates the balance; it seeds the
+      // chain (and the opening balance, when the statement prints none).
+      carryRows++;
+      if (balance.length === 1) {
+        if (opening === null && transactions.length === 0) opening = balance[0];
+        previous = balance[0];
+      }
+      continue;
+    }
     if (balance.length !== 1 || debit.length + credit.length !== 1) {
       unreadDates.push(band.date);
       if (balance.length === 1) previous = balance[0];
@@ -168,7 +181,6 @@ export function parseByColumns(pages: PageContent[], openingBalance: number | nu
     }
     previous = balance[0];
 
-    const description = cleanDescription(describe(band));
     const { merchant, refNo } = classifyDescription(description);
     transactions.push({
       date: band.date,
@@ -185,6 +197,12 @@ export function parseByColumns(pages: PageContent[], openingBalance: number | nu
   return {
     transactions,
     openingBalance: opening ?? 0,
-    coverage: { rowsInPdf: bands.length, rowsRead: transactions.length, unreadDates, mismatchDates },
+    coverage: {
+      verified: true,
+      rowsInPdf: bands.length - carryRows,
+      rowsRead: transactions.length,
+      unreadDates,
+      mismatchDates,
+    },
   };
 }

@@ -356,8 +356,16 @@ that extension as an asset so Metro never tries to parse it.
    unreadDates, mismatchDates }`. `rowsInPdf` counts dated rows on the page;
    a row is unread when its amounts are missing or ambiguous; a mismatch is a
    row whose balance does not equal previous balance - withdrawal + deposit.
-   The import result card lists both, and `statements.reconciled_ok` is only
-   true when totals reconcile and coverage is complete. The opening balance
+   `coverage.verified` is true only on the column path: the line reader
+   works out withdrawal vs deposit from the balance change, so its rows
+   always "follow" and its imports are shown as **unverified**, never
+   Balanced. Brought/carried-forward rows ("B/F", "C/F", "Balance
+   forward", a dated "Opening/Closing Balance" row) are not transactions:
+   they seed the balance chain and are not counted. A statement whose first
+   row is later than its last (newest first) is read bottom-up.
+   The import result card lists all of this, and `statements.reconciled_ok`
+   is only true when totals reconcile, the read is verified and coverage is
+   complete. The opening balance
    comes from the statement, or from row 1 (balance + withdrawal - deposit).
    The description stays the anchor line's text as the line reader reads it,
    so ids and dedupe keys do not change; wrapped narration lines are not

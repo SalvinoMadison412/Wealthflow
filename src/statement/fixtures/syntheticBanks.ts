@@ -83,7 +83,7 @@ const dates = {
   ddDashMonY: (d: number) => `${String(d).padStart(2, '0')}-${MON}-2026`,
 };
 
-type Cell = { i: number; date: string; desc: string; ref: string; debit?: string; credit?: string; bal: string; amt: string; dir: 'Dr' | 'Cr' };
+type Cell = { i: number; date: string; desc: string; ref: string; debit?: string; credit?: string; bal: string; amt: string; dir?: 'Dr' | 'Cr' };
 type Layout = {
   id: string;
   bankName: string;
@@ -154,7 +154,13 @@ export const BANK_LAYOUTS: Layout[] = [
   },
 ];
 
-export function syntheticBankPages(layout: Layout): PageContent[] {
+// newestFirst: rows printed latest first (balances still chronological).
+// carryRows: a "BALANCE B/F" row before the first transaction and a
+// "BALANCE C/F" row after the last, each carrying only a balance.
+export function syntheticBankPages(
+  layout: Layout,
+  opts: { newestFirst?: boolean; carryRows?: boolean } = {}
+): PageContent[] {
   const pages: PageContent[] = [];
   let items: TextItem[] = [];
   let y = 560;
@@ -178,10 +184,37 @@ export function syntheticBankPages(layout: Layout): PageContent[] {
   for (const [label, x] of layout.columns) put(x, label);
   nextLine();
 
-  let balance = BANK_OPENING_BALANCE;
-  TX.forEach((tx, index) => {
-    if (layout.hdfcPaging && index === 4) newPage();
-    balance += tx.credit ? tx.amount : -tx.amount;
+  type Entry = { tx?: (typeof TX)[number]; index: number; balance: number; carry?: string; day: number };
+  let running = BANK_OPENING_BALANCE;
+  let entries: Entry[] = TX.map((tx, index) => {
+    running += tx.credit ? tx.amount : -tx.amount;
+    return { tx, index, balance: running, day: tx.day };
+  });
+  if (opts.carryRows) {
+    entries = [
+      { index: -1, balance: BANK_OPENING_BALANCE, carry: 'BALANCE B/F', day: TX[0].day },
+      ...entries,
+      { index: -1, balance: running, carry: 'BALANCE C/F', day: TX[TX.length - 1].day },
+    ];
+  }
+  if (opts.newestFirst) entries.reverse();
+
+  entries.forEach((entry, position) => {
+    if (layout.hdfcPaging && position === 4) newPage();
+    if (entry.carry) {
+      const cells = layout.cells({ i: 0, date: layout.date(entry.day), desc: entry.carry, ref: '', bal: layout.money(entry.balance), amt: '' });
+      layout.columns.forEach(([label, x], col) => {
+        const text = cells[col];
+        if (!text || text === '0') return;
+        if (/^\d[\d,]*\.\d{2}( Cr)?$/.test(text)) put(x + label.length * 4 - text.length * 4, text);
+        else put(x, text);
+      });
+      nextLine(16);
+      return;
+    }
+    const tx = entry.tx!;
+    const index = entry.index;
+    const balance = entry.balance;
     const money = layout.money(tx.amount);
     const desc = NARRATION[layout.narration][tx.key];
     const wrap = layout.wrapAndOffset && index === 2;
