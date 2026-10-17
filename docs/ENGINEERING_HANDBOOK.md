@@ -363,9 +363,11 @@ that extension as an asset so Metro never tries to parse it.
    statement has one. Identical readings count once. Dated lines with no
    amounts above the table (a statement period) are not rows. Otherwise the
    line reader below takes over. `coverage.layout` records which path read
-   the statement (`header`, `search`, `lines`). pdf.js puts blank spacer
-   items between text runs, so a Dr/Cr cell is looked for at the next
-   non-blank item.
+   the statement (`header`, `search`, `lines`). A separate Dr/Cr (or
+   DEBIT/CREDIT) cell belongs to the nearest amount on the same line within
+   130pt, either side (IDBI prints it left, PNB right). Amounts may carry a
+   ₹/Rs/INR prefix, and a 0.00 in the empty Withdrawal/Deposit cell is
+   ignored.
    **Coverage:** every parse returns `coverage = { rowsInPdf, rowsRead,
    unreadDates, mismatchDates }`. `rowsInPdf` counts dated rows on the page;
    a row is unread when its amounts are missing or ambiguous; a mismatch is a

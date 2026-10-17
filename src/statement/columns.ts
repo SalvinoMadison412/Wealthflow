@@ -16,17 +16,21 @@ type Columns = { dateX: number; debit: number; credit: number; balance: number }
 
 const LABEL = {
   date: /date/i,
-  narration: /narration|particulars|description|remarks/i,
-  debit: /withdrawal|debit|^dr\.?$/i,
+  narration: /narration|particulars|description|remarks|details/i,
+  debit: /withdraw|debit|^dr\.?$/i,
   credit: /deposit|credit|^cr\.?$/i,
   balance: /balance|^bal\.?$/i,
 };
 const SUMMARY_LINE = /total|opening/i;
 // Text after the last row that can sit inside the narration column.
-export const END_OF_TABLE = /statement summary|opening balance|closing bal|^\s*total\b|generated on|computer generated/i;
+export const END_OF_TABLE =
+  /statement summary|opening balance|closing bal|^\s*total\b|page\s+total|generated on|computer generated/i;
 // "8,000" | "4,650.00" | "4,650.00 Cr"
-const AMOUNT = /^(\d[\d,]*(?:\.\d{1,2})?)(?:\s*(Dr|Cr)\.?)?$/i;
-export const DRCR = /^(Dr|Cr)\.?$/i;
+// An optional currency sign (₹, Rs., INR) may prefix the number.
+export const CURRENCY = /^(?:₹|Rs\.?|INR)\s*/i;
+const AMOUNT = /^(?:₹|Rs\.?|INR)?\s*(\d[\d,]*(?:\.\d{1,2})?)(?:\s*(Dr|Cr)\.?)?$/i;
+// A Dr/Cr marker, as Dr/Cr or spelled out (PNB prints DEBIT/CREDIT).
+export const DRCR = /^(Dr|Cr|Debit|Credit)\.?$/i;
 const EDGE_TOLERANCE = 30; // pt between a value's right edge and its column's
 const DATE_TOLERANCE = 20; // pt a row's first item may sit right of the date column
 const ABOVE = 3; // pt an amount may sit above its date and still belong to it
@@ -79,7 +83,7 @@ function amountsIn(band: Band, columns: Columns): Amounts {
       const next = line.items.slice(i + 1).find((other) => other.str.trim());
       const suffix = m[2] ?? (next && next.x - edge < EDGE_TOLERANCE ? next.str.trim().match(DRCR)?.[1] : undefined);
       const value = parseAmount(m[1]);
-      found[column].push(column === 'balance' && suffix?.toLowerCase() === 'dr' ? -value : value);
+      found[column].push(column === 'balance' && suffix?.[0].toLowerCase() === 'd' ? -value : value);
     });
   }
   return found;
@@ -145,6 +149,16 @@ export function bandsOn(body: Line[], dateX: number): Band[] {
   return bands;
 }
 
+// Some banks print 0.00 in the empty Withdrawal or Deposit cell. When a row has
+// both, the zero is the empty one.
+function withoutZeroFill({ debit, credit, balance }: Amounts): Amounts {
+  if (debit.length === 1 && credit.length === 1) {
+    if (debit[0] === 0 && credit[0] !== 0) return { debit: [], credit, balance };
+    if (credit[0] === 0 && debit[0] !== 0) return { debit, credit: [], balance };
+  }
+  return { debit, credit, balance };
+}
+
 // Turns bands into transactions given how to find each band's amounts, and
 // checks every row against the running balance (oldest first; B/F and C/F
 // rows only seed the chain).
@@ -163,7 +177,7 @@ export function readBands(
   const ordered = isNewestFirst(bands.map((band) => band.date)) ? [...bands].reverse() : bands;
 
   for (const band of ordered) {
-    const { debit, credit, balance } = amountsOf(band);
+    const { debit, credit, balance } = withoutZeroFill(amountsOf(band));
     const description = describe(band);
     if (CARRY_ROW.test(description)) {
       // A brought/carried-forward row restates the balance; it seeds the

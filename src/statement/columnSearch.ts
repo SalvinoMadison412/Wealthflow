@@ -1,4 +1,4 @@
-import { PageContent } from '../pdf/types';
+import { PageContent, TextItem } from '../pdf/types';
 import { Amounts, Band, bandsOn, ColumnRead, DRCR, readBands, rightEdge } from './columns';
 import { groupIntoLines } from './lines';
 import { parseAmount, rowStartDate } from './rowParsing';
@@ -10,14 +10,48 @@ import { parseAmount, rowStartDate } from './rowParsing';
 // and it needs no knowledge of the bank.
 
 // Two decimals required, so reference numbers never form a column.
-const AMOUNT = /^(-)?(\d[\d,]*\.\d{2})(?:\s*(Dr|Cr)\.?)?$/i;
+const AMOUNT = /^(?:₹|Rs\.?|INR)?\s*(-)?(\d[\d,]*\.\d{2})(?:\s*(Dr|Cr)\.?)?$/i;
 const CLUSTER_TOLERANCE = 15; // pt between right edges in one column
 const MAX_CLUSTERS = 6; // caps the search at ~300 hypotheses (two edges)
-const TYPE_DISTANCE = 60; // pt from an amount to a separate Dr/Cr column
+const TYPE_DISTANCE = 130; // pt from an amount to a separate Dr/Cr column (either side)
 const MIN_ROWS = 4;
 const MIN_SHARE = 0.9;
 
+// "Dr" | "DEBIT" -> 'dr'; "Cr" | "CREDIT" -> 'cr'.
+function directionOf(marker: string | undefined): 'dr' | 'cr' | undefined {
+  return marker ? (marker[0].toLowerCase() === 'd' ? 'dr' : 'cr') : undefined;
+}
+
 type Token = { band: Band; value: number; minus: boolean; marker?: 'dr' | 'cr'; cluster: number };
+
+// A separate Dr/Cr (or DEBIT/CREDIT) cell belongs to the amount nearest to it
+// on the same line (IDBI prints it left of the amount, PNB right of it).
+function markersByAmount(items: TextItem[]): Map<number, string> {
+  // An amount that carries its own Dr/Cr suffix (a balance printed "4,650.00 Cr")
+  // needs no marker, and must not take the one meant for the amount beside it.
+  const amounts = items.flatMap((item, index) => {
+    const m = item.str.trim().match(AMOUNT);
+    return m && !m[3] ? [index] : [];
+  });
+  const found = new Map<number, string>();
+  const nearestGap = new Map<number, number>();
+  items.forEach((cell) => {
+    const m = cell.str.trim().match(DRCR);
+    if (!m) return;
+    let best: { index: number; gap: number } | undefined;
+    for (const index of amounts) {
+      const amount = items[index];
+      const gap = cell.x >= rightEdge(amount) ? cell.x - rightEdge(amount) : amount.x - rightEdge(cell);
+      if (gap < 0 || gap > TYPE_DISTANCE) continue;
+      if (!best || gap < best.gap) best = { index, gap };
+    }
+    if (best && best.gap < (nearestGap.get(best.index) ?? Infinity)) {
+      found.set(best.index, m[1]);
+      nearestGap.set(best.index, best.gap);
+    }
+  });
+  return found;
+}
 
 type RawToken = Omit<Token, 'cluster'> & { left: number; right: number };
 
@@ -25,13 +59,13 @@ function tokensIn(bands: Band[]): RawToken[] {
   const tokens: RawToken[] = [];
   for (const band of bands) {
     for (const line of band.lines) {
+      const markers = markersByAmount(line.items);
       line.items.forEach((item, i) => {
         const m = item.str.trim().match(AMOUNT);
         if (!m) return;
         const right = rightEdge(item);
         // pdf.js puts blank spacer items between runs; skip them.
-        const next = line.items.slice(i + 1).find((other) => other.str.trim());
-        const marker = (m[3] ?? (next && next.x - right < TYPE_DISTANCE ? next.str.trim().match(DRCR)?.[1] : undefined))?.toLowerCase();
+        const marker = directionOf(m[3] ?? markers.get(i));
         tokens.push({ band, value: parseAmount(m[2]), minus: Boolean(m[1]), marker: marker as Token['marker'], left: item.x, right });
       });
     }
