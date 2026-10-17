@@ -110,6 +110,9 @@ export function TransactionsScreen() {
   const [recurringOnly, setRecurringOnly] = useState(false);
   const [sort, setSort] = useState<TransactionSort>('newest');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const search = useDebounced(searchText).trim();
   const yearScroll = useRef<ScrollView>(null);
   const [minText, setMinText] = useState('');
   const [maxText, setMaxText] = useState('');
@@ -136,9 +139,10 @@ export function TransactionsScreen() {
         recurringOnly,
         minAmount,
         maxAmount,
+        search,
         sort,
       }),
-    [accountId, period, advanced, view, direction, recurringOnly, minAmount, maxAmount, sort]
+    [accountId, period, advanced, view, direction, recurringOnly, minAmount, maxAmount, search, sort]
   );
 
   // Sorting by amount breaks the day grouping, so rows go flat and carry their own date.
@@ -205,6 +209,16 @@ export function TransactionsScreen() {
       <AccountFilter />
       <View style={styles.titleRow}>
         <Text style={styles.title}>Transactions</Text>
+        <View style={styles.titleActions}>
+        <Pressable
+          onPress={() => setSearchOpen((o) => !o)}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel="Search"
+          style={[styles.searchButton, (searchOpen || searchText !== '') && styles.filterButtonOn]}
+        >
+          <Feather name="search" size={16} color={searchOpen || searchText !== '' ? colors.accentText : colors.textPrimary} />
+        </Pressable>
         <Pressable
           onPress={() => setFiltersOpen(true)}
           hitSlop={6}
@@ -220,7 +234,29 @@ export function TransactionsScreen() {
             </View>
           )}
         </Pressable>
+        </View>
       </View>
+
+      {searchOpen && (
+        <View style={styles.searchField}>
+          <Feather name="search" size={16} color={colors.textSecondary} />
+          <TextInput
+            style={styles.searchInput}
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholder="Search merchant"
+            placeholderTextColor={colors.textSecondary}
+            autoFocus
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+          {searchText !== '' && (
+            <Pressable onPress={() => setSearchText('')} hitSlop={10} accessibilityLabel="Clear search">
+              <Feather name="x" size={16} color={colors.textSecondary} />
+            </Pressable>
+          )}
+        </View>
+      )}
 
       <View style={styles.period}>
         <PeriodStepper onChangeYear={() => setFiltersOpen(true)} />
@@ -273,7 +309,7 @@ export function TransactionsScreen() {
       {sections.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>
-            {filterCount > 0 ? 'No transactions match these filters' : advanced ? 'All caught up' : 'No transactions here'}
+            {search ? `No matches for "${search}"` : filterCount > 0 ? 'No transactions match these filters' : advanced ? 'All caught up' : 'No transactions here'}
           </Text>
           {advanced && filterCount === 0 && (
             <Text style={styles.emptySubtitle}>
@@ -284,6 +320,11 @@ export function TransactionsScreen() {
           )}
           {recurringOnly && (
             <Text style={styles.emptySubtitle}>Recurring needs at least two months of statements.</Text>
+          )}
+          {search !== '' && (
+            <PressableScale style={styles.clearButton} onPress={() => setSearchText('')}>
+              <Text style={styles.clearButtonText}>Clear search</Text>
+            </PressableScale>
           )}
           {filterCount > 0 && (
             <PressableScale style={styles.clearButton} onPress={resetFilters}>
@@ -442,6 +483,30 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   title: { ...type.h1, color: colors.textPrimary },
+  titleActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  searchButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.pageGutter,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchInput: { flex: 1, ...type.body, color: colors.textPrimary, paddingVertical: spacing.sm },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
