@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, SectionList, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -110,6 +110,7 @@ export function TransactionsScreen() {
   const [recurringOnly, setRecurringOnly] = useState(false);
   const [sort, setSort] = useState<TransactionSort>('newest');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const yearScroll = useRef<ScrollView>(null);
   const [minText, setMinText] = useState('');
   const [maxText, setMaxText] = useState('');
   const minAmount = parseAmount(useDebounced(minText));
@@ -221,7 +222,9 @@ export function TransactionsScreen() {
         </Pressable>
       </View>
 
-      <PeriodStepper onChangeYear={() => setFiltersOpen(true)} />
+      <View style={styles.period}>
+        <PeriodStepper onChangeYear={() => setFiltersOpen(true)} />
+      </View>
 
       {advanced && (
         <View style={styles.viewSegment}>
@@ -327,11 +330,26 @@ export function TransactionsScreen() {
 
             <ScrollView contentContainerStyle={styles.sheetBody}>
               <Text style={[styles.sectionLabel, styles.firstLabel]}>YEAR</Text>
-              <View style={styles.chipWrap}>
+              {/* One scrolling line, edge to edge; opens scrolled to the chosen year. */}
+              <ScrollView
+                ref={yearScroll}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.yearScroll}
+                contentContainerStyle={styles.yearRow}
+              >
                 {years.map((y) => (
-                  <FilterChip key={y} label={y} selected={year === y} onPress={() => pickYear(y)} />
+                  <View
+                    key={y}
+                    onLayout={(e) =>
+                      y === year &&
+                      yearScroll.current?.scrollTo({ x: Math.max(0, e.nativeEvent.layout.x - spacing.pageGutter), animated: false })
+                    }
+                  >
+                    <FilterChip label={y} selected={year === y} onPress={() => pickYear(y)} />
+                  </View>
                 ))}
-              </View>
+              </ScrollView>
 
               <Text style={styles.sectionLabel}>SORT BY</Text>
               <View style={styles.chipWrap}>
@@ -517,6 +535,10 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   toggleText: { flex: 1 },
   toggleTitle: { ...type.body, color: colors.textPrimary },
   toggleHint: { ...type.caption, color: colors.textSecondary },
+  // titleRow already gives 8 above; tiles follow with none of their own on top.
+  period: { paddingTop: spacing.sm, paddingBottom: spacing.lg },
+  yearScroll: { marginHorizontal: -spacing.pageGutter },
+  yearRow: { gap: spacing.sm, paddingHorizontal: spacing.pageGutter },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   sheetFooter: {
     paddingHorizontal: spacing.pageGutter,

@@ -40,6 +40,7 @@ function label(period: string): string {
 }
 
 // ‹ October 2026 › plus a quiet note pointing at where the year is changed.
+// No outer spacing: each screen spaces it 16 above and below.
 export function PeriodStepper({ onChangeYear }: { onChangeYear: () => void }) {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
@@ -53,6 +54,8 @@ export function PeriodStepper({ onChangeYear }: { onChangeYear: () => void }) {
           onPress={() => setPeriod(older)}
           disabled={!older}
           hitSlop={13}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !older }}
           accessibilityLabel={month ? 'Older month' : 'Older year'}
           style={!older && styles.disabled}
         >
@@ -60,7 +63,8 @@ export function PeriodStepper({ onChangeYear }: { onChangeYear: () => void }) {
         </Pressable>
         <Pressable
           onPress={() => setPeriod(month ? year! : undefined)}
-          hitSlop={8}
+          hitSlop={11}
+          accessibilityRole="button"
           accessibilityLabel={month ? 'Show the whole year' : 'Show one month'}
         >
           <Text style={styles.label}>{label(period)}</Text>
@@ -69,14 +73,23 @@ export function PeriodStepper({ onChangeYear }: { onChangeYear: () => void }) {
           onPress={() => setPeriod(newer)}
           disabled={!newer}
           hitSlop={13}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !newer }}
           accessibilityLabel={month ? 'Newer month' : 'Newer year'}
           style={!newer && styles.disabled}
         >
           <Feather name="chevron-right" size={22} color={colors.textPrimary} />
         </Pressable>
       </View>
-      <Pressable onPress={onChangeYear} hitSlop={{ top: 14, bottom: 14, left: 24, right: 24 }} style={styles.note} accessibilityRole="button">
-        <Feather name="info" size={11} color={colors.textSecondary} />
+      {/* Top slop stays small so it can't steal taps from the label above. */}
+      <Pressable
+        onPress={onChangeYear}
+        hitSlop={{ top: 6, bottom: 18, left: 24, right: 24 }}
+        style={styles.note}
+        accessibilityRole="button"
+        accessibilityLabel="Change year, opens Filters"
+      >
+        <Feather name="info" size={12} color={colors.textSecondary} />
         <Text style={styles.noteText}>Change year in Filters</Text>
       </Pressable>
     </View>
@@ -85,10 +98,10 @@ export function PeriodStepper({ onChangeYear }: { onChangeYear: () => void }) {
 
 const makeStyles = ({ colors }: Theme) =>
   StyleSheet.create({
-    wrap: { alignItems: 'center', paddingBottom: spacing.md },
+    wrap: { alignItems: 'center' },
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg },
     label: { ...type.h2, color: colors.textPrimary, minWidth: 160, textAlign: 'center' },
     disabled: { opacity: 0.3 },
-    note: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
-    noteText: { ...type.caption, fontSize: 11, color: colors.textSecondary },
+    note: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
+    noteText: { ...type.caption, color: colors.textSecondary },
   });

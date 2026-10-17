@@ -51,7 +51,6 @@ function toRowData(item: TransactionListItem): TransactionRowData {
   };
 }
 
-const MONTH_NAME = new Date().toLocaleDateString('en-IN', { month: 'long' });
 const MONTH_KEY = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 
 function longMonth(month: string): string {
@@ -198,7 +197,6 @@ export function HomeScreen() {
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <View {...greetingTarget}>
           <Text style={styles.greeting}>{greeting}</Text>
-          <Text style={styles.greetingSub}>{MONTH_NAME}</Text>
         </View>
 
         <PeriodStepper onChangeYear={() => navigation.navigate('Transactions', { openFilters: Date.now() })} />
