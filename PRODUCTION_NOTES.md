@@ -256,7 +256,7 @@ is correct.
 
 ---
 
-## PR (layout gaps): Fixes found by testing 25 bank layouts
+## PR 80: Fixes found by testing 25 bank layouts
 
 **What prompted it.** We generated synthetic statements for 25 banks, modelled
 on public sample images, and ran them through the reader. Several showed gaps,
@@ -281,6 +281,36 @@ not yet. These are synthetic, so real tester statements are still needed.
 
 **Release note.** The app now reads more statement layouts, including ones
 with ₹ amounts and separate Debit/Credit columns, and recognises more banks.
+
+---
+
+## PR 81: One month and year picker for Home and Transactions
+
+**What prompted it.** Our own testing with several years of statements: older
+years were hard to reach (the month picker only went back 12 months), and
+Home and Transactions each had a separate picker.
+
+**Problem.** People with more than a year of statements could not easily open
+an earlier year, and changing the month on Home did not carry over to
+Transactions.
+
+**Solution.** Home and Transactions now share one ‹ Month Year › picker that
+steps through every month with data. A small note under it, "Change year in
+Filters", opens the Filters sheet, where the year is picked. Tapping the month
+shows the whole year. Month and year filtering also uses the date index, so
+it is faster.
+
+**What the user notices.** Changing the month on one screen changes it on the
+other, and any earlier year is two taps away.
+
+**How we checked it.** 205 unit tests, plus an emulator run with 21,000 test
+transactions across 2021–2026: picking 2023 in Filters showed December 2023 on
+both screens, stepping crossed from December 2023 into January 2024, and the
+whole-year view showed year totals. A design review against a mobile UI
+checklist led to larger tap areas, even spacing and a one-line year row.
+
+**Release note.** Home and Transactions now share one month picker, and you
+can jump to any earlier year from Filters.
 
 ---
 
