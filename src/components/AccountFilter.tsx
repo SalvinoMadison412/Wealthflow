@@ -1,6 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getSetting } from '../db/queries';
 import { Account, deleteSetting, listAccounts, setSetting } from '../db/transactions';
@@ -25,93 +24,52 @@ export function useAccountFilter() {
   return { accounts, accountId, accountIds: accountId ? [accountId] : null };
 }
 
-// A quiet caption under the header ("All accounts ▾") that opens a small
-// list. Renders nothing until there are two or more accounts.
-export function AccountFilter() {
+// Picks one account for every tab (null = all). The Transactions Filters
+// sheet is where it's chosen; AccountChip is where it shows.
+export function setAccountFilter(id: string | null) {
+  if (id) setSetting(ACCOUNT_FILTER_SETTING, id);
+  else deleteSetting(ACCOUNT_FILTER_SETTING);
+}
+
+// "Kotak ·9876 ✕", shown only while one account is picked. The text opens
+// Filters (onPress); the ✕ goes back to all accounts.
+export function AccountChip({ onPress }: { onPress: () => void }) {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const { accounts, accountId } = useAccountFilter();
-  const [open, setOpen] = useState(false);
-  if (accounts.length < 2) return null;
-
   const current = accounts.find((a) => a.id === accountId);
-  function pick(id: string | null) {
-    if (id) setSetting(ACCOUNT_FILTER_SETTING, id);
-    else deleteSetting(ACCOUNT_FILTER_SETTING);
-    setOpen(false);
-  }
+  if (accounts.length < 2 || !current) return null;
 
   return (
-    <>
-      <Pressable style={styles.trigger} onPress={() => setOpen(true)} hitSlop={8} accessibilityLabel="Filter by account">
-        <Text style={styles.triggerText} numberOfLines={1}>
-          {current ? accountLabel(current) : 'All accounts'}
+    <View style={styles.chip}>
+      <Pressable onPress={onPress} hitSlop={{ top: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel={`Showing ${accountLabel(current)}. Change account`}>
+        <Text style={styles.chipText} numberOfLines={1}>
+          {accountLabel(current)}
         </Text>
-        <Feather name="chevron-down" size={13} color={colors.textSecondary} />
       </Pressable>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
-          <View style={styles.sheet}>
-            <Option label="All accounts" selected={!current} onPress={() => pick(null)} />
-            {accounts.map((a) => (
-              <Option key={a.id} label={accountLabel(a)} selected={a.id === accountId} onPress={() => pick(a.id)} />
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
-    </>
+      <Pressable onPress={() => setAccountFilter(null)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Show all accounts">
+        <Feather name="x" size={14} color={colors.accent} />
+      </Pressable>
+    </View>
   );
 }
 
-function Option({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  const { colors } = useTheme();
-  const styles = useStyles(makeStyles);
-  return (
-    <Pressable style={styles.option} onPress={onPress} accessibilityRole="button" accessibilityState={{ selected }}>
-      <Text style={[styles.optionText, selected && { color: colors.accent }]} numberOfLines={1}>
-        {label}
-      </Text>
-      {selected && <Feather name="check" size={16} color={colors.accent} />}
-    </Pressable>
-  );
-}
-
-const makeStyles = ({ colors }: Theme) => StyleSheet.create({
-  trigger: {
+const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-end',
-    gap: spacing.xs,
-    marginHorizontal: spacing.pageGutter,
-    maxWidth: 220,
+    alignSelf: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    maxWidth: 260,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: pillPalette[1].bg,
   },
-  triggerText: {
+  chipText: {
     ...type.caption,
-    color: colors.textSecondary,
-    flexShrink: 1,
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    padding: spacing.pageGutter,
-  },
-  sheet: {
-    backgroundColor: colors.card,
-    borderRadius: radii.sheet,
-    paddingVertical: spacing.sm,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  optionText: {
-    ...type.body,
-    color: colors.textPrimary,
-    flex: 1,
+    fontFamily: 'Inter-Medium',
+    color: colors.accent,
   },
 });

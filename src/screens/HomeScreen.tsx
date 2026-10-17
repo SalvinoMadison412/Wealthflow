@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
 import { firstName } from '../auth/profile';
 import { Amount } from '../components/Amount';
-import { AccountFilter, useAccountFilter } from '../components/AccountFilter';
+import { useAccountFilter } from '../components/AccountFilter';
 import { AppHeader } from '../components/AppHeader';
 import { BarChart } from '../components/BarChart';
 import { BalanceSummary } from '../components/BalanceSummary';
@@ -208,7 +208,6 @@ export function HomeScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
-      <AccountFilter />
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <View {...greetingTarget}>
           <Text style={styles.greeting}>{greeting}</Text>

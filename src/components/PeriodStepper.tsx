@@ -13,7 +13,7 @@ import { RootStackParamList } from '../navigation/RootNavigator';
 import { radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 import { PressableScale } from './PressableScale';
-import { accountLabel, useAccountFilter } from './AccountFilter';
+import { accountLabel, AccountChip, useAccountFilter } from './AccountFilter';
 
 // The one period Home and Transactions share (see resolvePeriod). Held in
 // memory, not settings: every launch opens on the newest month.
@@ -147,6 +147,7 @@ export function PeriodStepper({ onChangeYear }: { onChangeYear: () => void }) {
           <Text style={styles.noteText}>{note}</Text>
         </Pressable>
       </View>
+      <AccountChip onPress={onChangeYear} />
       <PeriodInfo
         visible={infoOpen}
         period={period}

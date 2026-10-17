@@ -194,7 +194,7 @@ export function listCategoriesForFilter(): FilterCategory[] {
 
 // Inbox size for the Transactions tab segments; period ('YYYY' or 'YYYY-MM') null = all time.
 export function countInbox(period: string | null, accountIds?: string[] | null): { all: number; byRules: number } {
-  const scope = accountsClause(accountIds);
+  const scope = accountsClause(accountIds, 'transactions');
   const range = period ? periodRange(period) : [];
   const row = db.getFirstSync<{ all_n: number | null; rules_n: number | null }>(
     `SELECT COUNT(*) as all_n, SUM(CASE WHEN matched_rule_id IS NOT NULL THEN 1 ELSE 0 END) as rules_n
