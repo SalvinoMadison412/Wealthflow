@@ -332,6 +332,18 @@ or `error`. `PdfExtractorBridge` matches replies to pending promises and
 queues requests until the page reports ready. The PDF bytes come from
 `expo-document-picker` + `expo-file-system` and never leave the device.
 
+**Recovery.** The WebView lives for the whole app session, and Android can
+kill its renderer while the app is backgrounded (react-native-webview
+reports this as `onRenderProcessGone`). The page therefore replies `ack`
+the moment it receives a request. The bridge treats no ack within 10 s
+(30 s while the page is still loading) as a dead WebView, and no result
+within 120 s of the ack as a hung extraction. Either case, or
+`onRenderProcessGone`, calls `bridge.reset()`: pending requests reject
+with `PdfReaderStuckError`, the provider bumps `attempt` (the WebView's
+`key`) to mount a fresh one, and `extractPdfText` retries the request once
+before the error reaches the user. A failed HTML build is not cached, so
+the remount rebuilds it.
+
 `scripts/copy-pdfjs.js` (postinstall) copies the pdf.js build from
 `node_modules` into `assets/pdfjs/*.pdfjs`; `metro.config.js` registers
 that extension as an asset so Metro never tries to parse it.
