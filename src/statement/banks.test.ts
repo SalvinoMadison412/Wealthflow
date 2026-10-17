@@ -32,9 +32,9 @@ describe.each(BANK_LAYOUTS.map((layout) => [layout.id, layout] as const))('%s la
     expect(statement.coverage).toMatchObject({ rowsInPdf: 6, rowsRead: 6, unreadDates: [], mismatchDates: [] });
   });
 
-  test('is verified by column unless the layout has no withdrawal/deposit columns', () => {
-    // PNB-style: one Amount column plus a Dr/Cr type, read by the line reader.
-    expect(statement.coverage.verified).toBe(id !== 'pnb');
+  test('is verified by column; a layout without withdrawal/deposit headers by the column search', () => {
+    // PNB-style: one Amount column plus a Dr/Cr type, so no header match.
+    expect(statement.coverage).toMatchObject({ verified: true, layout: id === 'pnb' ? 'search' : 'header' });
   });
 
   test('reconciles', () => {

@@ -28,9 +28,12 @@ test('the summary block after the last row is not read into it', () => {
   expect(statement.transactions[5].withdrawal).toBe(300);
 });
 
-test('without a table header the line reader reports coverage, unverified', () => {
+// Its amounts are left-aligned at ragged positions, so the column search
+// finds no clear columns and the line reader takes it.
+test('without a table header or clear columns the line reader reports coverage, unverified', () => {
   expect(parseStatement(syntheticKotakPages).coverage).toEqual({
     verified: false,
+    layout: 'lines',
     rowsInPdf: 6,
     rowsRead: 6,
     unreadDates: [],

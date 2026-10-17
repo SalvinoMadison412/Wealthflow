@@ -26,6 +26,7 @@ const AMOUNT = String.raw`\d[\d,]*\.\d{2}`;
 const DRCR = String.raw`(?:\s*(Dr|Cr)\.?)?`;
 
 export const OPENING_BALANCE_REGEX = /Opening Balance[^\d]*([\d,]+\.\d{2})/i;
+export const CLOSING_BALANCE_REGEX = /Closing Balance[^\d]*([\d,]+\.\d{2})/i;
 // An opening-balance summary block can put its figures on the next line.
 export const OPENING_BALANCE_LABEL_REGEX = /Opening Balance/i;
 export const LEADING_AMOUNT_REGEX = new RegExp(`^\\s*(${AMOUNT})`);

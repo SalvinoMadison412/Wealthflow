@@ -34,6 +34,9 @@ export type Coverage = {
   // balance check can catch a misread row. The line reader works direction
   // out from the balance itself, so its rows always "follow": unverified.
   verified: boolean;
+  // How the rows were found: by the table header, by searching column roles
+  // with the balance chain (columnSearch.ts), or one text line at a time.
+  layout: 'header' | 'search' | 'lines';
   rowsInPdf: number;
   rowsRead: number;
   unreadDates: string[];
