@@ -26,7 +26,7 @@ function findOpeningBalance(pages: PageContent[]): number | null {
     const lines = groupIntoLines(page.items);
     for (let i = 0; i < lines.length; i++) {
       const same = lines[i].text.match(OPENING_BALANCE_REGEX);
-      if (same) return parseAmount(same[1]);
+      if (same) return parseAmount(same[1]) * (same[2]?.toLowerCase() === 'dr' ? -1 : 1);
       const below = OPENING_BALANCE_LABEL_REGEX.test(lines[i].text) && lines[i + 1]?.text.match(LEADING_AMOUNT_REGEX);
       if (below) return parseAmount(below[1]);
     }
@@ -83,7 +83,7 @@ function parseByLines(pages: PageContent[]): ParsedStatement {
         !openingMatch && OPENING_BALANCE_LABEL_REGEX.test(text) ? lines[i + 1]?.text.match(LEADING_AMOUNT_REGEX) : null;
       const opening = openingMatch ?? openingBelow;
       if (opening) {
-        events.push({ kind: 'opening', value: parseAmount(opening[1]) });
+        events.push({ kind: 'opening', value: parseAmount(opening[1]) * (opening[2]?.toLowerCase() === 'dr' ? -1 : 1) });
         if (openingBelow) i++;
         continue;
       }

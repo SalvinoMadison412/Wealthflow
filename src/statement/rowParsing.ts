@@ -22,10 +22,10 @@ const MONTHS: Record<string, string> = {
 
 // 07 Mar 2026 | 07-Mar-2026 | 07/03/26 | 07/03/2026 | 07-03-2026
 const DATE = String.raw`\d{1,2}(?:\s+[A-Za-z]{3}\s+\d{4}|-[A-Za-z]{3}-\d{4}|[/-]\d{1,2}[/-]\d{2,4})`;
-const AMOUNT = String.raw`\d[\d,]*\.\d{2}`;
+const AMOUNT = String.raw`(?:₹\s?|Rs\.?\s?)?\d[\d,]*\.\d{2}`;
 const DRCR = String.raw`(?:\s*(Dr|Cr)\.?)?`;
 
-export const OPENING_BALANCE_REGEX = /Opening Balance[^\d]*([\d,]+\.\d{2})/i;
+export const OPENING_BALANCE_REGEX = /Opening Balance[^\d]*([\d,]+\.\d{2})(?:\s*(Dr|Cr)\b)?/i;
 export const CLOSING_BALANCE_REGEX = /Closing Balance[^\d]*([\d,]+\.\d{2})/i;
 // An opening-balance summary block can put its figures on the next line.
 export const OPENING_BALANCE_LABEL_REGEX = /Opening Balance/i;
@@ -59,7 +59,7 @@ export function isNewestFirst(dates: string[]): boolean {
 }
 
 export function parseAmount(raw: string): number {
-  return Number(raw.replace(/,/g, ''));
+  return Number(raw.replace(/^(?:₹|Rs\.?)\s*/i, '').replace(/,/g, ''));
 }
 
 // "07 Mar 2026" | "07/03/26" | "07-03-2026" -> "2026-03-07"; null when it

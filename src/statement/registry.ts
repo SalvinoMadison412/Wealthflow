@@ -17,6 +17,19 @@ const BANKS: [pattern: RegExp, name: string][] = [
   [/indusind bank/i, 'IndusInd Bank'],
   [/yes bank/i, 'Yes Bank'],
   [/idfc first/i, 'IDFC FIRST Bank'],
+  [/central bank of india/i, 'Central Bank of India'],
+  [/bank of india/i, 'Bank of India'], // after State, Union and Central Bank of India
+  [/indian overseas bank/i, 'Indian Overseas Bank'],
+  [/uco bank/i, 'UCO Bank'],
+  [/bank of maharashtra/i, 'Bank of Maharashtra'],
+  [/punjab\s*(?:&|and)\s*sind bank/i, 'Punjab & Sind Bank'],
+  [/federal bank/i, 'Federal Bank'],
+  [/idbi bank/i, 'IDBI Bank'],
+  [/bandhan bank/i, 'Bandhan Bank'],
+  [/au small finance/i, 'AU Small Finance Bank'],
+  [/rbl bank/i, 'RBL Bank'],
+  [/south indian bank/i, 'South Indian Bank'],
+  [/indian bank/i, 'Indian Bank'], // after South Indian Bank, which contains it
 ];
 
 // Only text outside the transaction rows counts: narrations name other banks
