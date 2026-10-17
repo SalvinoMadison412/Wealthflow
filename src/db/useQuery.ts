@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { subscribeToChanges } from './db';
 
@@ -8,8 +8,12 @@ import { subscribeToChanges } from './db';
 export function useQuery<T>(queryFn: () => T, deps: unknown[]): T {
   const [value, setValue] = useState<T>(queryFn);
 
+  // The initial state already ran queryFn for the first deps.
+  const first = useRef(true);
+
   useEffect(() => {
-    setValue(queryFn());
+    if (first.current) first.current = false;
+    else setValue(queryFn());
     return subscribeToChanges(() => setValue(queryFn()));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
