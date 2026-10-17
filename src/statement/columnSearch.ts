@@ -12,44 +12,48 @@ import { parseAmount, rowStartDate } from './rowParsing';
 // Two decimals required, so reference numbers never form a column.
 const AMOUNT = /^(-)?(\d[\d,]*\.\d{2})(?:\s*(Dr|Cr)\.?)?$/i;
 const CLUSTER_TOLERANCE = 15; // pt between right edges in one column
-const MAX_CLUSTERS = 6; // caps the search at ~150 hypotheses
+const MAX_CLUSTERS = 6; // caps the search at ~300 hypotheses (two edges)
 const TYPE_DISTANCE = 60; // pt from an amount to a separate Dr/Cr column
 const MIN_ROWS = 4;
 const MIN_SHARE = 0.9;
 
 type Token = { band: Band; value: number; minus: boolean; marker?: 'dr' | 'cr'; cluster: number };
 
-function tokensIn(bands: Band[]): Omit<Token, 'cluster'>[] & { right?: number }[] {
-  const tokens: (Omit<Token, 'cluster'> & { right: number })[] = [];
+type RawToken = Omit<Token, 'cluster'> & { left: number; right: number };
+
+function tokensIn(bands: Band[]): RawToken[] {
+  const tokens: RawToken[] = [];
   for (const band of bands) {
     for (const line of band.lines) {
       line.items.forEach((item, i) => {
         const m = item.str.trim().match(AMOUNT);
         if (!m) return;
         const right = rightEdge(item);
-        const next = line.items[i + 1];
+        // pdf.js puts blank spacer items between runs; skip them.
+        const next = line.items.slice(i + 1).find((other) => other.str.trim());
         const marker = (m[3] ?? (next && next.x - right < TYPE_DISTANCE ? next.str.trim().match(DRCR)?.[1] : undefined))?.toLowerCase();
-        tokens.push({ band, value: parseAmount(m[2]), minus: Boolean(m[1]), marker: marker as Token['marker'], right });
+        tokens.push({ band, value: parseAmount(m[2]), minus: Boolean(m[1]), marker: marker as Token['marker'], left: item.x, right });
       });
     }
   }
   return tokens;
 }
 
-// Groups tokens into columns by right edge; returns the busiest columns.
-function cluster(tokens: (Omit<Token, 'cluster'> & { right: number })[]): Token[] {
-  const sorted = [...tokens].sort((a, b) => a.right - b.right);
-  const groups: (typeof sorted)[] = [];
+// Groups tokens into columns by one edge (amounts are usually right-aligned,
+// sometimes left-aligned); returns the busiest columns.
+function cluster(tokens: RawToken[], edge: 'left' | 'right'): Token[] {
+  const sorted = [...tokens].sort((a, b) => a[edge] - b[edge]);
+  const groups: RawToken[][] = [];
   for (const token of sorted) {
     const last = groups[groups.length - 1];
-    if (last && token.right - last[last.length - 1].right <= CLUSTER_TOLERANCE) last.push(token);
+    if (last && token[edge] - last[last.length - 1][edge] <= CLUSTER_TOLERANCE) last.push(token);
     else groups.push([token]);
   }
   const kept = groups
     .filter((group) => group.length >= 2)
     .sort((a, b) => b.length - a.length)
     .slice(0, MAX_CLUSTERS);
-  return kept.flatMap((group, index) => group.map(({ right: _right, ...token }) => ({ ...token, cluster: index })));
+  return kept.flatMap((group, index) => group.map(({ left: _l, right: _r, ...token }) => ({ ...token, cluster: index })));
 }
 
 type Hypothesis = (band: Band) => Amounts;
@@ -132,14 +136,16 @@ export function searchColumns(
   }
   if (bands.length === 0) return null;
 
-  const tokens = cluster(tokensIn(bands) as (Omit<Token, 'cluster'> & { right: number })[]);
-  const clusters = new Set(tokens.map((t) => t.cluster)).size;
-  if (clusters < 2) return null;
-
+  const raw = tokensIn(bands);
   const readings = new Map<string, ColumnRead>();
-  for (const hypothesis of hypotheses(tokens, clusters)) {
-    const read = readBands(bands, openingBalance, hypothesis, 'search');
-    if (read.transactions.length > 0) readings.set(signature(read), read);
+  for (const edge of ['right', 'left'] as const) {
+    const tokens = cluster(raw, edge);
+    const clusters = new Set(tokens.map((t) => t.cluster)).size;
+    if (clusters < 2) continue;
+    for (const hypothesis of hypotheses(tokens, clusters)) {
+      const read = readBands(bands, openingBalance, hypothesis, 'search');
+      if (read.transactions.length > 0) readings.set(signature(read), read);
+    }
   }
   const ranked = [...readings.values()].sort((a, b) => chained(b) - chained(a));
   const [best, runnerUp] = ranked;

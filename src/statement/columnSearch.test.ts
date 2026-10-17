@@ -23,13 +23,14 @@ type Layout = {
   columns: 'separate' | 'typed' | 'signed';
   cumulative?: boolean; // an extra running total of deposits (only for all-credit rows)
   closing?: string;
+  leftAligned?: boolean; // amounts start at the column instead of ending at it
 };
 
 function pages(rows: Row[], layout: Layout, opening = 5000): PageContent[] {
   const items: TextItem[] = [];
   let y = 700;
   const put = (x: number, str: string) => items.push({ str, x, y, width: str.length * 4, height: 7 });
-  const right = (edge: number, str: string) => put(edge - str.length * 4, str);
+  const right = (edge: number, str: string) => put(layout.leftAligned ? edge - 40 : edge - str.length * 4, str);
   put(20, '01/03/2026 to 31/03/2026'); // statement period: dated, but not a row
   y -= 20;
   put(20, 'Opening Balance');
@@ -122,4 +123,16 @@ test('a balance that breaks the chain inside an accepted search is still flagged
   const { coverage } = parseStatement(page);
   expect(coverage).toMatchObject({ verified: true, layout: 'search', rowsInPdf: 25, rowsRead: 25 });
   expect(coverage.mismatchDates).toHaveLength(2);
+});
+
+test('pdf.js blank spacer items between cells do not hide a Dr/Cr type', () => {
+  const page = pages(BASE, { header: ['Date', 'Particulars', 'Amount', 'Type', 'Balance'], columns: 'typed' });
+  // pdf.js emits an empty item after most text runs.
+  page[0].items = page[0].items.flatMap((item) => [item, { ...item, str: ' ', x: item.x + item.width, width: 0 }]);
+  expect(parseStatement(page).coverage).toMatchObject({ verified: true, layout: 'search', rowsRead: 6 });
+});
+
+test('left-aligned amount columns are found by their left edge', () => {
+  const statement = parseStatement(pages(manyRows(12), { columns: 'separate', leftAligned: true }));
+  expect(statement.coverage).toMatchObject({ verified: true, layout: 'search', rowsRead: 12, mismatchDates: [] });
 });

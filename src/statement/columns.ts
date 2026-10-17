@@ -75,7 +75,8 @@ function amountsIn(band: Band, columns: Columns): Amounts {
         Math.abs(columns[c] - edge) < Math.abs(columns[best] - edge) ? c : best
       );
       if (Math.abs(columns[column] - edge) > EDGE_TOLERANCE) return;
-      const next = line.items[i + 1];
+      // pdf.js puts blank spacer items between runs; skip them.
+      const next = line.items.slice(i + 1).find((other) => other.str.trim());
       const suffix = m[2] ?? (next && next.x - edge < EDGE_TOLERANCE ? next.str.trim().match(DRCR)?.[1] : undefined);
       const value = parseAmount(m[1]);
       found[column].push(column === 'balance' && suffix?.toLowerCase() === 'dr' ? -value : value);
