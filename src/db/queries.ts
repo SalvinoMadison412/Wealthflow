@@ -19,8 +19,7 @@ function accountsClause(accountIds: string[] | null | undefined, alias = 't'): {
 
 type TransactionFilters = {
   accountId?: string;
-  month?: string; // 'YYYY-MM'
-  year?: string; // 'YYYY'; ignored when `month` is set
+  month?: string; // 'YYYY-MM', or 'YYYY' for the whole year
   // Transactions inbox: not yet finalized (no manual pin, not a transfer);
   // 'byRules' is the subset a rule or built-in pattern categorised.
   view?: 'all' | 'byRules';
@@ -80,10 +79,9 @@ export function listTransactions(filters: TransactionFilters): TransactionListIt
     clauses.push('t.account_id = ?');
     params.push(filters.accountId);
   }
-  const period = filters.month ?? filters.year;
-  if (period) {
+  if (filters.month) {
     clauses.push('t.date >= ? AND t.date < ?');
-    params.push(...periodRange(period));
+    params.push(...periodRange(filters.month));
   }
   if (filters.view) clauses.push(INBOX_SQL);
   if (filters.view === 'byRules') clauses.push('t.matched_rule_id IS NOT NULL');
@@ -165,25 +163,14 @@ function listRecurringMerchants(): string[] {
 
 // Last 12 calendar months that actually have a transaction, newest first —
 // the Month filter chip's option list.
-// With `year`, that year's months instead (no 12-month cap).
-export function listMonthsWithData(accountIds?: string[] | null, year?: string): string[] {
+// limit -1 = every month (the shared period stepper).
+export function listMonthsWithData(accountIds?: string[] | null, limit = 12): string[] {
   const scope = accountsClause(accountIds, 'transactions');
-  const yearClause = year ? 'AND date >= ? AND date < ?' : '';
   const rows = db.getAllSync<{ month: string }>(
-    `SELECT DISTINCT substr(date, 1, 7) as month FROM transactions WHERE 1 = 1 ${yearClause} ${scope.clause} ORDER BY month DESC ${year ? '' : 'LIMIT 12'}`,
-    [...(year ? periodRange(year) : []), ...scope.params]
+    `SELECT DISTINCT substr(date, 1, 7) as month FROM transactions WHERE 1 = 1 ${scope.clause} ORDER BY month DESC LIMIT ?`,
+    [...scope.params, limit]
   );
   return rows.map((r) => r.month);
-}
-
-// Every calendar year that has a transaction, newest first.
-export function listYearsWithData(accountIds?: string[] | null): string[] {
-  const scope = accountsClause(accountIds, 'transactions');
-  const rows = db.getAllSync<{ year: string }>(
-    `SELECT DISTINCT substr(date, 1, 4) as year FROM transactions WHERE 1 = 1 ${scope.clause} ORDER BY year DESC`,
-    scope.params
-  );
-  return rows.map((r) => r.year);
 }
 
 export type FilterCategory = { id: string; name: string; colorIndex: number; kind: Kind | null };
@@ -357,13 +344,14 @@ type MonthSummary = { income: number; expense: number };
 
 // Home's "Net" card for one month. Excludes transfers, same as the chart.
 // month null = every month.
-export function getMonthSummary(month: string | null, accountIds?: string[] | null): MonthSummary {
+// period: 'YYYY-MM', 'YYYY', or null for all time.
+export function getMonthSummary(period: string | null, accountIds?: string[] | null): MonthSummary {
   const scope = accountsClause(accountIds, 'transactions');
   const row = db.getFirstSync<{ income: number; expense: number }>(
     `SELECT COALESCE(SUM(deposit), 0) as income, COALESCE(SUM(withdrawal), 0) as expense
      FROM transactions
-     WHERE is_transfer = 0 AND (? IS NULL OR strftime('%Y-%m', date) = ?) ${scope.clause}`,
-    [month, month, ...scope.params]
+     WHERE is_transfer = 0 ${period ? 'AND date >= ? AND date < ?' : ''} ${scope.clause}`,
+    [...(period ? periodRange(period) : []), ...scope.params]
   );
   return { income: row?.income ?? 0, expense: row?.expense ?? 0 };
 }
