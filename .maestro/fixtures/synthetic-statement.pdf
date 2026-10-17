@@ -1,0 +1,70 @@
+%PDF-1.4
+1 0 obj
+<</Type/Catalog/Pages 2 0 R>>
+endobj
+2 0 obj
+<</Type/Pages/Kids[3 0 R]/Count 1>>
+endobj
+3 0 obj
+<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>
+endobj
+4 0 obj
+<</Length 1952>>
+stream
+BT /F1 8 Tf 20.00 800 Td (Kotak Mahindra Bank - Synthetic Account Statement \(made-up data for E2E tests\)) Tj ET
+BT /F1 8 Tf 20.00 780 Td (Opening Balance) Tj ET
+BT /F1 8 Tf 110.00 780 Td (5,000.00) Tj ET
+BT /F1 8 Tf 20.00 760 Td (#) Tj ET
+BT /F1 8 Tf 38.00 760 Td (Date) Tj ET
+BT /F1 8 Tf 95.00 760 Td (Description) Tj ET
+BT /F1 8 Tf 330.00 760 Td (Chq/Ref No.) Tj ET
+BT /F1 8 Tf 369.55 760 Td (Withdrawal \(Dr.\)) Tj ET
+BT /F1 8 Tf 451.55 760 Td (Deposit \(Cr.\)) Tj ET
+BT /F1 8 Tf 540.66 760 Td (Balance) Tj ET
+BT /F1 8 Tf 20.00 740 Td (1) Tj ET
+BT /F1 8 Tf 38.00 740 Td (07 Mar 2026) Tj ET
+BT /F1 8 Tf 95.00 740 Td (UPI/Blinkit/643209064515/Pay via Razorpay) Tj ET
+BT /F1 8 Tf 405.54 740 Td (350.00) Tj ET
+BT /F1 8 Tf 538.86 740 Td (4,650.00) Tj ET
+BT /F1 8 Tf 20.00 720 Td (2) Tj ET
+BT /F1 8 Tf 38.00 720 Td (09 Mar 2026) Tj ET
+BT /F1 8 Tf 95.00 720 Td (UPI/RAVI KUMAR N/570897039862/Pay to BharatPe) Tj ET
+BT /F1 8 Tf 405.54 720 Td (500.00) Tj ET
+BT /F1 8 Tf 538.86 720 Td (4,150.00) Tj ET
+BT /F1 8 Tf 20.00 700 Td (3) Tj ET
+BT /F1 8 Tf 38.00 700 Td (15 Mar 2026) Tj ET
+BT /F1 8 Tf 95.00 700 Td (NEFT REF123456 SALARY CREDIT ACME CORP) Tj ET
+BT /F1 8 Tf 464.42 700 Td (20,000.00) Tj ET
+BT /F1 8 Tf 534.42 700 Td (24,150.00) Tj ET
+BT /F1 8 Tf 20.00 680 Td (4) Tj ET
+BT /F1 8 Tf 38.00 680 Td (31 Mar 2026) Tj ET
+BT /F1 8 Tf 95.00 680 Td (Int.Pd:1234567890:01-03-2026to31-03-2026) Tj ET
+BT /F1 8 Tf 479.98 680 Td (12.50) Tj ET
+BT /F1 8 Tf 534.42 680 Td (24,162.50) Tj ET
+BT /F1 8 Tf 20.00 660 Td (5) Tj ET
+BT /F1 8 Tf 38.00 660 Td (31 Mar 2026) Tj ET
+BT /F1 8 Tf 95.00 660 Td (UPI/ICCL MUTUAL FU/611122223333/SIP Payment) Tj ET
+BT /F1 8 Tf 398.86 660 Td (2,000.00) Tj ET
+BT /F1 8 Tf 534.42 660 Td (22,162.50) Tj ET
+BT /F1 8 Tf 20.00 640 Td (6) Tj ET
+BT /F1 8 Tf 38.00 640 Td (31 Mar 2026) Tj ET
+BT /F1 8 Tf 95.00 640 Td (UPI/THANDRA ADITYA UPI-608933463107) Tj ET
+BT /F1 8 Tf 405.54 640 Td (300.00) Tj ET
+BT /F1 8 Tf 534.42 640 Td (21,862.50) Tj ET
+endstream
+endobj
+5 0 obj
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000054 00000 n 
+0000000105 00000 n 
+0000000217 00000 n 
+0000002219 00000 n 
+trailer<</Size 6/Root 1 0 R>>
+startxref
+2282
+%%EOF

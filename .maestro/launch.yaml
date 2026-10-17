@@ -1,0 +1,4 @@
+appId: com.kevin.madison.wealthflowapp
+---
+- runFlow: subflows/onboard.yaml
+- assertVisible: Hi Test

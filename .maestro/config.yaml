@@ -1,0 +1,3 @@
+# Only top-level files are flows; subflows/ holds shared steps.
+flows:
+  - "*.yaml"

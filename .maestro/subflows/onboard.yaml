@@ -1,0 +1,15 @@
+# Fresh install -> guest sign-in -> profile -> Home, tour dismissed.
+appId: com.kevin.madison.wealthflowapp
+---
+- launchApp:
+    clearState: true
+- tapOn: Continue as guest
+- tapOn: Your name
+- inputText: Test User
+- hideKeyboard
+- scrollUntilVisible:
+    element: Finish
+- tapOn: Finish
+- tapOn:
+    text: Skip
+    optional: true
