@@ -49,10 +49,27 @@ type Summary = {
   added: number;
   duplicates: number;
   unbalanced: number;
+  // Rows found in the PDFs but not read, and read rows whose balance doesn't
+  // follow from the previous one (statement/types.ts Coverage).
+  unread: number;
+  mismatched: number;
+  // Statements read line by line, where the balance check can't confirm rows.
+  unverified: number;
   failed: string[];
   last: { statement: ParsedStatement; reconciliation: ReconciliationResult } | null;
 };
-const EMPTY_SUMMARY: Summary = { files: 0, extracted: 0, added: 0, duplicates: 0, unbalanced: 0, failed: [], last: null };
+const EMPTY_SUMMARY: Summary = {
+  files: 0,
+  extracted: 0,
+  added: 0,
+  duplicates: 0,
+  unbalanced: 0,
+  unread: 0,
+  mismatched: 0,
+  unverified: 0,
+  failed: [],
+  last: null,
+};
 
 // `rest` = the base64 of the files still to process after the current one.
 type Status =
@@ -81,13 +98,19 @@ export function ImportScreen() {
 
   function importOne(pages: PageContent[], accountId: string, done: Summary): Summary {
     const { statement, reconciliation, added, duplicates } = importStatement(pages, accountId);
+    const { coverage } = statement;
+    const unread = coverage.rowsInPdf - coverage.rowsRead;
     return {
       ...done,
       files: done.files + 1,
       extracted: done.extracted + statement.transactions.length,
       added: done.added + added,
       duplicates: done.duplicates + duplicates,
-      unbalanced: done.unbalanced + (reconciliation.ok ? 0 : 1),
+      unbalanced:
+        done.unbalanced + (reconciliation.ok && coverage.verified && unread === 0 && coverage.mismatchDates.length === 0 ? 0 : 1),
+      unverified: done.unverified + (coverage.verified ? 0 : 1),
+      unread: done.unread + unread,
+      mismatched: done.mismatched + coverage.mismatchDates.length,
       last: { statement, reconciliation },
     };
   }
@@ -380,12 +403,47 @@ function AccountCard({
   );
 }
 
+// "9 Mar, 15 Mar +2 more"
+function listDates(isoDates: string[]): string {
+  const shown = isoDates
+    .slice(0, 4)
+    .map((iso) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }));
+  return shown.join(', ') + (isoDates.length > 4 ? ` +${isoDates.length - 4} more` : '');
+}
+
+// Whether every transaction in the PDF made it in, and which rows to check.
+function coverageLines(summary: Summary): string[] {
+  const { coverage } = summary.last!.statement;
+  if (summary.files > 1) {
+    if (summary.unread === 0 && summary.mismatched === 0) return ['Every transaction in the PDFs was read.'];
+    return [
+      summary.unread > 0 ? `${summary.unread} row${summary.unread === 1 ? '' : 's'} couldn't be read.` : '',
+      summary.mismatched > 0
+        ? `${summary.mismatched} row${summary.mismatched === 1 ? " doesn't" : "s don't"} match the running balance.`
+        : '',
+    ].filter(Boolean);
+  }
+  if (coverage.rowsRead === coverage.rowsInPdf && coverage.mismatchDates.length === 0) {
+    return [`All ${coverage.rowsInPdf} transactions in the PDF were read.`];
+  }
+  return [
+    coverage.unreadDates.length > 0
+      ? `Read ${coverage.rowsRead} of ${coverage.rowsInPdf} transactions. Couldn't read: ${listDates(coverage.unreadDates)}.`
+      : '',
+    coverage.mismatchDates.length > 0
+      ? `${coverage.mismatchDates.length} row${coverage.mismatchDates.length === 1 ? " doesn't" : "s don't"} match the running balance: ${listDates(coverage.mismatchDates)}.`
+      : '',
+  ].filter(Boolean);
+}
+
 function ResultCard({ summary, onDone }: { summary: Summary; onDone: () => void }) {
   const { pillPalette } = useTheme();
   const styles = useStyles(makeStyles);
   const { statement, reconciliation } = summary.last!;
   const single = summary.files === 1;
-  const balanced = single ? reconciliation.ok : summary.unbalanced === 0;
+  const fullyRead = summary.unread === 0 && summary.mismatched === 0;
+  const verified = summary.unverified === 0;
+  const balanced = single ? reconciliation.ok && fullyRead && verified : summary.unbalanced === 0;
   const badge = balanced ? pillPalette[1] : pillPalette[3];
   return (
     <View style={styles.resultBox}>
@@ -414,16 +472,28 @@ function ResultCard({ summary, onDone }: { summary: Summary; onDone: () => void 
         </View>
       )}
 
+      {coverageLines(summary).map((line) => (
+        <Text key={line} style={[styles.balanceLabel, !fullyRead && { color: badge.text }]}>
+          {line}
+        </Text>
+      ))}
+
       <View style={[styles.reconciliationBanner, { backgroundColor: badge.bg }]}>
         <Feather name={balanced ? 'check-circle' : 'alert-triangle'} size={16} color={badge.text} />
         <Text style={[styles.reconciliationText, { color: badge.text }]}>
           {single
-            ? reconciliation.ok
+            ? balanced
               ? 'Balanced — opening + credits − debits matches the closing balance.'
-              : `Off by ₹${Math.abs(reconciliation.delta).toFixed(2)}.`
+              : !verified
+                ? "Unverified — this layout was read line by line, so the balances can't confirm each row. Check a few transactions."
+                : reconciliation.ok
+                  ? 'The totals match, but some rows need checking.'
+                  : `Off by ₹${Math.abs(reconciliation.delta).toFixed(2)}.`
             : balanced
               ? 'All statements balanced.'
-              : `${summary.unbalanced} of ${summary.files} statements didn't balance.`}
+              : summary.unverified > 0
+                ? `${summary.unbalanced} of ${summary.files} statements need checking (${summary.unverified} read line by line, unverified).`
+                : `${summary.unbalanced} of ${summary.files} statements didn't balance.`}
         </Text>
       </View>
 

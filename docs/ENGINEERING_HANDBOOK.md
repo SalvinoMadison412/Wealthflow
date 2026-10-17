@@ -342,7 +342,35 @@ that extension as an asset so Metro never tries to parse it.
    do not start with a date (headers, summaries, footers) are not rows.
    `inferAmounts` decides withdrawal vs deposit from the change in
    running balance, so the Dr/Cr suffix is never trusted for direction.
-3. `genericParser.ts` is the only parser. It also reads the opening
+3. `columns.ts` reads a statement **by its table columns** when it finds a
+   header line (narration/particulars/description, withdrawal/debit,
+   deposit/credit, balance). A row is everything from one date in the date
+   column down to the next (narrations wrap over 2-4 lines and amounts can
+   sit a few points off the date's baseline). An amount's column, matched
+   by right edge to the header label, says withdrawal, deposit or balance.
+   Columns carry to later pages (HDFC prints the header once). A row band
+   ends at the next date, a line starting in the date column, or summary
+   text ("statement summary", "opening balance", "generated on"...).
+   Without a header, the line reader below takes over.
+   **Coverage:** every parse returns `coverage = { rowsInPdf, rowsRead,
+   unreadDates, mismatchDates }`. `rowsInPdf` counts dated rows on the page;
+   a row is unread when its amounts are missing or ambiguous; a mismatch is a
+   row whose balance does not equal previous balance - withdrawal + deposit.
+   `coverage.verified` is true only on the column path: the line reader
+   works out withdrawal vs deposit from the balance change, so its rows
+   always "follow" and its imports are shown as **unverified**, never
+   Balanced. Brought/carried-forward rows ("B/F", "C/F", "Balance
+   forward", a dated "Opening/Closing Balance" row) are not transactions:
+   they seed the balance chain and are not counted. A statement whose first
+   row is later than its last (newest first) is read bottom-up.
+   The import result card lists all of this, and `statements.reconciled_ok`
+   is only true when totals reconcile, the read is verified and coverage is
+   complete. The opening balance
+   comes from the statement, or from row 1 (balance + withdrawal - deposit).
+   The description stays the anchor line's text as the line reader reads it,
+   so ids and dedupe keys do not change; wrapped narration lines are not
+   stored yet.
+4. `genericParser.ts` is the only parser. It also reads the opening
    balance, on the same line as its label or (HDFC-style summary block)
    on the next line. `descriptions.ts` turns a narration into a merchant
    and bank reference: UPI shapes for Kotak, SBI, HDFC, ICICI and Axis,
@@ -359,9 +387,9 @@ that extension as an asset so Metro never tries to parse it.
    and statements without a running balance are not supported. The other
    banks' layouts in `fixtures/syntheticBanks.ts` are from memory of
    public formats; confirm against real (redacted) statements.
-4. `merchantNames.ts` tidies merchant display names (contains-match on a
+5. `merchantNames.ts` tidies merchant display names (contains-match on a
    curated list). Display only; it never assigns a category.
-5. `reconciliation.ts`: `opening + Σcredits − Σdebits` must equal closing
+6. `reconciliation.ts`: `opening + Σcredits − Σdebits` must equal closing
    within ₹0.01. The result is stored per statement and shown on import.
    A failed reconciliation is the signal that a parser needs work.
 

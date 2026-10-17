@@ -31,11 +31,31 @@ export const OPENING_BALANCE_LABEL_REGEX = /Opening Balance/i;
 export const LEADING_AMOUNT_REGEX = new RegExp(`^\\s*(${AMOUNT})`);
 
 const ROW_START = new RegExp(`^(?:\\d+\\s+)?(${DATE})\\s+(.+)$`);
+const ROW_START_DATE = new RegExp(`^(?:\\d+\\s+)?(${DATE})(?:\\s|$)`);
 const SECOND_DATE = new RegExp(`^(${DATE})\\s+(.+)$`);
 // description amount balance [branch code]
 const AMOUNTS_LAST = new RegExp(`^(.+?)\\s+(${AMOUNT})${DRCR}\\s+(${AMOUNT})${DRCR}(?:\\s+\\d{1,6})?$`);
 // amount balance description (Remarks column last)
 const AMOUNTS_FIRST = new RegExp(`^(${AMOUNT})${DRCR}\\s+(${AMOUNT})${DRCR}\\s+(.+)$`);
+
+// The date a row starts with (after an optional serial number), or null.
+export function rowStartDate(text: string): string | null {
+  const start = text.match(ROW_START_DATE);
+  return start ? parseDate(start[1]) : null;
+}
+
+// Rows that restate a balance rather than move money: "B/F", "Balance B/F",
+// "Brought forward", "C/F", "Carried forward", an "Opening/Closing Balance" row.
+export const CARRY_ROW =
+  /\b(?:b\/f|c\/f|brought\s+forward|carried\s+forward|bal(?:ance)?\s+(?:fwd|forward))\b|\b(?:opening|closing)\s+balance\b/i;
+// The balance a carry row ends with: "... 5,000.00" | "... 5,000.00 Cr".
+export const TRAILING_BALANCE_REGEX = new RegExp(`(${AMOUNT})${DRCR}\\s*$`);
+
+// Statements printed newest transaction first are read bottom-up so each
+// balance follows from the one before it.
+export function isNewestFirst(dates: string[]): boolean {
+  return dates.length > 1 && dates[0] > dates[dates.length - 1];
+}
 
 export function parseAmount(raw: string): number {
   return Number(raw.replace(/,/g, ''));

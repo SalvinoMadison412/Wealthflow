@@ -19,6 +19,13 @@ const UPI_SHAPES: { re: RegExp; payee: number; ref: number }[] = [
 // "UPI/<payee> UPI-<bankRef>" — no slash-delimited ref/note fields at all.
 const UPI_SHORT_REGEX = /^UPI\/(.+?)\s+UPI-\w+$/i;
 
+const VALUE_DATE_SUFFIX = /\s*\(Value Date:[^)]*\)\s*$/i;
+
+// Kotak appends "(Value Date: dd-mm-yyyy)" to some narrations.
+export function cleanDescription(raw: string): string {
+  return raw.replace(VALUE_DATE_SUFFIX, '');
+}
+
 export function classifyDescription(raw: string): { merchant: string; refNo: string | null } {
   for (const { re, payee, ref } of UPI_SHAPES) {
     const m = raw.match(re);

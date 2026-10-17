@@ -80,6 +80,13 @@ export function renameAccount(id: string, input: { bank?: string; ownerLabel?: s
 export const NO_TRANSACTIONS_MESSAGE =
   'No transactions found in this PDF. It may be scanned or in a layout we don\'t support yet.';
 
+// Balanced only counts when the rows were read by column (verified), every
+// dated row in the PDF was read and each one follows from the previous
+// balance (see Coverage in statement/types.ts).
+function fullyRead({ coverage }: ParsedStatement): boolean {
+  return coverage.verified && coverage.rowsRead === coverage.rowsInPdf && coverage.mismatchDates.length === 0;
+}
+
 // Parses + reconciles and persists: creates the statement and its
 // transactions, then recategorizes the new rows. Only refuses a PDF that
 // parses to zero rows; a transaction already stored (same dedupe_key, in ANY account) is skipped
@@ -109,7 +116,7 @@ export function importStatement(
         periodEnd,
         statement.openingBalance,
         statement.closingBalance,
-        reconciliation.ok ? 1 : 0,
+        reconciliation.ok && fullyRead(statement) ? 1 : 0,
         new Date().toISOString(),
       ]
     );

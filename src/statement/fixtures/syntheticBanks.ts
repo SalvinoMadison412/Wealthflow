@@ -83,7 +83,7 @@ const dates = {
   ddDashMonY: (d: number) => `${String(d).padStart(2, '0')}-${MON}-2026`,
 };
 
-type Cell = { i: number; date: string; desc: string; ref: string; debit?: string; credit?: string; bal: string; amt: string; dir: 'Dr' | 'Cr' };
+type Cell = { i: number; date: string; desc: string; ref: string; debit?: string; credit?: string; bal: string; amt: string; dir?: 'Dr' | 'Cr' };
 type Layout = {
   id: string;
   bankName: string;
@@ -92,18 +92,23 @@ type Layout = {
   money: (n: number) => string;
   columns: [label: string, x: number][];
   cells: (c: Cell) => (string | undefined)[];
-  // HDFC prints the opening balance in a summary block, figures on the next line.
-  openingBelowLabel?: boolean;
+  // Shapes seen in real SBI/HDFC PDFs: a narration wrapped onto a second
+  // line (row 3) and amounts printed a few points below the date (row 2).
+  wrapAndOffset?: boolean;
+  // HDFC: no opening-balance line up top, a summary block after the last row
+  // (its opening balance on its own baseline), and rows 5-6 on a second page
+  // that does not repeat the header.
+  hdfcPaging?: boolean;
 };
 
 export const BANK_LAYOUTS: Layout[] = [
   {
-    id: 'sbi', bankName: 'State Bank of India', narration: 'sbi', date: dates.dMonY, money: western,
+    id: 'sbi', bankName: 'State Bank of India', narration: 'sbi', date: dates.dMonY, money: western, wrapAndOffset: true,
     columns: [['Txn Date', 20], ['Value Date', 75], ['Description', 130], ['Ref No./Cheque No.', 400], ['Debit', 480], ['Credit', 540], ['Balance', 600]],
     cells: (c) => [c.date, c.date, c.desc, c.ref, c.debit, c.credit, c.bal],
   },
   {
-    id: 'hdfc', bankName: 'HDFC Bank', narration: 'hdfc', date: dates.dmy2, money: indian, openingBelowLabel: true,
+    id: 'hdfc', bankName: 'HDFC Bank', narration: 'hdfc', date: dates.dmy2, money: indian, wrapAndOffset: true, hdfcPaging: true,
     columns: [['Date', 20], ['Narration', 70], ['Chq./Ref.No.', 380], ['Value Dt', 460], ['Withdrawal Amt.', 520], ['Deposit Amt.', 600], ['Closing Balance', 680]],
     cells: (c) => [c.date, c.desc, c.ref, c.date, c.debit, c.credit, c.bal],
   },
@@ -149,39 +154,75 @@ export const BANK_LAYOUTS: Layout[] = [
   },
 ];
 
-export function syntheticBankPages(layout: Layout): PageContent[] {
-  const items: TextItem[] = [];
+// newestFirst: rows printed latest first (balances still chronological).
+// carryRows: a "BALANCE B/F" row before the first transaction and a
+// "BALANCE C/F" row after the last, each carrying only a balance.
+export function syntheticBankPages(
+  layout: Layout,
+  opts: { newestFirst?: boolean; carryRows?: boolean } = {}
+): PageContent[] {
+  const pages: PageContent[] = [];
+  let items: TextItem[] = [];
   let y = 560;
-  const put = (x: number, text: string) => items.push({ str: text, x, y, width: text.length * 4, height: 7 });
+  const put = (x: number, text: string, dy = 0) => items.push({ str: text, x, y: y - dy, width: text.length * 4, height: 7 });
   const nextLine = (gap = 14) => {
     y -= gap;
+  };
+  const newPage = () => {
+    pages.push({ pageNumber: pages.length + 1, items });
+    items = [];
+    y = 560;
   };
 
   put(20, layout.bankName);
   nextLine(18);
-  if (layout.openingBelowLabel) {
-    put(20, 'Opening Balance');
-    put(120, 'Debits');
-    put(200, 'Credits');
-    put(280, 'Closing Bal');
-    nextLine(12);
-    put(20, layout.money(BANK_OPENING_BALANCE));
-  } else {
+  if (!layout.hdfcPaging) {
     put(20, 'Opening Balance');
     put(200, layout.money(BANK_OPENING_BALANCE));
+    nextLine(18);
   }
-  nextLine(18);
   for (const [label, x] of layout.columns) put(x, label);
   nextLine();
 
-  let balance = BANK_OPENING_BALANCE;
-  TX.forEach((tx, index) => {
-    balance += tx.credit ? tx.amount : -tx.amount;
+  type Entry = { tx?: (typeof TX)[number]; index: number; balance: number; carry?: string; day: number };
+  let running = BANK_OPENING_BALANCE;
+  let entries: Entry[] = TX.map((tx, index) => {
+    running += tx.credit ? tx.amount : -tx.amount;
+    return { tx, index, balance: running, day: tx.day };
+  });
+  if (opts.carryRows) {
+    entries = [
+      { index: -1, balance: BANK_OPENING_BALANCE, carry: 'BALANCE B/F', day: TX[0].day },
+      ...entries,
+      { index: -1, balance: running, carry: 'BALANCE C/F', day: TX[TX.length - 1].day },
+    ];
+  }
+  if (opts.newestFirst) entries.reverse();
+
+  entries.forEach((entry, position) => {
+    if (layout.hdfcPaging && position === 4) newPage();
+    if (entry.carry) {
+      const cells = layout.cells({ i: 0, date: layout.date(entry.day), desc: entry.carry, ref: '', bal: layout.money(entry.balance), amt: '' });
+      layout.columns.forEach(([label, x], col) => {
+        const text = cells[col];
+        if (!text || text === '0') return;
+        if (/^\d[\d,]*\.\d{2}( Cr)?$/.test(text)) put(x + label.length * 4 - text.length * 4, text);
+        else put(x, text);
+      });
+      nextLine(16);
+      return;
+    }
+    const tx = entry.tx!;
+    const index = entry.index;
+    const balance = entry.balance;
     const money = layout.money(tx.amount);
+    const desc = NARRATION[layout.narration][tx.key];
+    const wrap = layout.wrapAndOffset && index === 2;
+    const offset = layout.wrapAndOffset && index === 1 ? 6 : 0;
     const cells = layout.cells({
       i: index + 1,
       date: layout.date(tx.day),
-      desc: NARRATION[layout.narration][tx.key],
+      desc: wrap ? desc.slice(0, 24) : desc,
       ref: `REF${1001 + index}`,
       debit: tx.credit ? undefined : money,
       credit: tx.credit ? money : undefined,
@@ -189,12 +230,28 @@ export function syntheticBankPages(layout: Layout): PageContent[] {
       amt: money,
       dir: tx.credit ? 'Cr' : 'Dr',
     });
-    layout.columns.forEach(([, x], col) => {
+    let descX = 0;
+    layout.columns.forEach(([label, x], col) => {
       const text = cells[col];
-      if (text) put(x, text);
+      if (!text) return;
+      if (text.startsWith(desc.slice(0, 24))) descX = x;
+      // Amounts are right-aligned under their column label, as in real PDFs.
+      if (/^\d[\d,]*\.\d{2}( Cr)?$/.test(text)) put(x + label.length * 4 - text.length * 4, text, offset);
+      else put(x, text);
     });
-    nextLine(16);
+    if (wrap) put(descX, desc.slice(24), 10);
+    nextLine(wrap ? 26 : 16);
   });
 
-  return [{ pageNumber: 1, items }];
+  if (layout.hdfcPaging) {
+    nextLine(10);
+    put(70, 'STATEMENT SUMMARY :-');
+    nextLine(10);
+    for (const [label, x] of [['Opening Balance', 130], ['Dr Count', 290], ['Cr Count', 360], ['Debits', 425], ['Credits', 500], ['Closing Bal', 570]] as const) put(x, label);
+    nextLine(9);
+    for (const [text, x] of [['4', 300], ['2', 370], [layout.money(3150), 420], [layout.money(120012.5), 495], [layout.money(BANK_CLOSING_BALANCE), 575]] as const) put(x, text);
+    put(148, layout.money(BANK_OPENING_BALANCE), 2);
+  }
+  newPage();
+  return pages;
 }
