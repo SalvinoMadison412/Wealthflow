@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, SectionList, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,6 +16,7 @@ import {
   getSetting,
   hasAnyTransactions,
   listMonthsWithData,
+  listYearsWithData,
   listTransactions,
   TransactionListItem,
   TransactionSort,
@@ -93,6 +94,16 @@ function parseAmount(text: string): number | undefined {
   return text.trim() !== '' && Number.isFinite(n) ? n : undefined;
 }
 
+// Typing in the amount boxes would otherwise re-run the list query on every keystroke.
+function useDebounced<T>(value: T, ms = 300): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return debounced;
+}
+
 export function TransactionsScreen() {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
@@ -107,22 +118,26 @@ export function TransactionsScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [minText, setMinText] = useState('');
   const [maxText, setMaxText] = useState('');
-  const minAmount = parseAmount(minText);
-  const maxAmount = parseAmount(maxText);
+  const minAmount = parseAmount(useDebounced(minText));
+  const maxAmount = parseAmount(useDebounced(maxText));
+  // undefined = every year.
+  const [year, setYear] = useState<string | undefined>(undefined);
 
   // Off (Basic): the tab lists every transaction and there is no confirm step.
   const advanced = useQuery(() => getSetting('advanced_access') === '1', []);
   const hasData = useQuery(() => hasAnyTransactions(), []);
   const { accountId, accountIds } = useAccountFilter();
-  const months = useQuery(() => listMonthsWithData(accountIds), [accountId]);
+  const years = useQuery(() => listYearsWithData(accountIds), [accountId]);
+  const months = useQuery(() => listMonthsWithData(accountIds, year), [accountId, year]);
   const month = monthChoice === 'all' ? null : (monthChoice ?? months[0] ?? null);
   const monthIndex = month ? months.indexOf(month) : -1;
-  const counts = useQuery(() => countInbox(month, accountIds), [accountId, month]);
+  const counts = useQuery(() => countInbox(month ?? year ?? null, accountIds), [accountId, month, year]);
   const items = useQuery(
     () =>
       listTransactions({
         scopeAccountIds: accountIds,
         month: month ?? undefined,
+        year,
         view: advanced ? view : undefined,
         direction: direction ?? undefined,
         recurringOnly,
@@ -130,7 +145,7 @@ export function TransactionsScreen() {
         maxAmount,
         sort,
       }),
-    [accountId, month, advanced, view, direction, recurringOnly, minAmount, maxAmount, sort]
+    [accountId, month, year, advanced, view, direction, recurringOnly, minAmount, maxAmount, sort]
   );
 
   // Sorting by amount breaks the day grouping, so rows go flat and carry their own date.
@@ -164,7 +179,7 @@ export function TransactionsScreen() {
     (direction !== null ? 1 : 0) +
     (recurringOnly ? 1 : 0) +
     (minAmount != null || maxAmount != null ? 1 : 0);
-  const hasActiveFilters = monthChoice !== undefined || filterCount > 0;
+  const hasActiveFilters = monthChoice !== undefined || year !== undefined || filterCount > 0;
   const resetFilters = useCallback(() => {
     setSort('newest');
     setDirection(null);
@@ -174,6 +189,7 @@ export function TransactionsScreen() {
   }, []);
   const clearFilters = useCallback(() => {
     setMonthChoice(undefined);
+    setYear(undefined);
     resetFilters();
   }, [resetFilters]);
 
@@ -218,6 +234,22 @@ export function TransactionsScreen() {
           )}
         </Pressable>
       </View>
+
+      {years.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.yearRow}>
+          {[undefined, ...years].map((y) => (
+            <FilterChip
+              key={y ?? 'all'}
+              label={y ?? 'All years'}
+              selected={year === y}
+              onPress={() => {
+                setYear(y);
+                setMonthChoice(undefined);
+              }}
+            />
+          ))}
+        </ScrollView>
+      )}
 
       <View style={styles.monthRow}>
         <Pressable
@@ -468,6 +500,7 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   tiles: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.pageGutter, paddingBottom: spacing.md },
   tile: { flex: 1, backgroundColor: colors.card, borderRadius: radii.card, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, gap: 2 },
   tileLabel: { ...type.caption, color: colors.textSecondary },
+  yearRow: { gap: spacing.sm, paddingHorizontal: spacing.pageGutter, paddingBottom: spacing.md },
   monthRow: {
     flexDirection: 'row',
     alignItems: 'center',
