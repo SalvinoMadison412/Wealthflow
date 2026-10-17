@@ -22,8 +22,8 @@ export function groupIntoLines(items: TextItem[]): Line[] {
 
   return lines.map((line) => ({
     y: line.y,
+    items: line.items.sort((a, b) => a.x - b.x),
     text: line.items
-      .sort((a, b) => a.x - b.x)
       .map((i) => i.str)
       .join(' ')
       .replace(/\s+/g, ' ')
