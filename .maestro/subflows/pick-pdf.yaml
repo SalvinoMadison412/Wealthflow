@@ -1,0 +1,9 @@
+# Opens the Import screen's file picker and chooses ${FILE} from Downloads.
+# The PDF must already be in the device's Downloads (see the handbook).
+appId: com.kevin.madison.wealthflowapp
+---
+- tapOn: Import a statement
+- tapOn: Choose PDF statements
+- tapOn: Show roots
+- tapOn: Downloads
+- tapOn: ${FILE}

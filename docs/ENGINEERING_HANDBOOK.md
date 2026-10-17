@@ -628,6 +628,38 @@ anything touching SQLite or Supabase are verified by hand on the
 emulator; when adding logic, put the decision in a pure function and test
 that.
 
+### E2E testing (Maestro)
+
+`.maestro/` holds [Maestro](https://maestro.mobile.dev) flows that drive the
+installed app through its UI; they use visible text and accessibility
+labels (no `testID`s), so the same YAML should work on iOS later.
+
+| Flow | Checks |
+|---|---|
+| `launch.yaml` | fresh install → Continue as guest → profile → Home |
+| `import-valid.yaml` | imports `fixtures/synthetic-statement.pdf` (its header names the bank, which the account chooser pre-fills; a statement that names none leaves the bank field blank): 6 transactions, "Balanced", rows on Transactions |
+| `import-zero-row.yaml` | imports `fixtures/not-a-statement.pdf`: must be rejected, not shown as a balanced import (fails on a build without that fix) |
+
+Both PDFs are made-up data; never commit a real statement. Shared steps live
+in `subflows/`.
+
+Prerequisites: Maestro installed (`maestro --version`), a booted emulator
+(AVD `Pixel_10`), and a **release** build of the app installed so no Metro
+is needed (`ANDROID_HOME=~/Library/Android/sdk npx expo run:android --variant release --no-bundler`; it needs `.env.local`
+for the Supabase guest sign-in, so the flows need network). Each run starts with `clearState`, so it wipes the app's data on the
+emulator. Put the PDFs where the document picker can see them, and make
+Android index them (otherwise the picker does not list them):
+
+```bash
+adb push .maestro/fixtures/*.pdf /sdcard/Download/
+for f in synthetic-statement.pdf not-a-statement.pdf; do adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/$f; done
+maestro test .maestro/
+```
+
+The import flows tap through the system file picker (`Show roots` →
+`Downloads`), so they depend on the emulator's Android picker UI. Not wired
+into CI.
+
 ---
 
 ## 8. Conventions and process
