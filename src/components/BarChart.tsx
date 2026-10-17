@@ -27,28 +27,34 @@ function monthLabel(month: string): string {
 // about everything it earned is flagged. Values show on tap. The line
 // under the legend describes the newest month with data (trailing months
 // can be empty — see data/spending.ts chartEndMonth).
-export function BarChart({ data }: { data: MonthlyBar[] }) {
+// `partial`: months whose statements don't cover every day, mapped to the
+// covered days ("1–15 Oct", or null when several accounts differ). Their bars
+// are faded and never flagged; a month's verdict waits until it's complete.
+export function BarChart({ data, partial = new Map() }: { data: MonthlyBar[]; partial?: Map<string, string | null> }) {
   const styles = useStyles(makeStyles);
   const { colors } = useTheme();
   const [selected, setSelected] = useState<number | null>(null);
   const latest = [...data].reverse().find((d) => d.income > 0 || d.expense > 0);
-  const latestTone = latest ? expenseTone(latest.income, latest.expense) : null;
+  const latestPartial = latest ? partial.has(latest.month) : false;
+  const latestCovered = latest ? partial.get(latest.month) : null;
+  const latestTone = latest ? { ...expenseTone(latest.income, latest.expense), ...(latestPartial && { flag: false }) } : null;
   const max = Math.max(1, ...data.flatMap((d) => [d.income, d.expense]));
 
   return (
     <View>
       <View style={styles.row}>
         {data.map((d, i) => {
-          const tone = expenseTone(d.income, d.expense);
+          const isPartial = partial.has(d.month);
+          const tone = { ...expenseTone(d.income, d.expense), ...(isPartial && { flag: false }) };
           return (
           <Pressable
             key={d.month}
             style={styles.column}
             onPress={() => setSelected((current) => (current === i ? null : i))}
             accessibilityRole="button"
-            accessibilityLabel={`${monthLabel(d.month)}: income ₹${d.income.toFixed(0)}, expenses ₹${d.expense.toFixed(0)}`}
+            accessibilityLabel={`${monthLabel(d.month)}${isPartial ? ' (partial month)' : ''}: income ₹${d.income.toFixed(0)}, expenses ₹${d.expense.toFixed(0)}`}
           >
-            <View style={styles.track}>
+            <View style={[styles.track, isPartial && styles.partial]}>
               {tone.flag && (
                 <Feather name="alert-triangle" size={12} color={colors.expenseText} style={styles.flagIcon} />
               )}
@@ -91,7 +97,11 @@ export function BarChart({ data }: { data: MonthlyBar[] }) {
         <View style={[styles.summary, latestTone.flag && styles.summaryFlag]}>
           {latestTone.flag && <Feather name="alert-triangle" size={14} color={colors.expenseText} />}
           <Text style={[styles.summaryText, latestTone.flag && styles.summaryTextFlag]}>
-            {latestTone.ratio === null
+            {latestPartial
+              ? `${fullMonth(latest.month)} so far${latestCovered ? ` (${latestCovered})` : ''}: ${
+                  latestTone.ratio === null ? 'no income yet' : `you spent ${Math.round(latestTone.ratio * 100)}% of your income`
+                }.`
+              : latestTone.ratio === null
               ? `Red flag: you spent money in ${fullMonth(latest.month)} with no income coming in.`
               : latestTone.flag
                 ? `Red flag: you spent ${Math.round(latestTone.ratio * 100)}% of your income in ${fullMonth(latest.month)}.`
@@ -133,6 +143,7 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     minHeight: 48,
     justifyContent: 'flex-end',
   },
+  partial: { opacity: 0.45 },
   track: {
     width: '100%',
     height: TRACK_HEIGHT,

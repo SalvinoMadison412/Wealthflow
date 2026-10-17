@@ -219,10 +219,10 @@ sync (§6) with the session.
 | `CategorizeSheet` (header info button expands `TransactionDetails`: reference no., merchant, description, date, type, amount, balance after, account; tap a row or Copy all to copy) | `getTransactionDetail`, `retroCount` preview | `setCategoryOverride` ("just this one", which also finalizes the row) or `insertRule` (with `suggestPattern` prefill) then `setCategoryOverride`. A Type control (Income / Expense / Asset / Liability) filters the category grid by `kind`; its default is the current category's kind, else deposit -> income, withdrawal -> expense. Uncategorized is not offered. A type with no matching category offers a general one (`Income`, `Expenses`, `Assets`, `Liabilities`), created on tap |
 | `NewRuleFormScreen` (a Merchant / Amount switch picks the one condition the rule saves; Merchant takes a comma-separated list, with an info button explaining that case is ignored) | categories | `getOrCreateCategoryByName`, `insertRule` |
 | `RulesListScreen` | `listRulesForDisplay` | `setRuleEnabled`, `moveRule`, `deleteRule` |
-| `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog) | `countTransactionsInMonth`, `countUncategorized`, `getCategoryBudgetRows` | `setCategoryBudget`, `enableAutoCategorise`, `decategorizeMonth` |
+| `BudgetScreen` (opens on the newest month with data; stepping to a month with no transactions turns the donut into a grey ring reading "No statement" plus the month; there is no dialog; a partly covered month reads "spent in 15 of 31 days") | `countTransactionsInMonth`, `countUncategorized`, `getCategoryBudgetRows` | `setCategoryBudget`, `enableAutoCategorise`, `decategorizeMonth` |
 | `ProfileScreen` | profile, `listAccounts`, `listCategoriesForFilter` | `signOut`, `deleteAccount` (auth context: `delete_my_account()` RPC, local sign-out, then `wipeAllData`; typed-DELETE confirm), rename/delete account, rename/recolour/retype/delete category, `setSetting('monthly_income')`, `wipeAllData` |
 | `MenuSheet` | profile, `getSetting('appearance')`, `getSetting('advanced_access')` | `setSetting('appearance')`, `setSetting('advanced_access')` (Advanced Access switch), `deleteSetting('tour_done')`; `replace()`s itself with Profile or Statements |
-| `StatementsScreen` | `listStatements` | `deleteStatement` |
+| `StatementsScreen` (gaps between one account's statements are listed above the cards: "missing 16–19 Sept") | `listStatements`, `gapsBetween` | `deleteStatement` |
 
 **Shared period (Home + Transactions).** `components/PeriodStepper.tsx`
 holds one in-memory period (`useSyncExternalStore`, reset each launch):
@@ -231,6 +231,24 @@ none = newest month with data, `'YYYY-MM'`, or `'YYYY'` for a whole year
 row; it steps through every month with data, crossing years, and tapping the
 label toggles "All of 2026". Below it, a small note ("Change year in Filters")
 opens the Transactions Filters sheet. There is no all-time view.
+
+**Partial months.** `data/coverage.ts` merges each account's statement
+periods (`listStatements`) into covered day ranges. `monthCoverage` gives, per
+account with a statement in that month, the covered and missing days; days
+from today on are never missing. `useCoverage(month)` (PeriodStepper.tsx)
+feeds:
+- the note: "Covers 1–15 Oct" or "Missing 16–19 Sept" (whichever is
+  shorter), or "Some days missing" when several accounts are partial;
+- the ⓘ button beside it, which opens a sheet with each account's covered
+  and missing days, the statements behind the period, "Import missing days"
+  and "Change year";
+- the Home chart (partial months faded, never flagged; the summary line says
+  "October so far" instead of "Red flag");
+- Budget ("spent in 15 of 31 days");
+- Home's nudge, which also fires once the newest month has ended with days
+  missing ("Import 16–31 Oct to complete October").
+`gapsBetween` lists holes between one account's statements at the top of the
+Statements screen. Totals are never pro-rated: they show only what's covered.
 
 Screens re-run their queries through `useQuery(fn, deps)`
 (`src/db/useQuery.ts`), which subscribes to the SQLite change listener:
@@ -414,6 +432,11 @@ that extension as an asset so Metro never tries to parse it.
    adds `bank`, taken from a bank name in the lines that are **not**
    transaction rows (narrations mention other banks); none found means
    `bank` is `undefined` and the user types it in the account chooser.
+   It also adds `period`, the statement period the bank prints ("Statement
+   period 01-10-2026 to 15-10-2026", "From … To …"; `matchPeriod`), searched
+   in the same non-row lines and kept only if every row date falls inside
+   it. `importStatement` saves it as `period_start/end`, falling back to the
+   first and last row dates.
    `description` feeds the transaction id and `dedupe_key`, so changing
    how it is built re-imports as new rows: Kotak output is pinned (the
    real sample statement was diffed field by field before and after).

@@ -10,7 +10,7 @@ import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 const ACCOUNT_FILTER_SETTING = 'account_filter';
 
-function accountLabel(a: Account): string {
+export function accountLabel(a: Account): string {
   return a.maskedNumber ? `${a.bank} · ${a.maskedNumber}` : a.bank;
 }
 

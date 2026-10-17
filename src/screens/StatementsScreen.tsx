@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PressableScale } from '../components/PressableScale';
+import { gapsBetween, rangeLabel } from '../data/coverage';
 import { listStatements, StatementListItem } from '../db/queries';
 import { deleteStatement } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
@@ -25,6 +26,11 @@ export function StatementsScreen() {
   const styles = useStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const statements = useQuery(() => listStatements(), []);
+  // Holes between one account's statements, newest first.
+  const gaps = gapsBetween(
+    statements.flatMap((s) => (s.periodStart && s.periodEnd ? [{ accountId: s.accountId, start: s.periodStart, end: s.periodEnd }] : []))
+  ).reverse();
+  const bankOf = (accountId: string) => statements.find((s) => s.accountId === accountId);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -46,7 +52,17 @@ export function StatementsScreen() {
             </PressableScale>
           </View>
         ) : (
-          statements.map((s) => <StatementCard key={s.id} statement={s} />)
+          <>
+            {gaps.map((g) => (
+              <Text key={`${g.accountId}${g.from}`} style={styles.gap}>
+                <Feather name="alert-circle" size={12} color={colors.textSecondary} /> {bankOf(g.accountId)?.bank} · {bankOf(g.accountId)?.ownerLabel}:
+                missing {rangeLabel([g.from, g.to])}
+              </Text>
+            ))}
+            {statements.map((s) => (
+              <StatementCard key={s.id} statement={s} />
+            ))}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -134,6 +150,7 @@ const makeStyles = ({ colors, pillPalette }: Theme) =>
       height: 24,
       borderRadius: radii.pill,
     },
+    gap: { ...type.caption, color: colors.textSecondary },
     badgeOk: { backgroundColor: pillPalette[1].bg },
     badgeWarn: { backgroundColor: pillPalette[3].bg },
     badgeText: { ...type.caption },

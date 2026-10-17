@@ -21,7 +21,7 @@ const MONTHS: Record<string, string> = {
 };
 
 // 07 Mar 2026 | 07-Mar-2026 | 07/03/26 | 07/03/2026 | 07-03-2026
-const DATE = String.raw`\d{1,2}(?:\s+[A-Za-z]{3}\s+\d{4}|-[A-Za-z]{3}-\d{4}|[/-]\d{1,2}[/-]\d{2,4})`;
+export const DATE = String.raw`\d{1,2}(?:\s+[A-Za-z]{3}\s+\d{4}|-[A-Za-z]{3}-\d{4}|[/-]\d{1,2}[/-]\d{2,4})`;
 const AMOUNT = String.raw`(?:₹\s?|Rs\.?\s?)?\d[\d,]*\.\d{2}`;
 const DRCR = String.raw`(?:\s*(Dr|Cr)\.?)?`;
 
