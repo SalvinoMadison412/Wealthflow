@@ -1,5 +1,6 @@
 import { AccountMonth, BalanceSummaryData, combineAccountMonths } from '../data/balance';
 import { Kind } from '../data/statements';
+import { containsPattern } from '../data/likePattern';
 import { periodRange } from '../data/period';
 import { findRecurringMerchants } from '../data/recurring';
 import { describeRule } from '../data/rulePattern';
@@ -31,6 +32,8 @@ type TransactionFilters = {
   // the Transactions screen's own single-account filter chip). Unused
   // while the app is single-user; kept for when scoping returns.
   scopeAccountIds?: string[] | null;
+  // Case-insensitive contains on merchant or description (LIKE '%text%').
+  search?: string;
   sort?: TransactionSort;
 };
 
@@ -95,6 +98,11 @@ export function listTransactions(filters: TransactionFilters): TransactionListIt
   if (filters.maxAmount != null) {
     clauses.push('COALESCE(t.deposit, t.withdrawal) <= ?');
     params.push(filters.maxAmount);
+  }
+  if (filters.search?.trim()) {
+    clauses.push("(t.merchant LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')");
+    const pattern = containsPattern(filters.search);
+    params.push(pattern, pattern);
   }
   if (filters.recurringOnly) {
     const merchants = listRecurringMerchants();
