@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, SectionList, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,13 +9,13 @@ import { Amount } from '../components/Amount';
 import { AccountFilter, useAccountFilter } from '../components/AccountFilter';
 import { AppHeader } from '../components/AppHeader';
 import { FilterChip } from '../components/FilterChip';
+import { PeriodStepper, usePeriod } from '../components/PeriodStepper';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
 import {
   countInbox,
   getSetting,
   hasAnyTransactions,
-  listMonthsWithData,
   listTransactions,
   TransactionListItem,
   TransactionSort,
@@ -23,18 +23,13 @@ import {
 import { UNCATEGORIZED_CATEGORY_ID } from '../db/schema';
 import { finalizeTransactions } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
-import { RootStackParamList } from '../navigation/RootNavigator';
+import { MainTabsParamList, RootStackParamList } from '../navigation/RootNavigator';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 type Section = { title: string; net: number; data: TransactionListItem[] };
-
-function monthLabel(month: string): string {
-  const [y, m] = month.split('-').map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-}
 
 function longDateLabel(date: string): string {
   const [y, m, d] = date.split('-').map(Number);
@@ -93,36 +88,49 @@ function parseAmount(text: string): number | undefined {
   return text.trim() !== '' && Number.isFinite(n) ? n : undefined;
 }
 
+// Typing in the amount boxes would otherwise re-run the list query on every keystroke.
+function useDebounced<T>(value: T, ms = 300): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return debounced;
+}
+
 export function TransactionsScreen() {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
-  // undefined = newest month with data (follows new imports); 'all' = every month.
-  const [monthChoice, setMonthChoice] = useState<string | 'all' | undefined>(undefined);
+  const route = useRoute<RouteProp<MainTabsParamList, 'Transactions'>>();
+  const { period, year, years, pickYear } = usePeriod();
   const [view, setView] = useState<'all' | 'byRules'>('all');
   const [direction, setDirection] = useState<'received' | 'sent' | null>(null);
   const [recurringOnly, setRecurringOnly] = useState(false);
   const [sort, setSort] = useState<TransactionSort>('newest');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const yearScroll = useRef<ScrollView>(null);
   const [minText, setMinText] = useState('');
   const [maxText, setMaxText] = useState('');
-  const minAmount = parseAmount(minText);
-  const maxAmount = parseAmount(maxText);
+  const minAmount = parseAmount(useDebounced(minText));
+  const maxAmount = parseAmount(useDebounced(maxText));
+  // Home's "Change year in Filters" note lands here with the sheet open.
+  const openFilters = route.params?.openFilters;
+  useEffect(() => {
+    if (openFilters) setFiltersOpen(true);
+  }, [openFilters]);
 
   // Off (Basic): the tab lists every transaction and there is no confirm step.
   const advanced = useQuery(() => getSetting('advanced_access') === '1', []);
   const hasData = useQuery(() => hasAnyTransactions(), []);
   const { accountId, accountIds } = useAccountFilter();
-  const months = useQuery(() => listMonthsWithData(accountIds), [accountId]);
-  const month = monthChoice === 'all' ? null : (monthChoice ?? months[0] ?? null);
-  const monthIndex = month ? months.indexOf(month) : -1;
-  const counts = useQuery(() => countInbox(month, accountIds), [accountId, month]);
+  const counts = useQuery(() => countInbox(period, accountIds), [accountId, period]);
   const items = useQuery(
     () =>
       listTransactions({
         scopeAccountIds: accountIds,
-        month: month ?? undefined,
+        month: period ?? undefined,
         view: advanced ? view : undefined,
         direction: direction ?? undefined,
         recurringOnly,
@@ -130,7 +138,7 @@ export function TransactionsScreen() {
         maxAmount,
         sort,
       }),
-    [accountId, month, advanced, view, direction, recurringOnly, minAmount, maxAmount, sort]
+    [accountId, period, advanced, view, direction, recurringOnly, minAmount, maxAmount, sort]
   );
 
   // Sorting by amount breaks the day grouping, so rows go flat and carry their own date.
@@ -158,13 +166,12 @@ export function TransactionsScreen() {
 
   const handleConfirm = useCallback((id: string) => finalizeTransactions([id]), []);
 
-  // What the Filters sheet holds (sort counts as one setting); the month lives outside it.
+  // What the Filters sheet holds (sort counts as one setting); the period lives outside it, in PeriodStepper.
   const filterCount =
     (sort !== 'newest' ? 1 : 0) +
     (direction !== null ? 1 : 0) +
     (recurringOnly ? 1 : 0) +
     (minAmount != null || maxAmount != null ? 1 : 0);
-  const hasActiveFilters = monthChoice !== undefined || filterCount > 0;
   const resetFilters = useCallback(() => {
     setSort('newest');
     setDirection(null);
@@ -172,10 +179,6 @@ export function TransactionsScreen() {
     setMinText('');
     setMaxText('');
   }, []);
-  const clearFilters = useCallback(() => {
-    setMonthChoice(undefined);
-    resetFilters();
-  }, [resetFilters]);
 
   if (!hasData) {
     return (
@@ -219,32 +222,8 @@ export function TransactionsScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.monthRow}>
-        <Pressable
-          onPress={() => setMonthChoice(months[monthIndex + 1])}
-          disabled={monthIndex < 0 || monthIndex >= months.length - 1}
-          hitSlop={13}
-          accessibilityLabel="Older month"
-          style={(monthIndex < 0 || monthIndex >= months.length - 1) && styles.chevronDisabled}
-        >
-          <Feather name="chevron-left" size={22} color={colors.textPrimary} />
-        </Pressable>
-        <Pressable
-          onPress={() => setMonthChoice(month ? 'all' : undefined)}
-          hitSlop={8}
-          accessibilityLabel={month ? 'Show all months' : 'Show one month'}
-        >
-          <Text style={styles.monthLabel}>{month ? monthLabel(month) : 'All months'}</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setMonthChoice(months[monthIndex - 1])}
-          disabled={monthIndex <= 0}
-          hitSlop={13}
-          accessibilityLabel="Newer month"
-          style={monthIndex <= 0 && styles.chevronDisabled}
-        >
-          <Feather name="chevron-right" size={22} color={colors.textPrimary} />
-        </Pressable>
+      <View style={styles.period}>
+        <PeriodStepper onChangeYear={() => setFiltersOpen(true)} />
       </View>
 
       {advanced && (
@@ -306,8 +285,8 @@ export function TransactionsScreen() {
           {recurringOnly && (
             <Text style={styles.emptySubtitle}>Recurring needs at least two months of statements.</Text>
           )}
-          {hasActiveFilters && (
-            <PressableScale style={styles.clearButton} onPress={clearFilters}>
+          {filterCount > 0 && (
+            <PressableScale style={styles.clearButton} onPress={resetFilters}>
               <Text style={styles.clearButtonText}>Clear filters</Text>
             </PressableScale>
           )}
@@ -350,7 +329,29 @@ export function TransactionsScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.sheetBody}>
-              <Text style={[styles.sectionLabel, styles.firstLabel]}>SORT BY</Text>
+              <Text style={[styles.sectionLabel, styles.firstLabel]}>YEAR</Text>
+              {/* One scrolling line, edge to edge; opens scrolled to the chosen year. */}
+              <ScrollView
+                ref={yearScroll}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.yearScroll}
+                contentContainerStyle={styles.yearRow}
+              >
+                {years.map((y) => (
+                  <View
+                    key={y}
+                    onLayout={(e) =>
+                      y === year &&
+                      yearScroll.current?.scrollTo({ x: Math.max(0, e.nativeEvent.layout.x - spacing.pageGutter), animated: false })
+                    }
+                  >
+                    <FilterChip label={y} selected={year === y} onPress={() => pickYear(y)} />
+                  </View>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.sectionLabel}>SORT BY</Text>
               <View style={styles.chipWrap}>
                 {SORT_OPTIONS.map(([value, label]) => (
                   <FilterChip key={value} label={label} selected={sort === value} onPress={() => setSort(value)} />
@@ -468,15 +469,6 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   tiles: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.pageGutter, paddingBottom: spacing.md },
   tile: { flex: 1, backgroundColor: colors.card, borderRadius: radii.card, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, gap: 2 },
   tileLabel: { ...type.caption, color: colors.textSecondary },
-  monthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  monthLabel: { ...type.h2, color: colors.textPrimary, minWidth: 160, textAlign: 'center' },
-  chevronDisabled: { opacity: 0.3 },
   viewSegment: { flexDirection: 'row', backgroundColor: colors.track, borderRadius: radii.pill, padding: 3, marginHorizontal: spacing.pageGutter, marginBottom: spacing.md },
   confirmAll: {
     flexDirection: 'row',
@@ -543,6 +535,10 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   toggleText: { flex: 1 },
   toggleTitle: { ...type.body, color: colors.textPrimary },
   toggleHint: { ...type.caption, color: colors.textSecondary },
+  // titleRow already gives 8 above; tiles follow with none of their own on top.
+  period: { paddingTop: spacing.sm, paddingBottom: spacing.lg },
+  yearScroll: { marginHorizontal: -spacing.pageGutter },
+  yearRow: { gap: spacing.sm, paddingHorizontal: spacing.pageGutter },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   sheetFooter: {
     paddingHorizontal: spacing.pageGutter,
