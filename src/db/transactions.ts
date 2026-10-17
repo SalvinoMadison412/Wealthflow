@@ -101,8 +101,10 @@ export function importStatement(
   const reconciliation = reconcile(statement);
 
   const statementId = newId();
-  const periodStart = statement.transactions[0]?.date ?? null;
-  const periodEnd = statement.transactions[statement.transactions.length - 1]?.date ?? null;
+  // The printed period when found (a quiet first or last day still counts as
+  // covered); otherwise the first and last row dates (rows are oldest first).
+  const periodStart = statement.period?.start ?? statement.transactions[0]?.date ?? null;
+  const periodEnd = statement.period?.end ?? statement.transactions[statement.transactions.length - 1]?.date ?? null;
 
   let added = 0;
   db.withTransactionSync(() => {

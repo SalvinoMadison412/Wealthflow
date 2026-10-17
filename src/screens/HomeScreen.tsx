@@ -14,7 +14,7 @@ import { AppHeader } from '../components/AppHeader';
 import { BarChart } from '../components/BarChart';
 import { BalanceSummary } from '../components/BalanceSummary';
 import { Donut } from '../components/Donut';
-import { PeriodStepper, usePeriod } from '../components/PeriodStepper';
+import { PeriodStepper, todayIso, useCoverage, usePeriod } from '../components/PeriodStepper';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
 import {
@@ -25,6 +25,7 @@ import {
   listRecentTransactions,
   TransactionListItem,
 } from '../db/queries';
+import { monthCoverage, rangeLabel } from '../data/coverage';
 import { chartEndMonth } from '../data/spending';
 import { isStatementStale } from '../data/staleness';
 import { listAccounts } from '../db/transactions';
@@ -104,6 +105,20 @@ export function HomeScreen() {
     () => getMonthlyTotals(6, chartEndMonth(listMonthsWithData(accountIds), 6, MONTH_KEY), accountIds),
     [accountId]
   );
+  const { periods, partialLabel } = useCoverage(latestMonth);
+  const partialMonths = new Map(
+    monthly.flatMap((m) => {
+      const covered = partialLabel(m.month);
+      return covered === undefined ? [] : [[m.month, covered] as const];
+    })
+  );
+  // A newest month whose statement stops early, once that month is over:
+  // ask for the missing days (transactions already stored are skipped).
+  const newestMonth = latestPeriodEnd?.slice(0, 7);
+  const missingDays =
+    newestMonth && todayIso() > `${newestMonth}-31`
+      ? monthCoverage(periods, newestMonth, todayIso()).accounts.flatMap((a) => a.missing)
+      : [];
   const recent = useQuery(() => listRecentTransactions(5, accountIds), [accountId]);
 
   const handlePressRow = useCallback(
@@ -201,12 +216,14 @@ export function HomeScreen() {
 
         <PeriodStepper onChangeYear={() => navigation.navigate('Transactions', { openFilters: Date.now() })} />
 
-        {stale && (
+        {(stale || missingDays.length > 0) && (
           <View style={styles.nudge}>
             <View style={{ flex: 1 }}>
               <Text style={styles.nudgeTitle}>Time to update your statement</Text>
               <Text style={styles.nudgeBody}>
-                {latestPeriodEnd
+                {!stale && newestMonth
+                  ? `Import ${missingDays.map(rangeLabel).join(', ')} to complete ${longMonth(newestMonth).split(' ')[0]}.`
+                  : latestPeriodEnd
                   ? `Your last statement ended ${new Date(latestPeriodEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}. Import this month's to keep your numbers current.`
                   : 'Import this month’s statement to keep your numbers current.'}
               </Text>
@@ -237,7 +254,7 @@ export function HomeScreen() {
 
         <View style={styles.card}>
           <Text style={styles.cardLabel}>INCOME VS. EXPENSES</Text>
-          <BarChart data={monthly} />
+          <BarChart data={monthly} partial={partialMonths} />
         </View>
 
         <View style={styles.recentHeader}>

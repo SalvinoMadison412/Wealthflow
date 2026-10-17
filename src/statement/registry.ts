@@ -1,7 +1,7 @@
 import { PageContent } from '../pdf/types';
 import { parseGeneric } from './genericParser';
 import { groupIntoLines } from './lines';
-import { parseRow } from './rowParsing';
+import { DATE, parseDate, parseRow } from './rowParsing';
 import { ParsedStatement } from './types';
 
 const BANKS: [pattern: RegExp, name: string][] = [
@@ -46,6 +46,32 @@ function detectBank(pages: PageContent[]): string | undefined {
   return undefined;
 }
 
+// "Statement period: 01-10-2026 to 15-10-2026", "From 01 Oct 2026 To 15 Oct 2026".
+const PERIOD = new RegExp(`(?:period|from)\\b[^\\d]{0,24}(${DATE})\\s*(?:to|till|-|–)\\s*:?\\s*(${DATE})`, 'i');
+
+export function matchPeriod(text: string): { start: string; end: string } | undefined {
+  const m = text.match(PERIOD);
+  const start = m && parseDate(m[1]);
+  const end = m && parseDate(m[2]);
+  return start && end && start <= end ? { start, end } : undefined;
+}
+
+// The printed period, searched outside the transaction rows like the bank
+// name. Rejected unless every row date sits inside it: a misread header must
+// not shrink or stretch what the statement covers.
+function detectPeriod(pages: PageContent[], rowDates: string[]): { start: string; end: string } | undefined {
+  for (const page of pages) {
+    for (const line of groupIntoLines(page.items)) {
+      if (parseRow(line.text)) continue;
+      const period = matchPeriod(line.text);
+      if (period) return rowDates.every((d) => d >= period.start && d <= period.end) ? period : undefined;
+    }
+  }
+  return undefined;
+}
+
 export function parseStatement(pages: PageContent[]): ParsedStatement {
-  return { ...parseGeneric(pages), bank: detectBank(pages) };
+  const parsed = parseGeneric(pages);
+  const rowDates = parsed.transactions.map((t) => t.date);
+  return { ...parsed, bank: detectBank(pages), period: detectPeriod(pages, rowDates) };
 }

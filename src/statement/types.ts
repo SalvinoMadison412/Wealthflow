@@ -22,6 +22,9 @@ export type ParsedStatement = {
   // transaction table — so the user names/identifies the account by hand
   // in the Import screen's account chooser.
   bank?: string;
+  // The statement period the bank prints ("01-10-2026 to 15-10-2026"), when
+  // found and every row falls inside it. undefined: fall back to row dates.
+  period?: { start: string; end: string };
   coverage: Coverage;
 };
 

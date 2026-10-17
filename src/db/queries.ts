@@ -469,11 +469,15 @@ export type StatementListItem = {
   importedAt: string;
   reconciledOk: boolean;
   transactionCount: number;
+  accountId: string;
 };
 
-// Every import, newest first — the Statements history screen.
-export function listStatements(): StatementListItem[] {
+// Every import, newest first — the Statements history screen, and the
+// periods behind partial-month coverage (data/coverage.ts).
+export function listStatements(accountIds?: string[] | null): StatementListItem[] {
+  const scope = accountsClause(accountIds, 's');
   const rows = db.getAllSync<{
+    account_id: string;
     id: string;
     bank: string;
     owner_label: string;
@@ -483,10 +487,12 @@ export function listStatements(): StatementListItem[] {
     reconciled_ok: number;
     tx_count: number;
   }>(
-    `SELECT s.id, a.bank, a.owner_label, s.period_start, s.period_end, s.imported_at, s.reconciled_ok,
+    `SELECT s.id, s.account_id, a.bank, a.owner_label, s.period_start, s.period_end, s.imported_at, s.reconciled_ok,
        (SELECT COUNT(*) FROM transactions t WHERE t.statement_id = s.id) as tx_count
      FROM statements s JOIN accounts a ON a.id = s.account_id
-     ORDER BY s.imported_at DESC`
+     WHERE 1 = 1 ${scope.clause}
+     ORDER BY s.imported_at DESC`,
+    scope.params
   );
   return rows.map((r) => ({
     id: r.id,
@@ -497,6 +503,7 @@ export function listStatements(): StatementListItem[] {
     importedAt: r.imported_at,
     reconciledOk: r.reconciled_ok === 1,
     transactionCount: r.tx_count,
+    accountId: r.account_id,
   }));
 }
 

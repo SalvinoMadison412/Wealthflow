@@ -7,6 +7,7 @@ import { AccountFilter, useAccountFilter } from '../components/AccountFilter';
 import { AppHeader } from '../components/AppHeader';
 import { CategoryPill } from '../components/CategoryPill';
 import { Donut } from '../components/Donut';
+import { useCoverage } from '../components/PeriodStepper';
 import { PressableScale } from '../components/PressableScale';
 import { ProgressBar } from '../components/ProgressBar';
 import {
@@ -57,6 +58,8 @@ export function BudgetScreen() {
   const monthHasData = useQuery(() => countTransactionsInMonth(month, accountIds) > 0, [month, accountId]);
   const decategorized = useQuery(() => parseMonths(getSetting(DECATEGORIZED_MONTHS_SETTING)).includes(month), [month]);
   const [autoMessage, setAutoMessage] = useState<string | null>(null);
+  // A statement that stops mid-month: say how many days the spending covers.
+  const { complete, coverage, coveredDays } = useCoverage(month);
 
   function autoCategorize() {
     const categorised = enableAutoCategorise(month);
@@ -121,7 +124,13 @@ export function BudgetScreen() {
                   : []
               }
               centerLabel={monthHasData ? formatRupees(totalSpent) : 'No statement'}
-              centerSubLabel={monthHasData ? `spent in ${monthName}` : monthLabel(month)}
+              centerSubLabel={
+                monthHasData
+                  ? complete || !coverage
+                    ? `spent in ${monthName}`
+                    : `spent in ${coveredDays} of ${coverage.days} days`
+                  : monthLabel(month)
+              }
             />
           </View>
           {monthHasData && totalSpent > 0 && (
