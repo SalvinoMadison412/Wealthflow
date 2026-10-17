@@ -1,14 +1,16 @@
 import { PageContent } from '../pdf/types';
+import { searchColumns } from './columnSearch';
 import { parseByColumns } from './columns';
 import { classifyDescription, cleanDescription } from './descriptions';
 import { groupIntoLines } from './lines';
 import {
+  CARRY_ROW,
+  CLOSING_BALANCE_REGEX,
   inferAmounts,
+  isNewestFirst,
   LEADING_AMOUNT_REGEX,
   OPENING_BALANCE_LABEL_REGEX,
   OPENING_BALANCE_REGEX,
-  CARRY_ROW,
-  isNewestFirst,
   parseAmount,
   ParsedRow,
   parseRow,
@@ -36,8 +38,20 @@ function findOpeningBalance(pages: PageContent[]): number | null {
 // read by its columns (columns.ts); otherwise one text line at a time, rows
 // recognised by shape (rowParsing.ts). The bank is named separately
 // (registry.ts).
+// The closing balance when a line prints it beside its label; null otherwise.
+function findClosingBalance(pages: PageContent[]): number | null {
+  for (const page of pages) {
+    for (const line of groupIntoLines(page.items)) {
+      const m = line.text.match(CLOSING_BALANCE_REGEX);
+      if (m) return parseAmount(m[1]);
+    }
+  }
+  return null;
+}
+
 export function parseGeneric(pages: PageContent[]): ParsedStatement {
-  const columnar = parseByColumns(pages, findOpeningBalance(pages));
+  const opening = findOpeningBalance(pages);
+  const columnar = parseByColumns(pages, opening) ?? searchColumns(pages, opening, findClosingBalance(pages));
   if (columnar) {
     const { transactions, openingBalance, coverage } = columnar;
     return {
@@ -153,6 +167,7 @@ function parseByLines(pages: PageContent[]): ParsedStatement {
     transactions,
     coverage: {
       verified: false,
+      layout: 'lines',
       rowsInPdf: Math.max(rowsInPdf, transactions.length),
       rowsRead: transactions.length,
       unreadDates,

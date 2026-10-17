@@ -351,7 +351,18 @@ that extension as an asset so Metro never tries to parse it.
    Columns carry to later pages (HDFC prints the header once). A row band
    ends at the next date, a line starting in the date column, or summary
    text ("statement summary", "opening balance", "generated on"...).
-   Without a header, the line reader below takes over.
+   **Without a recognised header** (unusual or Hindi labels, no header, one
+   Amount column plus a Dr/Cr type), `columnSearch.ts` finds the columns from
+   the numbers: amounts with two decimals are grouped by right edge (the six
+   busiest groups), and every role assignment is tried: separate
+   withdrawal/deposit/balance columns, or one amount column whose direction
+   comes from a Dr/Cr marker or a minus sign. A reading is accepted only if
+   it chains at least 4 rows and 90% of all rows, beats every other reading
+   by max(2, 10% of rows), and ends on a printed closing balance when the
+   statement has one. Identical readings count once. Dated lines with no
+   amounts above the table (a statement period) are not rows. Otherwise the
+   line reader below takes over. `coverage.layout` records which path read
+   the statement (`header`, `search`, `lines`).
    **Coverage:** every parse returns `coverage = { rowsInPdf, rowsRead,
    unreadDates, mismatchDates }`. `rowsInPdf` counts dated rows on the page;
    a row is unread when its amounts are missing or ambiguous; a mismatch is a
