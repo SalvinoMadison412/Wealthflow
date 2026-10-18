@@ -5,15 +5,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, Pressable, ScrollView, SectionList, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Amount } from '../components/Amount';
-import { AccountFilter, useAccountFilter } from '../components/AccountFilter';
+import { accountLabel, setAccountFilter, useAccountFilter } from '../components/AccountFilter';
 import { AppHeader } from '../components/AppHeader';
 import { FilterChip } from '../components/FilterChip';
 import { PeriodStepper, usePeriod } from '../components/PeriodStepper';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
+import { formatRupees } from '../data/money';
 import {
   countInbox,
+  countUncategorizedIn,
   getSetting,
   hasAnyTransactions,
   listTransactions,
@@ -29,29 +30,21 @@ import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-type Section = { title: string; net: number; data: TransactionListItem[] };
+type Section = { title: string; data: TransactionListItem[] };
 
-function longDateLabel(date: string): string {
+// "Wed 30 Sep": the period above already says the year.
+function dayLabel(date: string): string {
   const [y, m, d] = date.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('en-IN', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const day = new Date(y, m - 1, d);
+  return `${day.toLocaleDateString('en-IN', { weekday: 'short' })} ${day.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
 }
 
 function toSections(items: TransactionListItem[]): Section[] {
   const sections: Section[] = [];
   for (const item of items) {
     const last = sections[sections.length - 1];
-    const net = (item.deposit ?? 0) - (item.withdrawal ?? 0);
-    if (last && last.data[0].date === item.date) {
-      last.data.push(item);
-      last.net += net;
-    } else {
-      sections.push({ title: longDateLabel(item.date), net, data: [item] });
-    }
+    if (last && last.data[0].date === item.date) last.data.push(item);
+    else sections.push({ title: dayLabel(item.date), data: [item] });
   }
   return sections;
 }
@@ -74,7 +67,7 @@ function toRowData(item: TransactionListItem, showDate: boolean): TransactionRow
     id: item.id,
     merchant: item.merchant,
     categoryName: item.categoryName,
-    colorIndex: item.colorIndex,
+    uncategorized: item.categoryId === UNCATEGORIZED_CATEGORY_ID,
     amount: item.deposit ?? item.withdrawal ?? 0,
     kind,
     isTransfer: item.isTransfer,
@@ -111,6 +104,8 @@ export function TransactionsScreen() {
   const [sort, setSort] = useState<TransactionSort>('newest');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // The "Review" row narrows the list to rows still on Uncategorized.
+  const [uncategorizedOnly, setUncategorizedOnly] = useState(false);
   const [searchText, setSearchText] = useState('');
   const search = useDebounced(searchText).trim();
   const yearScroll = useRef<ScrollView>(null);
@@ -127,7 +122,8 @@ export function TransactionsScreen() {
   // Off (Basic): the tab lists every transaction and there is no confirm step.
   const advanced = useQuery(() => getSetting('advanced_access') === '1', []);
   const hasData = useQuery(() => hasAnyTransactions(), []);
-  const { accountId, accountIds } = useAccountFilter();
+  const { accounts, accountId, accountIds } = useAccountFilter();
+  const uncategorizedCount = useQuery(() => countUncategorizedIn(period, accountIds), [accountId, period]);
   const counts = useQuery(() => countInbox(period, accountIds), [accountId, period]);
   const items = useQuery(
     () =>
@@ -140,15 +136,16 @@ export function TransactionsScreen() {
         minAmount,
         maxAmount,
         search,
+        uncategorizedOnly,
         sort,
       }),
-    [accountId, period, advanced, view, direction, recurringOnly, minAmount, maxAmount, search, sort]
+    [accountId, period, advanced, view, direction, recurringOnly, minAmount, maxAmount, search, uncategorizedOnly, sort]
   );
 
   // Sorting by amount breaks the day grouping, so rows go flat and carry their own date.
   const byDate = sort === 'newest' || sort === 'oldest';
   const sections = useMemo(
-    () => (byDate ? toSections(items) : [{ title: '', net: 0, data: items }]),
+    () => (byDate ? toSections(items) : [{ title: '', data: items }]),
     [items, byDate]
   );
   // Totals follow whatever the filters leave in the list; transfers between
@@ -175,13 +172,15 @@ export function TransactionsScreen() {
     (sort !== 'newest' ? 1 : 0) +
     (direction !== null ? 1 : 0) +
     (recurringOnly ? 1 : 0) +
-    (minAmount != null || maxAmount != null ? 1 : 0);
+    (minAmount != null || maxAmount != null ? 1 : 0) +
+    (accountId ? 1 : 0);
   const resetFilters = useCallback(() => {
     setSort('newest');
     setDirection(null);
     setRecurringOnly(false);
     setMinText('');
     setMaxText('');
+    setAccountFilter(null);
   }, []);
 
   if (!hasData) {
@@ -206,35 +205,37 @@ export function TransactionsScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
-      <AccountFilter />
-      <View style={styles.titleRow}>
-        <Text style={styles.title}>Transactions</Text>
-        <View style={styles.titleActions}>
-        <Pressable
-          onPress={() => setSearchOpen((o) => !o)}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel="Search"
-          style={[styles.searchButton, (searchOpen || searchText !== '') && styles.filterButtonOn]}
-        >
-          <Feather name="search" size={16} color={searchOpen || searchText !== '' ? colors.accentText : colors.textPrimary} />
-        </Pressable>
-        <Pressable
-          onPress={() => setFiltersOpen(true)}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel={filterCount ? `Filters, ${filterCount} active` : 'Filters'}
-          style={[styles.filterButton, filterCount > 0 && styles.filterButtonOn]}
-        >
-          <Feather name="sliders" size={15} color={filterCount > 0 ? colors.accentText : colors.textPrimary} />
-          <Text style={[styles.filterButtonText, filterCount > 0 && styles.filterButtonTextOn]}>Filters</Text>
-          {filterCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{filterCount}</Text>
+      <View style={styles.period}>
+        <PeriodStepper
+          onChangeYear={() => setFiltersOpen(true)}
+          trailing={
+            <View style={styles.titleActions}>
+              <Pressable
+                onPress={() => setSearchOpen((o) => !o)}
+                hitSlop={2}
+                accessibilityRole="button"
+                accessibilityLabel="Search merchants"
+                style={[styles.iconButton, (searchOpen || searchText !== '') && styles.iconButtonOn]}
+              >
+                <Feather name="search" size={18} color={searchOpen || searchText !== '' ? colors.accentText : colors.textPrimary} />
+              </Pressable>
+              <Pressable
+                onPress={() => setFiltersOpen(true)}
+                hitSlop={2}
+                accessibilityRole="button"
+                accessibilityLabel={filterCount ? `Filters, ${filterCount} active` : 'Filters'}
+                style={[styles.iconButton, filterCount > 0 && styles.iconButtonOn]}
+              >
+                <Feather name="sliders" size={18} color={filterCount > 0 ? colors.accentText : colors.textPrimary} />
+                {filterCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{filterCount}</Text>
+                  </View>
+                )}
+              </Pressable>
             </View>
-          )}
-        </Pressable>
-        </View>
+          }
+        />
       </View>
 
       {searchOpen && (
@@ -258,9 +259,30 @@ export function TransactionsScreen() {
         </View>
       )}
 
-      <View style={styles.period}>
-        <PeriodStepper onChangeYear={() => setFiltersOpen(true)} />
-      </View>
+      <Text
+        style={styles.totalsLine}
+        accessibilityLabel={`In ${formatRupees(totals.received)}, out ${formatRupees(totals.sent)}, net ${totals.net < 0 ? 'minus ' : ''}${formatRupees(Math.abs(totals.net))}`}
+      >
+        In {formatRupees(totals.received)} · Out {formatRupees(totals.sent)} ·{' '}
+        <Text style={[styles.totalsNet, totals.net < 0 ? styles.netNegative : styles.netPositive]}>
+          Net {totals.net < 0 ? '−' : ''}
+          {formatRupees(Math.abs(totals.net))}
+        </Text>
+      </Text>
+
+      {(uncategorizedCount > 0 || uncategorizedOnly) && (
+        <Pressable
+          onPress={() => setUncategorizedOnly((v) => !v)}
+          style={styles.reviewRow}
+          accessibilityRole="button"
+          accessibilityLabel={uncategorizedOnly ? 'Show all transactions' : `Review ${uncategorizedCount} uncategorized transactions`}
+        >
+          <Text style={styles.reviewText}>
+            {uncategorizedOnly ? `Showing ${items.length} uncategorized` : `${uncategorizedCount} uncategorized`}
+          </Text>
+          <Text style={styles.reviewAction}>{uncategorizedOnly ? 'Show all' : 'Review ›'}</Text>
+        </Pressable>
+      )}
 
       {advanced && (
         <View style={styles.viewSegment}>
@@ -290,21 +312,6 @@ export function TransactionsScreen() {
           <Text style={styles.confirmAllText}>Confirm all {items.length}</Text>
         </Pressable>
       )}
-
-      <View style={styles.tiles}>
-        <View style={styles.tile}>
-          <Text style={styles.tileLabel}>Received</Text>
-          <Amount value={totals.received} kind="income" size="sm" fit />
-        </View>
-        <View style={styles.tile}>
-          <Text style={styles.tileLabel}>Sent</Text>
-          <Amount value={totals.sent} kind="expense" size="sm" fit />
-        </View>
-        <View style={styles.tile}>
-          <Text style={styles.tileLabel}>Net</Text>
-          <Amount value={totals.net} kind={totals.net >= 0 ? 'income' : 'expense'} size="sm" fit />
-        </View>
-      </View>
 
       {sections.length === 0 ? (
         <View style={styles.emptyState}>
@@ -344,7 +351,6 @@ export function TransactionsScreen() {
                 <Text style={styles.sectionTitle} numberOfLines={1}>
                   {section.title}
                 </Text>
-                <Amount value={section.net} kind="neutral" size="sm" />
               </View>
             ) : null
           }
@@ -370,7 +376,28 @@ export function TransactionsScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.sheetBody}>
-              <Text style={[styles.sectionLabel, styles.firstLabel]}>YEAR</Text>
+              {accounts.length > 1 && (
+                <>
+                  <Text style={[styles.sectionLabel, styles.firstLabel]}>ACCOUNT</Text>
+                  {[null, ...accounts].map((a) => (
+                    <Pressable
+                      key={a?.id ?? 'all'}
+                      onPress={() => setAccountFilter(a?.id ?? null)}
+                      style={styles.radioRow}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: (a?.id ?? null) === accountId }}
+                    >
+                      <View style={[styles.radio, (a?.id ?? null) === accountId && styles.radioOn]}>
+                        {(a?.id ?? null) === accountId && <View style={styles.radioDot} />}
+                      </View>
+                      <Text style={styles.radioLabel} numberOfLines={1}>
+                        {a ? accountLabel(a) : 'All accounts'}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </>
+              )}
+              <Text style={[styles.sectionLabel, accounts.length < 2 && styles.firstLabel]}>YEAR</Text>
               {/* One scrolling line, edge to edge; opens scrolled to the chosen year. */}
               <ScrollView
                 ref={yearScroll}
@@ -474,19 +501,10 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.pageGutter,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
-  title: { ...type.h1, color: colors.textPrimary },
   titleActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  searchButton: {
-    width: 36,
-    height: 36,
+  iconButton: {
+    width: 44,
+    height: 44,
     borderRadius: radii.pill,
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -494,6 +512,7 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconButtonOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   searchField: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -507,33 +526,36 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     borderColor: colors.border,
   },
   searchInput: { flex: 1, ...type.body, color: colors.textPrimary, paddingVertical: spacing.sm },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    height: 36,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterButtonOn: { backgroundColor: colors.accent, borderColor: colors.accent },
-  filterButtonText: { ...type.label, color: colors.textPrimary },
-  filterButtonTextOn: { color: colors.accentText },
   badge: {
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 5,
-    borderRadius: 9,
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
     backgroundColor: colors.accentText,
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeText: { ...type.caption, fontFamily: 'Inter-Medium', color: colors.accent },
-  tiles: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.pageGutter, paddingBottom: spacing.md },
-  tile: { flex: 1, backgroundColor: colors.card, borderRadius: radii.card, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, gap: 2 },
-  tileLabel: { ...type.caption, color: colors.textSecondary },
+  totalsLine: { ...type.caption, fontSize: 13, color: colors.textSecondary, paddingHorizontal: spacing.pageGutter, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  totalsNet: { fontFamily: 'Inter-Medium' },
+  netNegative: { color: colors.expenseText },
+  netPositive: { color: colors.incomeText },
+  reviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 48,
+    marginHorizontal: spacing.pageGutter,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.card,
+    backgroundColor: colors.card,
+  },
+  reviewText: { ...type.caption, fontSize: 13, color: colors.textSecondary },
+  reviewAction: { ...type.caption, fontSize: 13, fontFamily: 'Inter-Medium', color: colors.accent },
   viewSegment: { flexDirection: 'row', backgroundColor: colors.track, borderRadius: radii.pill, padding: 3, marginHorizontal: spacing.pageGutter, marginBottom: spacing.md },
   confirmAll: {
     flexDirection: 'row',
@@ -585,6 +607,11 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   sheetBody: { paddingHorizontal: spacing.pageGutter, paddingBottom: spacing.md },
   sectionLabel: { ...type.label, color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm },
   firstLabel: { marginTop: spacing.sm },
+  radioRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 48 },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  radioOn: { borderColor: colors.accent },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
+  radioLabel: { ...type.body, color: colors.textPrimary, flex: 1 },
   segment: { flexDirection: 'row', backgroundColor: colors.track, borderRadius: radii.pill, padding: 3 },
   segmentItem: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radii.pill },
   segmentItemOn: { backgroundColor: colors.card },

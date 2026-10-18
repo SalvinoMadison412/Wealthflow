@@ -1,9 +1,11 @@
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AccountFilter, useAccountFilter } from '../components/AccountFilter';
+import { AccountChip, useAccountFilter } from '../components/AccountFilter';
 import { AppHeader } from '../components/AppHeader';
 import { CategoryPill } from '../components/CategoryPill';
 import { Donut } from '../components/Donut';
@@ -19,10 +21,12 @@ import {
   listMonthsWithData,
 } from '../db/queries';
 import { parseMonths } from '../data/decategorize';
+import { formatRupees } from '../data/money';
 import { topWithOthers } from '../data/spending';
 import { DECATEGORIZED_MONTHS_SETTING } from '../db/recategorize';
 import { decategorizeMonth, enableAutoCategorise, setCategoryBudget } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
+import { MainTabsParamList } from '../navigation/RootNavigator';
 import { contentWrap, radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 
@@ -42,11 +46,8 @@ function monthLabel(month: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 }
 
-function formatRupees(n: number): string {
-  return `₹${Math.round(n).toLocaleString('en-IN')}`;
-}
-
 export function BudgetScreen() {
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabsParamList, 'Budget'>>();
   const { colors, pillPalette } = useTheme();
   const styles = useStyles(makeStyles);
   // Opens on the newest month that has data — the current calendar month is
@@ -103,7 +104,9 @@ export function BudgetScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
-      <AccountFilter />
+      <View style={{ paddingBottom: spacing.sm, alignItems: 'center' }}>
+        <AccountChip onPress={() => navigation.navigate('Transactions', { openFilters: Date.now() })} />
+      </View>
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <View style={styles.monthRow}>
           <Pressable onPress={() => setMonth((m) => shiftMonth(m, -1))} hitSlop={13} accessibilityLabel="Previous month">

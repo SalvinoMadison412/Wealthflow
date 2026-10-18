@@ -13,7 +13,7 @@ import { RootStackParamList } from '../navigation/RootNavigator';
 import { radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles, useTheme } from '../theme/ThemeContext';
 import { PressableScale } from './PressableScale';
-import { accountLabel, useAccountFilter } from './AccountFilter';
+import { accountLabel, AccountChip, useAccountFilter } from './AccountFilter';
 
 // The one period Home and Transactions share (see resolvePeriod). Held in
 // memory, not settings: every launch opens on the newest month.
@@ -84,7 +84,9 @@ export function useCoverage(month: string | null) {
 // ‹ October 2026 › plus a quiet note: ⓘ opens what's behind the period
 // (days covered, days missing, statements), the text opens Filters for the
 // year. No outer spacing: each screen spaces it 16 above and below.
-export function PeriodStepper({ onChangeYear }: { onChangeYear: () => void }) {
+// `trailing` (icon buttons) puts the stepper on the left and them on the
+// right of one row, with the note and chip left-aligned under it.
+export function PeriodStepper({ onChangeYear, trailing }: { onChangeYear: () => void; trailing?: React.ReactNode }) {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const { period, month, year, older, newer, setPeriod } = usePeriod();
@@ -95,18 +97,19 @@ export function PeriodStepper({ onChangeYear }: { onChangeYear: () => void }) {
   const note = complete ? 'Change year in Filters' : `${coveredLabel ?? 'Some days missing'} · Change year in Filters`;
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.row}>
+    <View style={[styles.wrap, trailing != null && styles.wrapLeft]}>
+      <View style={trailing != null ? styles.rowSplit : undefined}>
+      <View style={[styles.row, trailing != null && styles.rowLeft]}>
         <Pressable
           onPress={() => setPeriod(older)}
           disabled={!older}
-          hitSlop={13}
+          hitSlop={14}
           accessibilityRole="button"
           accessibilityState={{ disabled: !older }}
           accessibilityLabel={month ? 'Older month' : 'Older year'}
           style={!older && styles.disabled}
         >
-          <Feather name="chevron-left" size={22} color={colors.textPrimary} />
+          <Feather name="chevron-left" size={20} color={colors.textPrimary} />
         </Pressable>
         <Pressable
           onPress={() => setPeriod(month ? year! : undefined)}
@@ -114,19 +117,21 @@ export function PeriodStepper({ onChangeYear }: { onChangeYear: () => void }) {
           accessibilityRole="button"
           accessibilityLabel={month ? 'Show the whole year' : 'Show one month'}
         >
-          <Text style={styles.label}>{label(period)}</Text>
+          <Text style={[styles.label, trailing != null && styles.labelLeft]}>{label(period)}</Text>
         </Pressable>
         <Pressable
           onPress={() => setPeriod(newer)}
           disabled={!newer}
-          hitSlop={13}
+          hitSlop={14}
           accessibilityRole="button"
           accessibilityState={{ disabled: !newer }}
           accessibilityLabel={month ? 'Newer month' : 'Newer year'}
           style={!newer && styles.disabled}
         >
-          <Feather name="chevron-right" size={22} color={colors.textPrimary} />
+          <Feather name="chevron-right" size={20} color={colors.textPrimary} />
         </Pressable>
+      </View>
+      {trailing}
       </View>
       {/* Two targets side by side; slops stop short of each other and of the label above. */}
       <View style={styles.note}>
@@ -147,6 +152,7 @@ export function PeriodStepper({ onChangeYear }: { onChangeYear: () => void }) {
           <Text style={styles.noteText}>{note}</Text>
         </Pressable>
       </View>
+      <AccountChip onPress={onChangeYear} />
       <PeriodInfo
         visible={infoOpen}
         period={period}
@@ -278,8 +284,12 @@ function addMonthEnd(month: string): string {
 const makeStyles = ({ colors, pillPalette }: Theme) =>
   StyleSheet.create({
     wrap: { alignItems: 'center' },
+    wrapLeft: { alignItems: 'flex-start', paddingHorizontal: spacing.pageGutter },
+    rowSplit: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'stretch' },
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg },
-    label: { ...type.h2, color: colors.textPrimary, minWidth: 160, textAlign: 'center' },
+    rowLeft: { gap: spacing.sm },
+    labelLeft: { minWidth: 0 },
+    label: { ...type.h2, color: colors.textPrimary, minWidth: 150, textAlign: 'center' },
     disabled: { opacity: 0.3 },
     note: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
     noteText: { ...type.caption, color: colors.textSecondary },
