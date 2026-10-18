@@ -242,8 +242,8 @@ feeds:
 - the ⓘ button beside it, which opens a sheet with each account's covered
   and missing days, the statements behind the period, "Import missing days"
   and "Change year";
-- the Home chart (partial months faded, never flagged; the summary line says
-  "October so far" instead of "Red flag");
+- the Home chart (partial months faded; the summary line says "October so
+  far");
 - Budget ("spent in 15 of 31 days");
 - Home's nudge, which also fires once the newest month has ended with days
   missing ("Import 16–31 Oct to complete October").
@@ -308,9 +308,11 @@ a small gap between slices.
 The Home income/expense chart (`BarChart`) draws income green and expenses
 red, with the red's opacity from `expenseTone(income, expense)`
 (`src/data/spending.ts`): pale at or under 50% of income, full red at 90%
-or more, which also flags the month (alert icon, red label, and a red-flag
-line under the chart for the newest month). Spending with no income is
-flagged too. The thresholds are the tuning knob.
+or more. There is no banner and no per-bar warning icon: one quiet grey line
+above the bars (13px `textSecondary`) says "Spent 199% of income in
+September" for the newest month with data ("No income in September" when
+there was none; "September so far (1–15): spent 62% of income" for a partial
+month). The red stays on the bars. The thresholds are the tuning knob.
 
 Never import `colors` from `tokens.ts` in a screen; the only consumers of
 the fixed light palette are the splash overlay and the native launch
