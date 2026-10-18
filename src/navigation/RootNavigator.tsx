@@ -19,6 +19,7 @@ import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { OtpScreen } from '../screens/OtpScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RulesListScreen } from '../screens/RulesListScreen';
+import { OwedScreen } from '../screens/OwedScreen';
 import { StatementsScreen } from '../screens/StatementsScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
 import { useTourTarget } from '../tour/targets';
@@ -37,6 +38,7 @@ export type RootStackParamList = {
   Profile: undefined;
   Menu: undefined;
   Statements: undefined;
+  Owed: { side?: 'to_me' | 'by_me' } | undefined;
 };
 
 export type MainTabsParamList = {
@@ -214,6 +216,7 @@ export function RootNavigator() {
             <RootStack.Screen name="Profile" component={ProfileScreen} />
             <RootStack.Screen name="EditProfile" component={OnboardingScreen} />
             <RootStack.Screen name="Statements" component={StatementsScreen} />
+            <RootStack.Screen name="Owed" component={OwedScreen} />
             <RootStack.Screen
               name="Menu"
               component={MenuSheet}

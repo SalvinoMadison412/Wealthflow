@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Amount, formatINR } from '../components/Amount';
 import { CategoryPill } from '../components/CategoryPill';
+import { OwedSection } from '../components/OwedSection';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionDetails } from '../components/TransactionDetails';
 import { suggestPattern } from '../data/rulePattern';
@@ -250,6 +251,8 @@ export function CategorizeSheet() {
             </Pressable>
           </View>
         )}
+
+        <OwedSection transactionId={transaction.id} amount={amount} isDebit={transaction.deposit == null} />
       </ScrollView>
     </SafeAreaView>
   );

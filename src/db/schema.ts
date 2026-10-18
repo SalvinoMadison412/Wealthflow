@@ -93,6 +93,20 @@ const MIGRATIONS: string[] = [
   ALTER TABLE categories ADD COLUMN kind TEXT CHECK (kind IN ('income','expense','asset','liability'));
   UPDATE categories SET kind = CASE WHEN id='uncategorized' THEN NULL WHEN id='transfer' THEN 'asset' WHEN name='Income' THEN 'income' WHEN name='Investments' THEN 'asset' WHEN name='Credit card & loans' THEN 'liability' ELSE 'expense' END;
   `,
+  // v5: owed to you / you owe, tagged per transaction with a person and an
+  // amount. A note only: spending totals and reconciliation never read it.
+  `
+  CREATE TABLE owed (
+    id TEXT PRIMARY KEY,
+    transaction_id TEXT NOT NULL REFERENCES transactions(id),
+    direction TEXT NOT NULL CHECK (direction IN ('to_me', 'by_me')),
+    person TEXT NOT NULL,
+    amount REAL NOT NULL,
+    settled_at TEXT,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX idx_owed_transaction ON owed(transaction_id);
+  `,
 ];
 
 // PRAGMA user_version-keyed migrations — each entry runs once, in its own
