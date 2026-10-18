@@ -314,5 +314,101 @@ can jump to any earlier year from Filters.
 
 ---
 
+## PR 83: Search transactions by merchant
+
+**What prompted it.** A request from the owner during testing: finding one merchant in a long list took too much scrolling.
+
+**Problem.** There was no way to look up a transaction by name.
+
+**Solution.** A search icon on the Transactions tab opens a "Search merchant" field. Partial names match (typing "swi" finds Swiggy), ignoring capital letters, and the search also looks in the bank's description text. It works together with the month, account and Filters.
+
+**What the user notices.** Type a few letters and the list narrows; the totals follow.
+
+**How we checked it.** Unit tests for the matching rule, plus a run on the Android emulator with partial text, no matches and clearing the search.
+
+**Release note.** You can now search your transactions by merchant name. A few letters are enough.
+
+---
+
+## PR 84: Partial months are shown as partial
+
+**What prompted it.** A statement that covers only part of a month (for example 1–15 October) imported as "Balanced", and Home, the chart and Budget treated it as the full month.
+
+**Problem.** Totals and the "you spent X% of your income" message looked complete when they were not, and nothing said which days were missing.
+
+**Solution.** The app reads the statement period the bank prints and works out, per account, which days each month covers. A small note under the month says what is covered or missing ("Missing 16–19 Sept"); an ⓘ button opens a sheet with each account's covered and missing days and the statements behind them. Partial months are faded in the chart, Budget says "spent in 15 of 31 days", Home suggests importing the missing days, and the Statements screen lists gaps between statements.
+
+**What the user notices.** An honest picture of which days the numbers cover.
+
+**How we checked it.** Unit tests for reading five printed-period formats and for the day maths, plus an emulator run with a second account that had two partial September statements. Not yet checked on real bank PDFs.
+
+**Release note.** The app now tells you when a statement covers only part of a month and shows which days are missing.
+
+---
+
+## PR 86: A calmer overspend message
+
+**What prompted it.** Design review: the pink "Red flag" banner under the Home chart repeated what the red bars and warning icons already showed, and looked unbalanced.
+
+**Problem.** Three alarms for one fact.
+
+**Solution.** The banner and the per-bar warning icons are gone. One quiet grey line above the chart says "Spent 196% of income in October".
+
+**What the user notices.** A cleaner chart card.
+
+**How we checked it.** Emulator run on Home. The "No income" wording and dark mode were not checked.
+
+**Release note.** The income-versus-expenses chart is cleaner: one plain line replaces the red warning banner.
+
+---
+
+## PR 87: Account filter moved into Filters
+
+**What prompted it.** Design review: the "All accounts" dropdown under the header looked out of place on every screen.
+
+**Problem.** A plain pop-up list that felt unfinished, shown even with one account.
+
+**Solution.** Choosing an account now lives in the Filters sheet. While one account is picked, a small removable chip shows it under the month on Home, Transactions and Budget. This also fixed a crash when an account was picked on Transactions.
+
+**What the user notices.** No dropdown on any screen; the account is a normal filter.
+
+**How we checked it.** Emulator run with two accounts: picking, the chip, clearing it. Budget's chip and dark mode were not checked.
+
+**Release note.** Pick which account to look at from Filters. A small chip shows it while it is active.
+
+---
+
+## PR 88: A simpler Transactions screen
+
+**What prompted it.** Design review: the Transactions tab stacked a big title, a Filters button, the month, three totals tiles and a category label on every row before the first transaction.
+
+**Problem.** Too much before the data.
+
+**Solution.** One row holds the month picker with search and Filters icons. One line shows "In · Out · Net". Rows show the category as plain grey text, and nothing when a row has no category yet. A quiet "N uncategorized · Review" row narrows the list to those. Day headers read "Wed 28 Oct".
+
+**What the user notices.** More transactions on screen, with the same information.
+
+**How we checked it.** Emulator run against the approved design. Tapping Review and dark mode were not checked.
+
+**Release note.** Transactions is simpler: one controls row, one totals line, and a quick way to review uncategorized transactions.
+
+---
+
+## PR 89: Owed to you / You owe
+
+**What prompted it.** A request from the owner: tag money that friends owe you (or you owe) and see it on Home.
+
+**Problem.** Splitting a bill or paying for a friend left no trace in the app.
+
+**Solution.** From a transaction, mark part or all of it as "Owed to you" or "You owe", naming the person and the amount; add more people for a split. Home shows an Owed card only when something is outstanding. An Owed screen groups it by person, with a Settle button. It is a note only: spending totals and balance checks do not change. It is stored on the phone only.
+
+**What the user notices.** A clear list of who owes whom, and nothing extra on Home when nobody does.
+
+**How we checked it.** Unit tests for the split rules and grouping; emulator run: tag, see the Home card, open the Owed screen, settle, and the card disappears. A three-way split, "You owe", editing, and deleting a statement removing its entries were not checked on the emulator.
+
+**Release note.** Track money friends owe you, or you owe them, from any transaction. Nothing shows on Home until you add someone.
+
+---
+
 <!-- Add new entries above this line, newest last, using the same headings:
 What prompted it / Problem / Solution / What the user notices / How we checked it / Release note -->
