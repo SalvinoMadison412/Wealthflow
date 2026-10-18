@@ -217,7 +217,20 @@ export function HomeScreen() {
           <Text style={styles.greeting}>{greeting}</Text>
         </View>
 
-        <PeriodStepper onChangeYear={() => navigation.navigate('Transactions', { openFilters: Date.now() })} />
+        <PeriodStepper
+          onChangeYear={() => navigation.navigate('Transactions', { openFilters: Date.now() })}
+          trailing={
+            <Pressable
+              onPress={() => navigation.navigate('Transactions', { openFilters: Date.now() })}
+              hitSlop={2}
+              accessibilityRole="button"
+              accessibilityLabel="Filters"
+              style={styles.iconButton}
+            >
+              <Feather name="sliders" size={18} color={colors.textPrimary} />
+            </Pressable>
+          }
+        />
 
         {(stale || missingDays.length > 0) && (
           <View style={styles.nudge}>
@@ -314,6 +327,16 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     // Clears the quick-add FAB, which overhangs the tab bar's top edge.
     paddingBottom: spacing.xxxl + spacing.lg,
     gap: spacing.lg,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   greeting: {
     ...type.h1,
