@@ -3,13 +3,13 @@ import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AccountChip, useAccountFilter } from '../components/AccountFilter';
 import { AppHeader } from '../components/AppHeader';
 import { CategoryPill } from '../components/CategoryPill';
 import { Donut } from '../components/Donut';
 import { useCoverage } from '../components/PeriodStepper';
+import { TopInsetView } from '../components/TopInsetView';
 import { PressableScale } from '../components/PressableScale';
 import { ProgressBar } from '../components/ProgressBar';
 import {
@@ -102,7 +102,7 @@ export function BudgetScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <TopInsetView style={styles.screen}>
       <AppHeader />
       <View style={{ paddingBottom: spacing.sm, alignItems: 'center' }}>
         <AccountChip onPress={() => navigation.navigate('Transactions', { openFilters: Date.now() })} />
@@ -193,7 +193,7 @@ export function BudgetScreen() {
         </View>
       </ScrollView>
 
-    </SafeAreaView>
+    </TopInsetView>
   );
 }
 

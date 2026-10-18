@@ -3,12 +3,13 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, SectionList, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { accountLabel, setAccountFilter, useAccountFilter } from '../components/AccountFilter';
 import { AppHeader } from '../components/AppHeader';
 import { FilterChip } from '../components/FilterChip';
 import { PeriodStepper, usePeriod } from '../components/PeriodStepper';
+import { TopInsetView } from '../components/TopInsetView';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
 import { formatRupees } from '../data/money';
@@ -185,7 +186,7 @@ export function TransactionsScreen() {
 
   if (!hasData) {
     return (
-      <SafeAreaView style={styles.screen} edges={['top']}>
+      <TopInsetView style={styles.screen}>
         <AppHeader />
         <View style={styles.emptyState}>
           <View style={styles.emptyIconWrap}>
@@ -198,12 +199,12 @@ export function TransactionsScreen() {
             <Text style={styles.emptyButtonText}>Import a statement</Text>
           </PressableScale>
         </View>
-      </SafeAreaView>
+      </TopInsetView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <TopInsetView style={styles.screen}>
       <AppHeader />
       <View style={styles.period}>
         <PeriodStepper
@@ -492,7 +493,7 @@ export function TransactionsScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </TopInsetView>
   );
 }
 
