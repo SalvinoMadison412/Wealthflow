@@ -2,7 +2,6 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Amount } from './Amount';
-import { CategoryPill } from './CategoryPill';
 import { radii, spacing, type } from '../theme/tokens';
 import { Theme, useStyles } from '../theme/ThemeContext';
 
@@ -10,7 +9,8 @@ export interface TransactionRowData {
   id: string;
   merchant: string;
   categoryName: string;
-  colorIndex: number;
+  /** No category yet: the row shows no label at all (a pill on every row says nothing). */
+  uncategorized: boolean;
   amount: number;
   kind: 'income' | 'expense' | 'neutral';
   isTransfer: boolean;
@@ -41,16 +41,17 @@ function TransactionRowBase({ data, onPress, onConfirm }: TransactionRowProps) {
       style={styles.row}
       accessible
       accessibilityRole="button"
-      accessibilityLabel={`${data.merchant}, ${data.categoryName}, ${spokenAmount}`}
+      accessibilityLabel={`${data.merchant}, ${data.uncategorized ? 'uncategorized' : data.categoryName}, ${spokenAmount}`}
     >
       <View style={styles.info} importantForAccessibility="no-hide-descendants">
         <Text style={styles.merchant} numberOfLines={1}>
           {data.merchant}
         </Text>
-        <View style={styles.meta}>
-          <CategoryPill name={data.categoryName} colorIndex={data.colorIndex} />
-          {data.date != null && <Text style={styles.date}>{data.date}</Text>}
-        </View>
+        {(!data.uncategorized || data.date != null) && (
+          <Text style={styles.meta} numberOfLines={1}>
+            {[data.uncategorized ? null : data.categoryName, data.date].filter(Boolean).join(' · ')}
+          </Text>
+        )}
       </View>
       <Amount value={data.amount} kind={data.kind} size="sm" />
       {data.confirmable && onConfirm && (
@@ -64,7 +65,7 @@ function TransactionRowBase({ data, onPress, onConfirm }: TransactionRowProps) {
 
 export const TransactionRow = React.memo(TransactionRowBase);
 
-const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
+const makeStyles = ({ colors }: Theme) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -79,8 +80,7 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     flex: 1,
     gap: 4,
   },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  date: { ...type.caption, color: colors.textSecondary },
+  meta: { ...type.caption, fontSize: 13, color: colors.textSecondary },
   confirm: {
     borderWidth: 1,
     borderColor: colors.accent,

@@ -21,6 +21,7 @@ import {
   listMonthsWithData,
 } from '../db/queries';
 import { parseMonths } from '../data/decategorize';
+import { formatRupees } from '../data/money';
 import { topWithOthers } from '../data/spending';
 import { DECATEGORIZED_MONTHS_SETTING } from '../db/recategorize';
 import { decategorizeMonth, enableAutoCategorise, setCategoryBudget } from '../db/transactions';
@@ -43,10 +44,6 @@ function shiftMonth(month: string, delta: number): string {
 function monthLabel(month: string): string {
   const [y, m] = month.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-}
-
-function formatRupees(n: number): string {
-  return `₹${Math.round(n).toLocaleString('en-IN')}`;
 }
 
 export function BudgetScreen() {
@@ -107,7 +104,7 @@ export function BudgetScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
-      <View style={{ paddingBottom: spacing.sm }}>
+      <View style={{ paddingBottom: spacing.sm, alignItems: 'center' }}>
         <AccountChip onPress={() => navigation.navigate('Transactions', { openFilters: Date.now() })} />
       </View>
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
