@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { sendBugReport } from '../auth/bugReport';
 import { PressableScale } from '../components/PressableScale';
 import { Account, createAccount, importStatement, listAccounts, NO_TRANSACTIONS_MESSAGE, renameAccount } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
@@ -436,6 +437,67 @@ function coverageLines(summary: Summary): string[] {
   ].filter(Boolean);
 }
 
+// Shown when rows weren't read. Sends only the bank, counts and the user's
+// note (data/bugReport.ts); nothing from the statement leaves the device.
+function ReportBug({ summary }: { summary: Summary }) {
+  const styles = useStyles(makeStyles);
+  const [open, setOpen] = useState(false);
+  const [bank, setBank] = useState(summary.last?.statement.bank ?? '');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function send() {
+    setSending(true);
+    setError(null);
+    const err = await sendBugReport({
+      bank,
+      unread: summary.unread,
+      mismatched: summary.mismatched,
+      extracted: summary.extracted,
+      files: summary.files,
+      failedFiles: summary.failed.length,
+      message,
+    });
+    setSending(false);
+    if (err) setError("Couldn't send. Check your connection and try again.");
+    else setSent(true);
+  }
+
+  if (sent) return <Text style={styles.balanceLabel}>Thanks. We'll have this fixed within 48 hours.</Text>;
+  return (
+    <View style={styles.newAccountForm}>
+      <Text style={styles.balanceLabel}>
+        Some transactions couldn't be read. We'll fix this within the next 48 hours.
+      </Text>
+      {open ? (
+        <>
+          <Text style={styles.fieldLabel}>Bank</Text>
+          <TextInput style={styles.input} value={bank} onChangeText={setBank} placeholder="e.g., HDFC Bank" />
+          <Text style={styles.fieldLabel}>Anything we should know? (optional)</Text>
+          <TextInput style={styles.input} value={message} onChangeText={setMessage} multiline />
+          <Text style={styles.balanceLabel}>
+            We receive the bank, how many transactions failed and your note. Not your transactions or the PDF.
+          </Text>
+          {error && <Text style={styles.errorText}>{error}</Text>}
+          <PressableScale
+            style={[styles.saveButton, sending && styles.saveButtonDisabled]}
+            onPress={send}
+            disabled={sending}
+          >
+            <Text style={styles.saveButtonText}>{sending ? 'Sending…' : 'Send report'}</Text>
+          </PressableScale>
+        </>
+      ) : (
+        <PressableScale style={styles.saveButton} onPress={() => setOpen(true)}>
+          <Text style={styles.saveButtonText}>Report bug</Text>
+        </PressableScale>
+      )}
+    </View>
+  );
+}
+
 function ResultCard({ summary, onDone }: { summary: Summary; onDone: () => void }) {
   const { pillPalette } = useTheme();
   const styles = useStyles(makeStyles);
@@ -502,6 +564,8 @@ function ResultCard({ summary, onDone }: { summary: Summary; onDone: () => void 
           {summary.failed.length} file{summary.failed.length === 1 ? '' : 's'} couldn't be read: {summary.failed[0]}
         </Text>
       )}
+
+      {(!fullyRead || summary.failed.length > 0) && <ReportBug summary={summary} />}
 
       <PressableScale style={styles.doneButton} onPress={onDone}>
         <Text style={styles.doneButtonText}>Done</Text>

@@ -618,6 +618,7 @@ editing `.env.local`.
 | `profiles` | `id` = `auth.users.id` | `full_name`, `email`, `phone`, `age_range`, `income_range`, `goal`, `occupation`, `updated_at` | Onboarding / Edit profile (`saveProfile`) |
 | `categories` | `(user_id, id)` | `name`, `color_index`, `bucket`, `monthly_budget`, `position`, `kind`, `updated_at` | Rules sync |
 | `rules` | `(user_id, id)` | `merchant_pattern`, `amount_json`, `category_id`, `enabled`, `position`, `created_at`, `updated_at` | Rules sync |
+| `bug_reports` | `id` | `user_id` (default `auth.uid()`), `bank`, `failed_count`, `unread_count`, `mismatch_count`, `rows_read`, `files`, `failed_files`, `message`, `app_version`, `platform`, `created_at` | Import "Report bug" (insert only; read in the dashboard) |
 
 `id` values in `categories`/`rules` are the same random strings the local
 SQLite rows use, so a pull restores them verbatim and rule → category
@@ -644,6 +645,19 @@ and `rules` go with it via `on delete cascade`. The app (`deleteAccount` in
 `wipeAllData`, so a failure leaves everything intact. Needed for Play's
 account-deletion policy; public instructions are in `docs/DELETE_ACCOUNT.md`.
 Apply the migration by hand like the others (§6.2).
+
+### 6.2c Import bug reports
+
+When an import leaves rows unread or mismatched (or a file unreadable), the
+result card (`ImportScreen.tsx` `ReportBug`) says it will be fixed within 48
+hours and offers **Report bug**: bank (prefilled from the detected template,
+editable, since unknown banks have none), an optional note, and a plain
+statement of what is sent. `src/data/bugReport.ts` builds the row (counts and
+bank only, never transactions or the PDF); `src/auth/bugReport.ts` inserts it.
+`failed_count` = unread + mismatched rows. RLS allows insert only, for the
+caller's own `user_id`; guests (anonymous auth) can report. Apply
+`supabase/migrations/20261018000000_bug_reports.sql` by hand (§6.2) before the
+build ships, or sends show "Couldn't send".
 
 ### 6.3 Rules sync (`src/auth/rulesSync.ts`, `src/auth/syncDecision.ts`)
 
