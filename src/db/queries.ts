@@ -28,6 +28,8 @@ type TransactionFilters = {
   minAmount?: number;
   maxAmount?: number;
   recurringOnly?: boolean;
+  // Only rows still on Uncategorized (the "Review" row on Transactions).
+  uncategorizedOnly?: boolean;
   // Restricts to a set of account ids (ANDed with `accountId` above,
   // the Transactions screen's own single-account filter chip). Unused
   // while the app is single-user; kept for when scoping returns.
@@ -89,6 +91,10 @@ export function listTransactions(filters: TransactionFilters): TransactionListIt
   if (filters.view) clauses.push(INBOX_SQL);
   if (filters.view === 'byRules') clauses.push('t.matched_rule_id IS NOT NULL');
 
+  if (filters.uncategorizedOnly) {
+    clauses.push('t.category_id = ?');
+    params.push(UNCATEGORIZED_CATEGORY_ID);
+  }
   if (filters.direction === 'received') clauses.push('t.deposit IS NOT NULL');
   if (filters.direction === 'sent') clauses.push('t.withdrawal IS NOT NULL');
   if (filters.minAmount != null) {
@@ -211,6 +217,16 @@ export function countTransactionsInMonth(month: string, accountIds?: string[] | 
   const row = db.getFirstSync<{ n: number }>(
     `SELECT COUNT(*) as n FROM transactions WHERE date >= ? AND date < ? ${scope.clause}`,
     [...periodRange(month), ...scope.params]
+  );
+  return row?.n ?? 0;
+}
+
+// Uncategorized rows in a period ('YYYY-MM', 'YYYY') and account scope.
+export function countUncategorizedIn(period: string | null, accountIds?: string[] | null): number {
+  const scope = accountsClause(accountIds, 'transactions');
+  const row = db.getFirstSync<{ n: number }>(
+    `SELECT COUNT(*) as n FROM transactions WHERE category_id = ? ${period ? 'AND date >= ? AND date < ?' : ''} ${scope.clause}`,
+    [UNCATEGORIZED_CATEGORY_ID, ...(period ? periodRange(period) : []), ...scope.params]
   );
   return row?.n ?? 0;
 }

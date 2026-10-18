@@ -28,6 +28,7 @@ import {
 import { monthCoverage, rangeLabel } from '../data/coverage';
 import { chartEndMonth } from '../data/spending';
 import { isStatementStale } from '../data/staleness';
+import { UNCATEGORIZED_CATEGORY_ID } from '../db/schema';
 import { listAccounts } from '../db/transactions';
 import { useQuery } from '../db/useQuery';
 import { MainTabsParamList, RootStackParamList } from '../navigation/RootNavigator';
@@ -45,7 +46,7 @@ function toRowData(item: TransactionListItem): TransactionRowData {
     id: item.id,
     merchant: item.merchant,
     categoryName: item.categoryName,
-    colorIndex: item.colorIndex,
+    uncategorized: item.categoryId === UNCATEGORIZED_CATEGORY_ID,
     amount: item.deposit ?? item.withdrawal ?? 0,
     kind: item.isTransfer ? 'neutral' : item.deposit != null ? 'income' : 'expense',
     isTransfer: item.isTransfer,

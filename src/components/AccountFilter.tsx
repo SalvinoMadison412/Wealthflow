@@ -58,7 +58,6 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'center',
     gap: spacing.sm,
     marginTop: spacing.sm,
     maxWidth: 260,
