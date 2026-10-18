@@ -11,6 +11,7 @@ import { countUncategorized, getSetting } from './queries';
 import { addMonth, parseMonths, removeMonth } from '../data/decategorize';
 import { AUTO_CATEGORISE_SETTING, DECATEGORIZED_MONTHS_SETTING, recategorize } from './recategorize';
 import { TRANSFER_CATEGORY_ID, UNCATEGORIZED_CATEGORY_ID } from './schema';
+import { OwedDirection } from '../data/owed';
 import { makeDedupeKey, makeTransactionId, newId } from './transactionId';
 
 export type Account = {
@@ -337,6 +338,29 @@ export function retroCount(merchantPattern: string | null, amount: AmountConditi
   return rows.filter((r) => compiled.matches(matchText(r.merchant, r.description), Math.abs(r.withdrawal ?? r.deposit ?? 0))).length;
 }
 
+// Replaces everything owed on one transaction (an empty list clears it).
+// Settled entries are replaced too: saving the sheet is the user's edit.
+export function saveOwed(
+  transactionId: string,
+  direction: OwedDirection,
+  entries: { person: string; amount: number }[]
+): void {
+  const now = new Date().toISOString();
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM owed WHERE transaction_id = ?', [transactionId]);
+    for (const e of entries) {
+      db.runSync(
+        'INSERT INTO owed (id, transaction_id, direction, person, amount, settled_at, created_at) VALUES (?, ?, ?, ?, ?, NULL, ?)',
+        [newId(), transactionId, direction, e.person, e.amount, now]
+      );
+    }
+  });
+}
+
+export function settleOwed(id: string): void {
+  db.runSync('UPDATE owed SET settled_at = ? WHERE id = ? AND settled_at IS NULL', [new Date().toISOString(), id]);
+}
+
 export function deleteSetting(key: string): void {
   db.runSync('DELETE FROM settings WHERE key = ?', [key]);
 }
@@ -387,6 +411,7 @@ export function deleteCategory(id: string): void {
 // statement keeps its is_transfer flag — harmless, and gone on re-import.
 export function deleteStatement(id: string): void {
   db.withTransactionSync(() => {
+    db.runSync('DELETE FROM owed WHERE transaction_id IN (SELECT id FROM transactions WHERE statement_id = ?)', [id]);
     db.runSync('DELETE FROM transactions WHERE statement_id = ?', [id]);
     db.runSync('DELETE FROM statements WHERE id = ?', [id]);
   });
@@ -398,6 +423,7 @@ export function deleteStatement(id: string): void {
 // fall back to Uncategorized instead.
 export function deleteAccount(id: string): void {
   db.withTransactionSync(() => {
+    db.runSync('DELETE FROM owed WHERE transaction_id IN (SELECT id FROM transactions WHERE account_id = ?)', [id]);
     db.runSync('DELETE FROM transactions WHERE account_id = ?', [id]);
     db.runSync('DELETE FROM statements WHERE account_id = ?', [id]);
     db.runSync('DELETE FROM accounts WHERE id = ?', [id]);
@@ -409,6 +435,7 @@ export function deleteAccount(id: string): void {
 // categories are kept (schema.ts seeds them at migration, not here).
 export function wipeAllData(): void {
   db.withTransactionSync(() => {
+    db.runSync('DELETE FROM owed');
     db.runSync('DELETE FROM transactions');
     db.runSync('DELETE FROM statements');
     db.runSync('DELETE FROM accounts');

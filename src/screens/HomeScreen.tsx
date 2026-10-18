@@ -3,7 +3,7 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CompositeNavigationProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../auth/AuthContext';
@@ -20,12 +20,14 @@ import { TransactionRow, TransactionRowData } from '../components/TransactionRow
 import {
   getMonthlyTotals,
   getMonthSummary,
+  getOwedSummary,
   hasAnyTransactions,
   listMonthsWithData,
   listRecentTransactions,
   TransactionListItem,
 } from '../db/queries';
 import { monthCoverage, rangeLabel } from '../data/coverage';
+import { formatRupees } from '../data/money';
 import { chartEndMonth } from '../data/spending';
 import { isStatementStale } from '../data/staleness';
 import { listAccounts } from '../db/transactions';
@@ -119,6 +121,7 @@ export function HomeScreen() {
     newestMonth && todayIso() > `${newestMonth}-31`
       ? monthCoverage(periods, newestMonth, todayIso()).accounts.flatMap((a) => a.missing)
       : [];
+  const owed = useQuery(() => getOwedSummary(accountIds), [accountId]);
   const recent = useQuery(() => listRecentTransactions(5, accountIds), [accountId]);
 
   const handlePressRow = useCallback(
@@ -257,6 +260,31 @@ export function HomeScreen() {
           <BarChart data={monthly} partial={partialMonths} />
         </View>
 
+        {(owed.toMe > 0 || owed.byMe > 0) && (
+          <View style={styles.owedRow}>
+            {([['to_me', 'Owed to you', owed.toMe, owed.peopleToMe], ['by_me', 'You owe', owed.byMe, owed.peopleByMe]] as const).map(
+              ([side, label, amount, people]) => (
+                <Pressable
+                  key={side}
+                  style={styles.owedCard}
+                  onPress={() => navigation.navigate('Owed', { side })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${label} ${formatRupees(amount)}, ${people} ${people === 1 ? 'person' : 'people'}`}
+                >
+                  <View style={styles.owedTop}>
+                    <Text style={styles.owedLabel}>{label}</Text>
+                    <Feather name="chevron-right" size={16} color={colors.textSecondary} />
+                  </View>
+                  <Text style={styles.owedAmount}>{formatRupees(amount)}</Text>
+                  <Text style={styles.owedPeople}>
+                    {people} {people === 1 ? 'person' : 'people'}
+                  </Text>
+                </Pressable>
+              )
+            )}
+          </View>
+        )}
+
         <View style={styles.recentHeader}>
           <Text style={styles.sectionTitle}>Recent</Text>
           <PressableScale onPress={() => navigation.navigate('Transactions')} hitSlop={8}>
@@ -350,6 +378,12 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
     ...type.caption,
     color: colors.textSecondary,
   },
+  owedRow: { flexDirection: 'row', gap: spacing.sm },
+  owedCard: { flex: 1, minHeight: 88, backgroundColor: colors.card, borderRadius: radii.card, padding: spacing.md, gap: 2 },
+  owedTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  owedLabel: { ...type.caption, fontSize: 13, color: colors.textSecondary },
+  owedAmount: { ...type.h2, color: colors.textPrimary },
+  owedPeople: { ...type.caption, color: colors.textSecondary },
   recentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

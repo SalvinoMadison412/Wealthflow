@@ -1,6 +1,7 @@
 import { AccountMonth, BalanceSummaryData, combineAccountMonths } from '../data/balance';
 import { Kind } from '../data/statements';
 import { containsPattern } from '../data/likePattern';
+import { OwedDirection, OwedRow } from '../data/owed';
 import { periodRange } from '../data/period';
 import { findRecurringMerchants } from '../data/recurring';
 import { describeRule } from '../data/rulePattern';
@@ -513,6 +514,59 @@ export function listStatements(accountIds?: string[] | null): StatementListItem[
     transactionCount: r.tx_count,
     accountId: r.account_id,
   }));
+}
+
+export type OwedEntry = {
+  id: string;
+  direction: OwedDirection;
+  person: string;
+  amount: number;
+  settledAt: string | null;
+};
+
+// What is owed on one transaction (the CategorizeSheet's Split or owed section).
+export function listOwedForTransaction(transactionId: string): OwedEntry[] {
+  return db
+    .getAllSync<{ id: string; direction: OwedDirection; person: string; amount: number; settled_at: string | null }>(
+      'SELECT id, direction, person, amount, settled_at FROM owed WHERE transaction_id = ? ORDER BY created_at, rowid',
+      [transactionId]
+    )
+    .map((r) => ({ id: r.id, direction: r.direction, person: r.person, amount: r.amount, settledAt: r.settled_at }));
+}
+
+export type OwedSummary = { toMe: number; byMe: number; peopleToMe: number; peopleByMe: number };
+
+// Unsettled only; Home's Owed card shows only when either side is above zero.
+export function getOwedSummary(accountIds?: string[] | null): OwedSummary {
+  const scope = accountsClause(accountIds, 't');
+  const rows = db.getAllSync<{ direction: OwedDirection; total: number; people: number }>(
+    `SELECT o.direction, SUM(o.amount) as total, COUNT(DISTINCT lower(trim(o.person))) as people
+     FROM owed o JOIN transactions t ON t.id = o.transaction_id
+     WHERE o.settled_at IS NULL ${scope.clause}
+     GROUP BY o.direction`,
+    scope.params
+  );
+  const side = (d: OwedDirection) => rows.find((r) => r.direction === d);
+  return {
+    toMe: side('to_me')?.total ?? 0,
+    byMe: side('by_me')?.total ?? 0,
+    peopleToMe: side('to_me')?.people ?? 0,
+    peopleByMe: side('by_me')?.people ?? 0,
+  };
+}
+
+// Every entry on one side (settled ones too), newest first, for the Owed screen.
+export function listOwed(direction: OwedDirection, accountIds?: string[] | null): OwedRow[] {
+  const scope = accountsClause(accountIds, 't');
+  return db
+    .getAllSync<{ id: string; person: string; amount: number; settled_at: string | null; merchant: string; date: string }>(
+      `SELECT o.id, o.person, o.amount, o.settled_at, t.merchant, t.date
+       FROM owed o JOIN transactions t ON t.id = o.transaction_id
+       WHERE o.direction = ? ${scope.clause}
+       ORDER BY t.date DESC, o.rowid DESC`,
+      [direction, ...scope.params]
+    )
+    .map((r) => ({ id: r.id, person: r.person, amount: r.amount, settledAt: r.settled_at, merchant: r.merchant, date: r.date }));
 }
 
 export function getSetting(key: string): string | null {
