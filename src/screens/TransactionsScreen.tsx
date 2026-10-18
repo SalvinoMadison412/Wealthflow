@@ -6,7 +6,7 @@ import { Modal, Pressable, ScrollView, SectionList, StyleSheet, Switch, Text, Te
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Amount } from '../components/Amount';
-import { AccountFilter, useAccountFilter } from '../components/AccountFilter';
+import { accountLabel, setAccountFilter, useAccountFilter } from '../components/AccountFilter';
 import { AppHeader } from '../components/AppHeader';
 import { FilterChip } from '../components/FilterChip';
 import { PeriodStepper, usePeriod } from '../components/PeriodStepper';
@@ -127,7 +127,7 @@ export function TransactionsScreen() {
   // Off (Basic): the tab lists every transaction and there is no confirm step.
   const advanced = useQuery(() => getSetting('advanced_access') === '1', []);
   const hasData = useQuery(() => hasAnyTransactions(), []);
-  const { accountId, accountIds } = useAccountFilter();
+  const { accounts, accountId, accountIds } = useAccountFilter();
   const counts = useQuery(() => countInbox(period, accountIds), [accountId, period]);
   const items = useQuery(
     () =>
@@ -175,13 +175,15 @@ export function TransactionsScreen() {
     (sort !== 'newest' ? 1 : 0) +
     (direction !== null ? 1 : 0) +
     (recurringOnly ? 1 : 0) +
-    (minAmount != null || maxAmount != null ? 1 : 0);
+    (minAmount != null || maxAmount != null ? 1 : 0) +
+    (accountId ? 1 : 0);
   const resetFilters = useCallback(() => {
     setSort('newest');
     setDirection(null);
     setRecurringOnly(false);
     setMinText('');
     setMaxText('');
+    setAccountFilter(null);
   }, []);
 
   if (!hasData) {
@@ -206,7 +208,6 @@ export function TransactionsScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <AppHeader />
-      <AccountFilter />
       <View style={styles.titleRow}>
         <Text style={styles.title}>Transactions</Text>
         <View style={styles.titleActions}>
@@ -370,7 +371,28 @@ export function TransactionsScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.sheetBody}>
-              <Text style={[styles.sectionLabel, styles.firstLabel]}>YEAR</Text>
+              {accounts.length > 1 && (
+                <>
+                  <Text style={[styles.sectionLabel, styles.firstLabel]}>ACCOUNT</Text>
+                  {[null, ...accounts].map((a) => (
+                    <Pressable
+                      key={a?.id ?? 'all'}
+                      onPress={() => setAccountFilter(a?.id ?? null)}
+                      style={styles.radioRow}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: (a?.id ?? null) === accountId }}
+                    >
+                      <View style={[styles.radio, (a?.id ?? null) === accountId && styles.radioOn]}>
+                        {(a?.id ?? null) === accountId && <View style={styles.radioDot} />}
+                      </View>
+                      <Text style={styles.radioLabel} numberOfLines={1}>
+                        {a ? accountLabel(a) : 'All accounts'}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </>
+              )}
+              <Text style={[styles.sectionLabel, accounts.length < 2 && styles.firstLabel]}>YEAR</Text>
               {/* One scrolling line, edge to edge; opens scrolled to the chosen year. */}
               <ScrollView
                 ref={yearScroll}
@@ -585,6 +607,11 @@ const makeStyles = ({ colors, pillPalette }: Theme) => StyleSheet.create({
   sheetBody: { paddingHorizontal: spacing.pageGutter, paddingBottom: spacing.md },
   sectionLabel: { ...type.label, color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm },
   firstLabel: { marginTop: spacing.sm },
+  radioRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 48 },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  radioOn: { borderColor: colors.accent },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
+  radioLabel: { ...type.body, color: colors.textPrimary, flex: 1 },
   segment: { flexDirection: 'row', backgroundColor: colors.track, borderRadius: radii.pill, padding: 3 },
   segmentItem: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radii.pill },
   segmentItemOn: { backgroundColor: colors.card },
