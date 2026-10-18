@@ -3,9 +3,9 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryPill } from '../components/CategoryPill';
+import { TopInsetView } from '../components/TopInsetView';
 import { PressableScale } from '../components/PressableScale';
 import { AppHeader } from '../components/AppHeader';
 import { deleteRule, moveRule, setRuleEnabled } from '../db/transactions';
@@ -98,7 +98,7 @@ export function RulesListScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <TopInsetView style={styles.screen}>
       <AppHeader />
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <View style={styles.titleBlock}>
@@ -154,7 +154,7 @@ export function RulesListScreen() {
           </PressableScale>
         </View>
       )}
-    </SafeAreaView>
+    </TopInsetView>
   );
 }
 

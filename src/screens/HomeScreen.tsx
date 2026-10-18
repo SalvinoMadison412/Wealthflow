@@ -2,9 +2,8 @@ import { Feather } from '@expo/vector-icons';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CompositeNavigationProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../auth/AuthContext';
 import { firstName } from '../auth/profile';
@@ -15,6 +14,8 @@ import { BarChart } from '../components/BarChart';
 import { BalanceSummary } from '../components/BalanceSummary';
 import { Donut } from '../components/Donut';
 import { PeriodStepper, todayIso, useCoverage, usePeriod } from '../components/PeriodStepper';
+import { TopInsetView } from '../components/TopInsetView';
+import { HomeFilterSheet } from '../components/HomeFilterSheet';
 import { PressableScale } from '../components/PressableScale';
 import { TransactionRow, TransactionRowData } from '../components/TransactionRow';
 import {
@@ -101,6 +102,7 @@ export function HomeScreen() {
   // Everything below anchors on the newest month that has data, not today:
   // a statement is usually a month or two behind the calendar.
   const { accountId, accountIds } = useAccountFilter();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // Shared with Transactions (PeriodStepper): a month, or a whole year.
   const { month: latestMonth, period } = usePeriod();
   const summary = useQuery(() => getMonthSummary(period ?? MONTH_KEY, accountIds), [period, accountId]);
@@ -132,7 +134,7 @@ export function HomeScreen() {
 
   if (!hasData) {
     return (
-      <SafeAreaView style={styles.screen} edges={['top']}>
+      <TopInsetView style={styles.screen}>
         <AppHeader />
         <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
           <View {...greetingTarget}>
@@ -203,14 +205,14 @@ export function HomeScreen() {
             <Text style={styles.ctaText}>Import your first statement</Text>
           </PressableScale>
         </ScrollView>
-      </SafeAreaView>
+      </TopInsetView>
     );
   }
 
   const net = summary.income - summary.expense;
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <TopInsetView style={styles.screen}>
       <AppHeader />
       <ScrollView contentContainerStyle={[styles.content, contentWrap]}>
         <View {...greetingTarget}>
@@ -218,10 +220,10 @@ export function HomeScreen() {
         </View>
 
         <PeriodStepper
-          onChangeYear={() => navigation.navigate('Transactions', { openFilters: Date.now() })}
+          onChangeYear={() => setFiltersOpen(true)}
           trailing={
             <Pressable
-              onPress={() => navigation.navigate('Transactions', { openFilters: Date.now() })}
+              onPress={() => setFiltersOpen(true)}
               hitSlop={2}
               accessibilityRole="button"
               accessibilityLabel="Filters"
@@ -313,7 +315,8 @@ export function HomeScreen() {
           ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+      <HomeFilterSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} />
+    </TopInsetView>
   );
 }
 
